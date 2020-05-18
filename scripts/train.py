@@ -2,6 +2,7 @@ import os.path
 import scripts.common.config as cfg
 from scripts.common import utils
 from scripts.common.callback import callback
+from scripts import eval
 
 # to decrease the amount of deprecation warnings
 import tensorflow as tf
@@ -48,3 +49,6 @@ if __name__ == "__main__":
     # save model after training
     utils.save_model(model, cfg.save_path, cfg.final_checkpoint)
 
+    # evaluate last saved model
+    # todo: evaluate multiple models, if previous models were better
+    eval.eval_model()

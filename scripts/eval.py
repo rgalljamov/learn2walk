@@ -14,7 +14,7 @@ RENDER = False
 PLOT_RESULTS = True
 
 # which model should be evaluated
-run_id = 206
+run_id = cfg.run
 checkpoint = cfg.final_checkpoint
 
 # evaluate for n episodes
