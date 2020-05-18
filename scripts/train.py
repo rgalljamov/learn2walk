@@ -9,7 +9,6 @@ import tensorflow as tf
 if type(tf.contrib) != type(tf): tf.contrib._warning = None
 tf.logging.set_verbosity(tf.logging.ERROR)
 
-
 from stable_baselines import PPO2
 from stable_baselines.common.policies import MlpPolicy
 
@@ -37,14 +36,14 @@ if __name__ == "__main__":
                      tensorboard_log=cfg.save_path + 'tb_logs/')
 
     # print code to start tensorboard
-    run_tb_log_command = f'tensorboard --logdir {cfg.save_path + "tb_logs/"}'
+    run_tb_log_command = f'tensorboard --logdir {cfg.save_path[3:] + "tb_logs/"}'
     print('\nTENSORBOARD LOGS: \t', run_tb_log_command)
 
     # save model and weights before training
     utils.save_model(model, cfg.save_path, cfg.init_checkpoint)
 
     # train model
-    model.learn(total_timesteps=int(cfg.mio_steps * 1e6), callback=callback)
+    model.learn(total_timesteps=int(cfg.mio_steps * 1e6)) #, callback=callback)
 
     # save model after training
     utils.save_model(model, cfg.save_path, cfg.final_checkpoint)

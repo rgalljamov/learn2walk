@@ -31,9 +31,8 @@ approach = 'test'
 
 # config environment
 n_parallel_envs = 4
-envs = ['Blind-BipedalWalker-v2', 'BipedalWalker-v2']
-env_names = ['blind_walker', 'walker']
-
+envs = ['Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
+env_names = ['walker2d', 'humanoid', 'blind_walker', 'walker']
 env_index = 0
 env_id = envs[env_index]
 env_name = env_names[env_index]
@@ -46,7 +45,7 @@ HYPERS = HYPER_DEFAULT
 use_default_hypers = HYPERS == HYPER_DEFAULT
 
 # number of training steps
-mio_steps = 1 if use_default_hypers else 6
+mio_steps = 0.5 if use_default_hypers else 6
 
 algo = 'ppo2'
 hyperparam = 'zoo' if not use_default_hypers else 'default'
@@ -65,7 +64,7 @@ sftm_inv_temp = 1
 own_hypers = '' # f'zero_prct{s(zero_prct)}/' # f'slope{rem_slope}_init{s(rem_prct_init)}/' # f'scale{s(sftmx_scale)}_init{sftmx_init}_shft{s(sftmx_shift)}_invtmp{s(sftm_inv_temp)}/' # f'l1_lam{s(l1_scale)}/' # f'hid{s(hid_size)}/' # f'tpl{s(tuple_size)}/' #  f'sigm_sl{s(sigm_slope)}_th{s(sigm_thres)}/'
 run = s(np.random.random_integers(0,1000))
 info = ''
-save_path_norun= f'../models/{approach}/{algo}/{hyperparam}/{env_name}/{mio_steps}mio/' \
+save_path_norun= f'../models/{approach}/{env_name}/{algo}/{hyperparam}/{mio_steps}mio/' \
                  + (f'{own_hypers + info}/' if len(own_hypers+info)>0 else '')
 save_path = save_path_norun + f'{run}/'
 

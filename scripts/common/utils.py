@@ -74,10 +74,11 @@ def plot_weight_matrix(weight_matrix, show=True, max_abs_value=1, center_cmap=Tr
 
 def save_model(model, path, checkpoint):
     """ saves the model, the corresponding environment means and pi weights"""
-    model.save(save_path=path+'models/model_' + str(checkpoint))
+    model_path = path + 'models/model_' + str(checkpoint)
+    model.save(save_path=model_path)
     save_pi_weights(model, checkpoint)
     # save Running mean of observations and reward
-    env_path = save_path + 'envs/env_' + str(checkpoint)
+    env_path = path + 'envs/env_' + str(checkpoint)
     os.makedirs(env_path)
     model.get_env().save_running_average(env_path)
 

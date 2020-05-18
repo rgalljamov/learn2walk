@@ -10,7 +10,8 @@ tf.logging.set_verbosity(tf.logging.ERROR)
 
 from stable_baselines import PPO2
 
-RENDER = False
+
+RENDER = True
 PLOT_RESULTS = True
 
 # which model should be evaluated
@@ -22,21 +23,28 @@ n_eps = 100
 # how many actions to record in each episode
 rec_n_steps = 1000
 
-def eval_model():
-    """ evaluate model specified in the config file """
-    utils.config_plots()
+def eval_model(from_config=True):
+    """@:param from_config: if true, reloads the run_id from config file
+                before evaluation (for direct eval after training).
+                If false, uses the id specified in this script. """
 
     print('\n---------------------------\n'
               'MODEL EVALUATION STARTED'
           '\n---------------------------\n')
 
+    # get model location from the config file
+    if from_config:
+        run_id = cfg.run
+        checkpoint = cfg.final_checkpoint
+
     # change save_path to specified model
     save_path = cfg.save_path_norun + f'{run_id}/'
 
-    print('\nModel:\n', save_path + '\n')
-
     # load model
-    model = PPO2.load(load_path=save_path + f'models/model_{checkpoint}.zip')
+    model_path = save_path + f'models/model_{checkpoint}.zip'
+    model = PPO2.load(load_path=model_path)
+
+    print('\nModel:\n', model_path + '\n')
 
     # load a single environment for evaluation
     # todo: we could also use multiple envs to speedup eval
@@ -47,7 +55,7 @@ def eval_model():
 
     ep_rewards, all_returns, ep_durations = [], [], []
     all_rewards = np.zeros((n_eps, rec_n_steps))
-    all_actions = np.zeros((n_eps, 4, rec_n_steps))
+    all_actions = np.zeros((n_eps, env.action_space.shape[0], rec_n_steps))
 
     ep_count, ep_dur = 0,0
     obs = env.reset()
@@ -91,10 +99,6 @@ def eval_model():
     if not os.path.exists(metrics_path + '/'):
         os.makedirs(metrics_path)
 
-    # create folder for metrics of a certain checkpoint
-    # if not os.path.exists(metrics_path + ):
-    #     os.makedirs(metrics_path)
-
     np.save(metrics_path + '/{}_mean_ret_on_{}eps'.format(int(mean_return), n_eps), mean_return)
     np.save(metrics_path + '/rewards', all_rewards)
     np.save(metrics_path + '/actions', all_actions)
@@ -121,7 +125,8 @@ def eval_model():
 
 
 if __name__ == "__main__":
-    eval_model()
+    eval_model(from_config=False)
+
 # eval.py was called from another script
 else:
     RENDER = False
