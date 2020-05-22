@@ -6,3 +6,7 @@ models/
 scripts/common/__pycache__/
 
 scripts/__pycache__/
+
+mujoco/gym_mimic_envs/__pycache__/
+
+mujoco/gym_mimic_envs/mujoco/__pycache__/
