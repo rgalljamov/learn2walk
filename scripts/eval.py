@@ -15,8 +15,8 @@ RENDER = True
 PLOT_RESULTS = True
 
 # which model should be evaluated
-run_id = cfg.run
-checkpoint = cfg.final_checkpoint
+run_id = 619
+checkpoint = 0
 
 # evaluate for n episodes
 n_eps = 100
@@ -31,6 +31,8 @@ def eval_model(from_config=True):
     print('\n---------------------------\n'
               'MODEL EVALUATION STARTED'
           '\n---------------------------\n')
+
+    global run_id, checkpoint
 
     # get model location from the config file
     if from_config:
