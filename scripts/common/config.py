@@ -1,4 +1,5 @@
 import numpy as np
+from os.path import dirname, abspath
 
 # ARCHS
 ARC_FC_MLP = 'mlp'
@@ -64,7 +65,11 @@ sftm_inv_temp = 1
 own_hypers = '' # f'zero_prct{s(zero_prct)}/' # f'slope{rem_slope}_init{s(rem_prct_init)}/' # f'scale{s(sftmx_scale)}_init{sftmx_init}_shft{s(sftmx_shift)}_invtmp{s(sftm_inv_temp)}/' # f'l1_lam{s(l1_scale)}/' # f'hid{s(hid_size)}/' # f'tpl{s(tuple_size)}/' #  f'sigm_sl{s(sigm_slope)}_th{s(sigm_thres)}/'
 run = s(np.random.random_integers(0,1000))
 info = ''
-save_path_norun= f'../models/{approach}/{env_name}/{algo}/{hyperparam}/{mio_steps}mio/' \
+
+# construct the paths
+abs_project_path = dirname(dirname(dirname(__file__))) + '/'
+save_path_norun= abs_project_path + \
+                 f'models/{approach}/{env_name}/{algo}/{hyperparam}/{mio_steps}mio/' \
                  + (f'{own_hypers + info}/' if len(own_hypers+info)>0 else '')
 save_path = save_path_norun + f'{run}/'
 

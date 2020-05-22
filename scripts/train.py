@@ -13,6 +13,15 @@ from stable_baselines import PPO2
 from stable_baselines.common.policies import MlpPolicy
 
 
+def run_tensorboard():
+    import os, threading
+    tb_thread = threading.Thread(
+        target=lambda: os.system('/home/rustam/anaconda3/envs/drl/bin/tensorboard '
+                                 '--logdir=' + cfg.save_path + "tb_logs/"),
+        daemon=True)
+    tb_thread.start()
+
+
 if __name__ == "__main__":
 
     # create direction for the model
@@ -35,9 +44,8 @@ if __name__ == "__main__":
                      gamma=0.99, noptepochs=10, ent_coef=0.001, learning_rate=2.5e-4, cliprange=0.2,
                      tensorboard_log=cfg.save_path + 'tb_logs/')
 
-    # print code to start tensorboard
-    run_tb_log_command = f'tensorboard --logdir {cfg.save_path[3:] + "tb_logs/"}'
-    print('\nTENSORBOARD LOGS: \t', run_tb_log_command)
+    # automatically launch tensorboard
+    run_tensorboard()
 
     # save model and weights before training
     utils.save_model(model, cfg.save_path, cfg.init_checkpoint)
