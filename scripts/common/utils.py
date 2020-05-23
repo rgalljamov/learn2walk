@@ -114,3 +114,11 @@ def save_pi_weights(model, name):
     if len(attens) > 1:
         np.savez(save_path + 'models/params/attens_' + str(name),
                  A0=attens[0], A1=attens[1])
+
+def import_pyplot():
+    """Imports pyplot and activates the right backend
+       to render plots on local system even they're drawn remotely."""
+    import matplotlib
+    matplotlib.use('tkagg')
+    from matplotlib import pyplot as plt
+    return plt
