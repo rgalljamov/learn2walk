@@ -1,6 +1,5 @@
 import os.path
 import numpy as np
-from matplotlib import pyplot as plt
 from scripts.common import utils
 from scripts.common import config as cfg
 
@@ -9,17 +8,18 @@ import tensorflow as tf
 tf.logging.set_verbosity(tf.logging.ERROR)
 
 from stable_baselines import PPO2
+plt = utils.import_pyplot()
 
 
-RENDER = True
-PLOT_RESULTS = True
+RENDER = False
+PLOT_RESULTS = False
 
 # which model should be evaluated
-run_id = 619
-checkpoint = 0
+run_id = 890
+checkpoint = 999
 
 # evaluate for n episodes
-n_eps = 100
+n_eps = 25
 # how many actions to record in each episode
 rec_n_steps = 1000
 
@@ -48,28 +48,22 @@ def eval_model(from_config=True):
 
     print('\nModel:\n', model_path + '\n')
 
-    # load a single environment for evaluation
-    # todo: we could also use multiple envs to speedup eval
-    env = utils.vec_env(cfg.env_id, num_envs=1, norm_rew=False)
-    # set the calculated running means for obs and rets
-    env.load_running_average(save_path + f'envs/env_{checkpoint}')
-
+    env = load_env(checkpoint, save_path)
 
     ep_rewards, all_returns, ep_durations = [], [], []
     all_rewards = np.zeros((n_eps, rec_n_steps))
     all_actions = np.zeros((n_eps, env.action_space.shape[0], rec_n_steps))
 
-    ep_count, ep_dur = 0,0
+    ep_count, ep_dur = 0, 0
     obs = env.reset()
 
     if not RENDER: print('Episodes finished:\n0 ', end='')
 
     while True:
         ep_dur += 1
-        action, _states = model.predict(obs, deterministic=True)
+        action, hid_states = model.predict(obs, deterministic=True)
         if ep_dur <= rec_n_steps:
             all_actions[ep_count, :, ep_dur - 1] = action
-        # time.sleep(0.025)
         obs, reward, done, info = env.step(action)
         ep_rewards += [reward[0]]
         if done.any():
@@ -90,16 +84,13 @@ def eval_model(from_config=True):
                 print(f'-> {ep_count}', end=' ', flush=True)
         if RENDER: env.render()
     env.close()
-    print()
 
     mean_return = np.mean(all_returns)
-    print('\nAverage episode return was: ', mean_return)
+    print('\n\nAverage episode return was: ', mean_return)
 
     # create the metrics folder
     metrics_path = save_path + f'metrics/model_{checkpoint}/'
-
-    if not os.path.exists(metrics_path + '/'):
-        os.makedirs(metrics_path)
+    os.makedirs(metrics_path, exist_ok=True)
 
     np.save(metrics_path + '/{}_mean_ret_on_{}eps'.format(int(mean_return), n_eps), mean_return)
     np.save(metrics_path + '/rewards', all_rewards)
@@ -120,10 +111,104 @@ def eval_model(from_config=True):
     np.save(metrics_path + '/weights_count', count_params_dict)
     print(count_params_dict)
 
+    # mark special episodes
+    ep_best = np.argmax(all_returns)
+    ep_worst = np.argmin(all_returns)
+    ep_average = np.argmin(np.abs(all_returns - mean_return))
+    relevant_eps = [ep_best, ep_worst, ep_average]
+
     if PLOT_RESULTS:
         plt.plot(all_returns)
+        plt.plot(np.arange(len(all_returns)),
+                 np.ones_like(all_returns)*mean_return, '--')
+        plt.vlines(relevant_eps, ymin=min(all_returns), ymax=max(all_returns),
+                   colors='#cccccc', linestyles='dashed')
         plt.title(f"Returns of {n_eps} epochs")
         plt.show()
+
+    record_video(model, checkpoint, all_returns, relevant_eps)
+
+
+def record_video(model, checkpoint, all_returns, relevant_eps):
+    """ GENERATE VIDEOS of different performances (best, worst, mean)
+
+    # The idea is to understand the agent by observing his behavior
+    # during the best, worst episode and an episode with a close to average return.
+    # Therefore, we reload the environment to have same behavior as in the evaluation episodes
+    # and record the video only for the interesting episodes.
+    """
+
+    # import the video recorder
+    from stable_baselines.common.vec_env import VecVideoRecorder
+
+    utils.log("Preparing video recording!")
+
+    # which episodes are interesting to record a video of
+    relevant_eps_returns = [max(all_returns), min(all_returns), np.mean(all_returns)]
+    relevant_eps_names = ['best', 'worst', 'mean']
+
+    # reload environment to replicate behavior of evaluation episodes (determinism tested)
+    save_path = cfg.save_path_norun + f'{run_id}/'
+    env = load_env(checkpoint, save_path)
+    obs = env.reset()
+
+    ep_count, step = 0, 0
+
+    # determine video duration
+    fps = env.venv.metadata['video.frames_per_second']
+    video_len_secs = 10
+    video_len = video_len_secs * fps
+
+    # if epoch is not interesting, choose a bad action to finish it quickly
+    zero_actions = np.zeros_like(model.action_space.high)
+
+    # repeat only as much episodes as possible
+    while ep_count <= max(relevant_eps):
+
+        if ep_count in relevant_eps:
+            ep_index = relevant_eps.index(ep_count)
+            ep_ret = relevant_eps_returns[ep_index]
+            ep_name = relevant_eps_names[ep_index]
+
+            # create an environment that captures performance on video
+            video_env = VecVideoRecorder(env, save_path + 'videos',
+                                         record_video_trigger=lambda x: x > 0,
+                                         video_length=video_len,
+                                         name_prefix=f'{ep_name}_{int(ep_ret)}_')
+            obs = video_env.reset()
+
+            while step <= rec_n_steps:
+                action, hid_states = model.predict(obs, deterministic=True)
+                obs, reward, done, info = video_env.step(action)
+                step += 1
+                if done.any(): break
+
+            video_env.close()
+            utils.log(f"Saved performance video after {step} steps.")
+            step = 0
+
+        # irrelevant episode, finish as quickly as possible
+        else:
+            while True:
+                action = zero_actions
+                obs, reward, done, info = env.step(action)
+                if done.any(): break
+
+        # log progress
+        if ep_count % 10 == 0:
+            print(f'{ep_count} episodes finished', flush=True)
+
+        ep_count += 1
+    env.close()
+
+
+def load_env(checkpoint, save_path):
+    # load a single environment for evaluation
+    # todo: we could also use multiple envs to speedup eval
+    env = utils.vec_env(cfg.env_id, num_envs=1, norm_rew=False)
+    # set the calculated running means for obs and rets
+    env.load_running_average(save_path + f'envs/env_{checkpoint}')
+    return env
 
 
 if __name__ == "__main__":
