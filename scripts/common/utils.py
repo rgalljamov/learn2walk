@@ -1,31 +1,43 @@
 import gym, os
 import numpy as np
 import seaborn as sns
-from matplotlib import pyplot as plt
 
 from scripts.common.config import save_path
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 
+def import_pyplot():
+    """Imports pyplot and activates the right backend
+       to render plots on local system even they're drawn remotely.
+       @param: setup_plot_params: if true, activates seaborn and sets rcParams"""
+    import matplotlib
+    matplotlib.use('tkagg')
+    from matplotlib import pyplot as plt
+    return plt
 
-def config_plots():
-    """ set desired plotting settings """
+plt = import_pyplot()
 
-    PLOT_FONT_SIZE = 24
-    PLOT_TICKS_SIZE = 18
-    PLOT_LINE_WIDTH = 2
+PLOT_FONT_SIZE = 24
+PLOT_TICKS_SIZE = 18
+PLOT_LINE_WIDTH = 2
+
+def config_pyplot(font_size=PLOT_FONT_SIZE, tick_size=PLOT_TICKS_SIZE):
+    """ set desired plotting settings and returns a pyplot object
+     @ return: pyplot object with seaborn style and configured rcParams"""
 
     # activate and configure seaborn style for plots
     sns.set()
-    sns.set_context(rc={"lines.linewidth": PLOT_LINE_WIDTH, 'xtick.labelsize': PLOT_TICKS_SIZE,
-                        'ytick.labelsize': PLOT_TICKS_SIZE, 'savefig.dpi': 1024,
-                        'axes.titlesize': PLOT_TICKS_SIZE, 'figure.autolayout': True,
-                        'legend.fontsize': PLOT_FONT_SIZE - 4, 'axes.labelsize': PLOT_FONT_SIZE})
+    sns.set_context(rc={"lines.linewidth": PLOT_LINE_WIDTH, 'xtick.labelsize': tick_size,
+                        'ytick.labelsize': tick_size, 'savefig.dpi': 1024,
+                        'axes.titlesize': tick_size, 'figure.autolayout': True,
+                        'legend.fontsize': font_size - 4, 'axes.labelsize': font_size})
 
     # configure saving format and directory
     PLOT_FIGURE_SAVE_FORMAT = 'png'  # 'pdf' #'eps'
     plt.rcParams.update({'figure.autolayout': True})
     plt.rcParams.update({'savefig.format': PLOT_FIGURE_SAVE_FORMAT})
     plt.rcParams.update({"savefig.directory": '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/figures'})
+
+    return plt
 
 
 def vec_env(env_name, num_envs=4, seed=33, norm_rew=True):
@@ -114,11 +126,3 @@ def save_pi_weights(model, name):
     if len(attens) > 1:
         np.savez(save_path + 'models/params/attens_' + str(name),
                  A0=attens[0], A1=attens[1])
-
-def import_pyplot():
-    """Imports pyplot and activates the right backend
-       to render plots on local system even they're drawn remotely."""
-    import matplotlib
-    matplotlib.use('tkagg')
-    from matplotlib import pyplot as plt
-    return plt
