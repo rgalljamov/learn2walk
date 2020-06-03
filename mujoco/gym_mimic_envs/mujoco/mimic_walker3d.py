@@ -23,10 +23,15 @@ qvel_indices = [refs.COM_VELX, refs.COM_VELY, refs.COM_VELZ,
                 refs.KNEE_ANGVEL_L, refs.ANKLE_ANGVEL_L]
 
 
-class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle, MimicEnv):
+class MimicWalker3dEnv(mujoco_env.MujocoEnv, utils.EzPickle, MimicEnv):
+    '''The 3D bipedal walker model from Guoping Zhao.
+       The reference data used in this work were initially developed for this environment.
+       Therefore this environment was used to play back the reference trajectories
+       and thus test whether we've correctly interpreted them.'''
 
     def __init__(self):
-        mujoco_env.MujocoEnv.__init__(self, "walker2d.xml", 4)
+        mujoco_env.MujocoEnv.__init__(self, "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/"
+                                            "mujoco/gym_mimic_envs/mujoco/assets/human7segment.xml", 4)
         utils.EzPickle.__init__(self)
         # init the mimic environment, automatically loads and inits ref trajectories
         global qpos_indices, qvel_indices
@@ -49,6 +54,8 @@ class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle, MimicEnv):
         reward -= 1e-3 * np.square(a).sum()
         done = not (height > 0.8 and height < 2.0 and
                     ang > -1.0 and ang < 1.0)
+        # todo: remove after tests with guopings model
+        done = False
         ob = self._get_obs()
         return ob, reward, done, {}
 

@@ -5,6 +5,11 @@ register(
     entry_point='gym_mimic_envs.mujoco:MimicWalker2dEnv'
 )
 
+register(
+    id='MimicWalker3d-v0',
+    entry_point='gym_mimic_envs.mujoco:MimicWalker3dEnv'
+)
+
 """
 import gym
 
