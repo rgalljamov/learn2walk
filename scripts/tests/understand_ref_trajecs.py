@@ -17,6 +17,26 @@ data = data.flatten()
 step = data[0]
 dofs, timesteps = step.shape
 
+def get_com_pos_all_steps():
+    com_pos = []
+    for step in range(len(data)):
+        com_pos.extend(data[step][0])
+    return com_pos
+
+com_pos_all = get_com_pos_all_steps()
+plt.plot(com_pos_all)
+plt.show()
+
+test_refs = False
+if test_refs:
+    from scripts.common.ref_trajecs import ReferenceTrajectories as RT
+
+    rt = RT('/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
+                        'assets/ref_trajecs/Traj_Ramp_Slow_final.mat')
+    rt.step = rt.data[0]
+    compos, comvel = rt.get_com_kinematics()
+    step[0:3,:] -= compos
+
 # label every trajectory with the corresponding name
 labels = ['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
           'Trunk Rot (quat1)', 'Trunk Rot (quat2)', 'Trunk Rot (quat3)', 'Trunk Rot (quat4)',

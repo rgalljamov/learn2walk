@@ -2,17 +2,20 @@ import numpy as np
 from gym import utils
 from gym.envs.mujoco import mujoco_env
 
+# pause sim on startup to be able to change rendering speed, camera perspective etc.
 pause_viewer_at_first_step = True
+
 
 class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def __init__(self):
-        mujoco_env.MujocoEnv.__init__(self, "walker2d.xml", 4)
+        # todo: change to bipedal walker xml again
+        mujoco_env.MujocoEnv.__init__(self, "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/mujoco/gym_mimic_envs/mujoco/human7segment.xml", 4)
         utils.EzPickle.__init__(self)
 
 
     def step(self, a):
-        # pause sim after startup to be able to change rendering speed or camera perspective
+        # pause sim on startup to be able to change rendering speed, camera perspective etc.
         global pause_viewer_at_first_step
         if pause_viewer_at_first_step:
             self._get_viewer('human')._paused = True
@@ -27,6 +30,8 @@ class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         reward -= 1e-3 * np.square(a).sum()
         done = not (height > 0.8 and height < 2.0 and
                     ang > -1.0 and ang < 1.0)
+        # todo: remove after tests
+        done = False
         ob = self._get_obs()
         return ob, reward, done, {}
 
