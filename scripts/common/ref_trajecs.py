@@ -43,13 +43,16 @@ class ReferenceTrajectories:
         self._step_start_time = 0
         # position on the current reference step trajectory
         self.pos = 0
+        # distance walked so far (COM X Position)
+        self.dist = 0
+
 
     def get_by_indices(self, indices, timestep):
         # after a first step was taken, we have to set the timestep to 0 again
         self.pos = timestep - self._step_start_time
         if self.pos == len(self.step[0]):
             self._step_start_time = timestep
-            self.step = self._get_random_step()
+            self.step = self.get_next_step()
             self.pos = 0
         return self.step[indices, self.pos]
 
@@ -93,10 +96,21 @@ class ReferenceTrajectories:
         return data
 
     def _get_random_step(self):
-        i_step = np.random.randint(0, len(self.data)-1)
-        return self.data[i_step]
+        # which of the 250 steps are we looking at
+        self.i_step = np.random.randint(0, len(self.data) - 1)
+        return self.data[self.i_step]
 
     def get_next_step(self):
-        return self._get_random_step()
+        '''The steps are sorted. To get the next step, we just have to increase the index.
+           However, the COM X Position is zero'ed for each step.
+           Thus, we need to add the so far traveled distance to COM X Position.'''
+        self.i_step += 1
+        # update the so far traveled distance
+        self.dist = self.step[COM_POSX,-1]
+        # choose the next step
+        step = self.data[self.i_step]
+        # add the so far traveled distance to the x pos of the COM
+        step[COM_POSX,:] += self.dist
+        return step
 
 

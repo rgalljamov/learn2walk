@@ -18,7 +18,7 @@ for i in range(10000):
     qvel = data.qvel
 
     old_state = env.sim.get_state()
-    new_state = mujoco_py.MjSimState(old_state._step_start_time,
+    new_state = mujoco_py.MjSimState(old_state.time,
                                      refs.get_by_indices(range(15),i),
                                      refs.get_by_indices(range(15,29),i),
                                      old_state.act, old_state.udd_state)
