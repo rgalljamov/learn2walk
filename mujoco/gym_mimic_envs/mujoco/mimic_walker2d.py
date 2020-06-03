@@ -2,13 +2,22 @@ import numpy as np
 from gym import utils
 from gym.envs.mujoco import mujoco_env
 
+pause_viewer_at_first_step = True
+
 class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle):
 
     def __init__(self):
         mujoco_env.MujocoEnv.__init__(self, "walker2d.xml", 4)
         utils.EzPickle.__init__(self)
 
+
     def step(self, a):
+        # pause sim after startup to be able to change rendering speed or camera perspective
+        global pause_viewer_at_first_step
+        if pause_viewer_at_first_step:
+            self._get_viewer('human')._paused = True
+            pause_viewer_at_first_step = False
+
         posbefore = self.sim.data.qpos[0]
         self.do_simulation(a, self.frame_skip)
         posafter, height, ang = self.sim.data.qpos[0:3]
