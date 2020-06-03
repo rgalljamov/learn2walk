@@ -3,9 +3,10 @@ import gym_mimic_envs
 import numpy as np
 from scripts.common.ref_trajecs import ReferenceTrajectories
 
-refs = ReferenceTrajectories()
 env = gym.make('MimicWalker2d-v0')
 env.reset()
+
+refs = env.refs
 
 for i in range(10000):
 

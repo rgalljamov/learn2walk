@@ -33,8 +33,10 @@ PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
 
 class ReferenceTrajectories:
 
-    def __init__(self, mat_path=PATH_REF_TRAJECS):
-        self.path = mat_path
+    def __init__(self, qpos_indices, q_vel_indices):
+        self.path = PATH_REF_TRAJECS
+        self.qpos_is = qpos_indices
+        self.qvel_is = q_vel_indices
         # data contains 250 steps consisting of 37 trajectories
         self.data = self._load_trajecs()
         # current step
@@ -104,7 +106,13 @@ class ReferenceTrajectories:
         '''The steps are sorted. To get the next step, we just have to increase the index.
            However, the COM X Position is zero'ed for each step.
            Thus, we need to add the so far traveled distance to COM X Position.'''
-        self.i_step += 1
+
+        # increase the step index, reset if last step was reached
+        if self.i_step == len(self.data):
+            self.i_step = 0
+        else:
+            self.i_step += 1
+
         # update the so far traveled distance
         self.dist = self.step[COM_POSX,-1]
         # choose the next step

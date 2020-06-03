@@ -1,17 +1,37 @@
 import numpy as np
 from gym import utils
 from gym.envs.mujoco import mujoco_env
+from gym_mimic_envs.mimic_env import MimicEnv
+from scripts.common import ref_trajecs as refs
 
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
 pause_viewer_at_first_step = True
 
+# qpos and qvel indices for quick access to the reference trajectories
+qpos_indices = [refs.COM_POSX, refs.COM_POSY, refs.COM_POSZ,
+                refs.TRUNK_ROT_Q1, refs.TRUNK_ROT_Q2, refs.TRUNK_ROT_Q3, refs.TRUNK_ROT_Q4,
+                refs.HIP_FRONT_ANG_R, refs.HIP_SAG_ANG_R,
+                refs.KNEE_ANG_R, refs.ANKLE_ANG_R,
+                refs.HIP_FRONT_ANG_L, refs.HIP_SAG_ANG_L,
+                refs.KNEE_ANG_L, refs.ANKLE_ANG_L]
 
-class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle):
+qvel_indices = [refs.COM_VELX, refs.COM_VELY, refs.COM_VELZ,
+                refs.TRUNK_ANGVEL_X, refs.TRUNK_ANGVEL_Y, refs.TRUNK_ANGVEL_Z,
+                refs.HIP_FRONT_ANGVEL_R, refs.HIP_SAG_ANGVEL_R,
+                refs.KNEE_ANGVEL_R, refs.ANKLE_ANGVEL_R,
+                refs.HIP_FRONT_ANGVEL_L, refs.HIP_SAG_ANGVEL_L,
+                refs.KNEE_ANGVEL_L, refs.ANKLE_ANGVEL_L]
+
+
+class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle, MimicEnv):
 
     def __init__(self):
         # todo: change to bipedal walker xml again
         mujoco_env.MujocoEnv.__init__(self, "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/mujoco/gym_mimic_envs/mujoco/human7segment.xml", 4)
         utils.EzPickle.__init__(self)
+        # init the mimic environment, automatically loads and inits ref trajectories
+        global qpos_indices, qvel_indices
+        MimicEnv.__init__(self, refs.ReferenceTrajectories(qpos_indices, qvel_indices))
 
 
     def step(self, a):
@@ -30,7 +50,7 @@ class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle):
         reward -= 1e-3 * np.square(a).sum()
         done = not (height > 0.8 and height < 2.0 and
                     ang > -1.0 and ang < 1.0)
-        # todo: remove after tests
+        # todo: remove after tests with guopings model
         done = False
         ob = self._get_obs()
         return ob, reward, done, {}
