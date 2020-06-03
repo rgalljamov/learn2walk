@@ -35,7 +35,7 @@ labels = ['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
           'Foot Pos L (X)', 'Foot Pos L (Y)', 'Foot Pos L (Z)',
           'Foot Pos R (X)', 'Foot Pos R (Y)', 'Foot Pos R (Z)',
 
-          'GRF L', 'GRF R'
+          'GRF R', 'GRF L'
           ]
 
 # plot figure in full screen mode (scaled down aspect ratio of my screen)
