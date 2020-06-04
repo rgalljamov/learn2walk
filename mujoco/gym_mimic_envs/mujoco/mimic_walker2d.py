@@ -8,19 +8,23 @@ from scripts.common import ref_trajecs as refs
 pause_viewer_at_first_step = True
 
 # qpos and qvel indices for quick access to the reference trajectories
-qpos_indices = [refs.COM_POSX, refs.COM_POSY, refs.COM_POSZ,
-                refs.TRUNK_ROT_Q1, refs.TRUNK_ROT_Q2, refs.TRUNK_ROT_Q3, refs.TRUNK_ROT_Q4,
-                refs.HIP_FRONT_ANG_R, refs.HIP_SAG_ANG_R,
-                refs.KNEE_ANG_R, refs.ANKLE_ANG_R,
-                refs.HIP_FRONT_ANG_L, refs.HIP_SAG_ANG_L,
-                refs.KNEE_ANG_L, refs.ANKLE_ANG_L]
+qpos_indices = [refs.COM_POSX, refs.COM_POSZ, refs.TRUNK_ROT_Y,
+                refs.HIP_SAG_ANG_R, refs.KNEE_ANG_R, refs.ANKLE_ANG_R,
+                refs.HIP_SAG_ANG_L, refs.KNEE_ANG_L, refs.ANKLE_ANG_L]
 
-qvel_indices = [refs.COM_VELX, refs.COM_VELY, refs.COM_VELZ,
-                refs.TRUNK_ANGVEL_X, refs.TRUNK_ANGVEL_Y, refs.TRUNK_ANGVEL_Z,
-                refs.HIP_FRONT_ANGVEL_R, refs.HIP_SAG_ANGVEL_R,
+qvel_indices = [refs.COM_VELX, refs.COM_VELY, refs.TRUNK_ANGVEL_Y,
+                refs.HIP_SAG_ANGVEL_R,
                 refs.KNEE_ANGVEL_R, refs.ANKLE_ANGVEL_R,
-                refs.HIP_FRONT_ANGVEL_L, refs.HIP_SAG_ANGVEL_L,
+                refs.HIP_SAG_ANGVEL_L,
                 refs.KNEE_ANGVEL_L, refs.ANKLE_ANGVEL_L]
+
+ref_trajec_adapts = {refs.COM_POSZ: 1.25/1.08, # difference between COM heights
+                     refs.HIP_SAG_ANG_R: -1, refs.HIP_SAG_ANG_L: -1,
+                     refs.HIP_SAG_ANGVEL_R: -1, refs.HIP_SAG_ANGVEL_L: -1,
+                     refs.KNEE_ANG_R: -1, refs.KNEE_ANG_L: -1,
+                     refs.KNEE_ANGVEL_R: -1, refs.KNEE_ANGVEL_L: -1,
+                     refs.ANKLE_ANG_R: -1, refs.ANKLE_ANG_L: -1,
+                     refs.ANKLE_ANGVEL_R: -1, refs.ANKLE_ANGVEL_L: -1,}
 
 
 class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle, MimicEnv):
@@ -30,7 +34,7 @@ class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle, MimicEnv):
         utils.EzPickle.__init__(self)
         # init the mimic environment, automatically loads and inits ref trajectories
         global qpos_indices, qvel_indices
-        MimicEnv.__init__(self, refs.ReferenceTrajectories(qpos_indices, qvel_indices))
+        MimicEnv.__init__(self, refs.ReferenceTrajectories(qpos_indices, qvel_indices, ref_trajec_adapts))
 
 
     def step(self, a):

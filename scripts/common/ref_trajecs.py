@@ -37,12 +37,13 @@ PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
 
 class ReferenceTrajectories:
 
-    def __init__(self, qpos_indices, q_vel_indices):
+    def __init__(self, qpos_indices, q_vel_indices, adaptations={}):
         self.path = PATH_REF_TRAJECS
         self.qpos_is = qpos_indices
         self.qvel_is = q_vel_indices
         # data contains 250 steps consisting of 37 trajectories
         self.data = self._load_trajecs()
+        self.adapt_trajecs_to_other_body(adaptations)
         # calculated and added trunk euler rotations
         # self._add_trunk_euler_rotations()
         # current step
@@ -59,6 +60,12 @@ class ReferenceTrajectories:
 
     def get_qvel(self, timestep):
         return self.get_by_indices(self.qvel_is, timestep)
+
+    def adapt_trajecs_to_other_body(self, adapts: dict):
+        indices = adapts.keys()
+        for index in indices:
+            for i_step in range(len(self.data)):
+                self.data[i_step][index,:] *= adapts[index]
 
     def get_by_indices(self, indices, timestep):
         # after a first step was taken, we have to set the timestep to 0 again
@@ -119,7 +126,7 @@ class ReferenceTrajectories:
            Thus, we need to add the so far traveled distance to COM X Position.'''
 
         # increase the step index, reset if last step was reached
-        if self.i_step == len(self.data):
+        if self.i_step > len(self.data)-1:
             self.i_step = 0
         else:
             self.i_step += 1

@@ -10,3 +10,5 @@ scripts/__pycache__/
 mujoco/gym_mimic_envs/__pycache__/
 
 mujoco/gym_mimic_envs/mujoco/__pycache__/
+
+scripts/tests/test_remote_dev\.py
