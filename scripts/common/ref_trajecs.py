@@ -54,6 +54,11 @@ class ReferenceTrajectories:
         # distance walked so far (COM X Position)
         self.dist = 0
 
+    def get_qpos(self, timestep):
+        return self.get_by_indices(self.qpos_is, timestep)
+
+    def get_qvel(self, timestep):
+        return self.get_by_indices(self.qvel_is, timestep)
 
     def get_by_indices(self, indices, timestep):
         # after a first step was taken, we have to set the timestep to 0 again
