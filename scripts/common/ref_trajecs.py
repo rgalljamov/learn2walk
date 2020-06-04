@@ -43,7 +43,7 @@ class ReferenceTrajectories:
         self.qvel_is = q_vel_indices
         # data contains 250 steps consisting of 37 trajectories
         self.data = self._load_trajecs()
-        self.adapt_trajecs_to_other_body(adaptations)
+        self._adapt_trajecs_to_other_body(adaptations)
         # calculated and added trunk euler rotations
         # self._add_trunk_euler_rotations()
         # current step
@@ -61,7 +61,10 @@ class ReferenceTrajectories:
     def get_qvel(self, timestep):
         return self.get_by_indices(self.qvel_is, timestep)
 
-    def adapt_trajecs_to_other_body(self, adapts: dict):
+    def _adapt_trajecs_to_other_body(self, adapts: dict):
+        '''The trajectories were collected from a single reference person.
+           They have to be adjusted when used with a model
+           with different body properties compared to the reference person.'''
         indices = adapts.keys()
         for index in indices:
             for i_step in range(len(self.data)):
@@ -75,6 +78,15 @@ class ReferenceTrajectories:
             self.step = self.get_next_step()
             self.pos = 0
         return self.step[indices, self.pos]
+
+
+    def get_random_init_state(self):
+        ''' Random State Initialization:
+            @returns: qpos and qvel of a random step at a random position'''
+        self.step = self._get_random_step()
+        self.pos = np.random.randint(0, len(self.step[0]) - 1)
+        return self.get_qpos(self.pos), self.get_qvel(self.pos)
+
 
     def get_com_kinematics(self):
         com_pos = self.step[:3,:]

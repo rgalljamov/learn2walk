@@ -2,9 +2,10 @@
 Interface for environments using reference trajectories.
 '''
 import gym, mujoco_py
+from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 class MimicEnv:
-    def __init__(self: gym.Env, ref_trajecs):
+    def __init__(self: gym.Env, ref_trajecs:RefTrajecs):
         '''@param: self: gym environment implementing the MimicEnv interface.'''
         self.refs = ref_trajecs
 
@@ -21,6 +22,6 @@ class MimicEnv:
             sim.forward()
             self.render()
 
-    def get_qpos(self, timestep):
-        raise NotImplementedError
+        self.close()
+        raise SystemExit('Environment intentionally closed after playing back trajectories.')
 

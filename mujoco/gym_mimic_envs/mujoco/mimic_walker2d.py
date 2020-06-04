@@ -62,10 +62,8 @@ class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle, MimicEnv):
         return np.concatenate([qpos[1:], np.clip(qvel, -10, 10)]).ravel()
 
     def reset_model(self):
-        self.set_state(
-            self.init_qpos + self.np_random.uniform(low=-.005, high=.005, size=self.model.nq),
-            self.init_qvel + self.np_random.uniform(low=-.005, high=.005, size=self.model.nv)
-        )
+        qpos, qvel = self.refs.get_random_init_state()
+        self.set_state(qpos, qvel)
         return self._get_obs()
 
     def viewer_setup(self):
