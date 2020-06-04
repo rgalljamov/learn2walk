@@ -6,7 +6,9 @@ plt = utils.config_pyplot(font_size=12, tick_size=12)
 
 # load matlab data, containing trajectories of 250 steps
 data = spio.loadmat('/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
-                    'assets/ref_trajecs/Traj_Ramp_Slow_final.mat')
+                    'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat')
+
+# data = spio.loadmat('/home/rustam/code/remote/assets/ref_trajecs/Traj_Ramp_Slow_final.mat')
 
 # 250 steps, shape (250,1), where 1 is an array with kinematic data
 data = data['Data']
@@ -23,23 +25,24 @@ def get_com_pos_all_steps():
         com_pos.extend(data[step][0])
     return com_pos
 
-com_pos_all = get_com_pos_all_steps()
-plt.plot(com_pos_all)
-plt.show()
+# com_pos_all = get_com_pos_all_steps()
+# plt.plot(com_pos_all)
+# plt.show()
 
-test_refs = False
+test_refs = True
 if test_refs:
     from scripts.common.ref_trajecs import ReferenceTrajectories as RT
 
-    rt = RT('/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
-                        'assets/ref_trajecs/Traj_Ramp_Slow_final.mat')
+    rt = RT(range(15), range(15,29))
     rt.step = rt.data[0]
     compos, comvel = rt.get_com_kinematics()
-    step[0:3,:] -= compos
+    step = rt.step
+    dofs, timesteps = step.shape
+    # step[0:3,:] -= compos
 
 # label every trajectory with the corresponding name
 labels = ['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
-          'Trunk Rot (quat1)', 'Trunk Rot (quat2)', 'Trunk Rot (quat3)', 'Trunk Rot (quat4)',
+          'Trunk Rot (quat,w)', 'Trunk Rot (quat,x)', 'Trunk Rot (quat,y)', 'Trunk Rot (quat,z)',
           'Ang Hip Frontal R', 'Ang Hip Sagittal R',
           'Ang Knee R', 'Ang Ankle R',
           'Ang Hip Frontal L', 'Ang Hip Sagittal L',
@@ -55,7 +58,8 @@ labels = ['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
           'Foot Pos L (X)', 'Foot Pos L (Y)', 'Foot Pos L (Z)',
           'Foot Pos R (X)', 'Foot Pos R (Y)', 'Foot Pos R (Z)',
 
-          'GRF R', 'GRF L'
+          'GRF R', 'GRF L',
+          'Trunk Rot (euler,x)', 'Trunk Rot (euler,y)', 'Trunk Rot (euler,z)',
           ]
 
 # plot figure in full screen mode (scaled down aspect ratio of my screen)

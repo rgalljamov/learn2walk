@@ -1,9 +1,8 @@
 import gym, time, mujoco_py
+# necessary to import custom gym environments
 import gym_mimic_envs
-import numpy as np
-from scripts.common.ref_trajecs import ReferenceTrajectories
 
-env = gym.make('MimicWalker2d-v0')
+env = gym.make('MimicWalker3d-v0')
 env.reset()
 
 refs = env.refs

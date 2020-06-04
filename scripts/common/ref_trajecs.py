@@ -25,10 +25,14 @@ HIP_FRONT_ANGVEL_L, HIP_SAG_ANGVEL_L, KNEE_ANGVEL_L, ANKLE_ANGVEL_L = range(25,2
 # reference trajectory: foot position and GRF indices
 FOOT_POSX_L, FOOT_POSY_L, FOOT_POSZ_L, FOOT_POSX_R, FOOT_POSY_R, FOOT_POSZ_R = range(29,35)
 GRF_R, GRF_L = range(35,37)
+TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z = range(37,40)
 
-
+# on my local PC
 PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
-                   'assets/ref_trajecs/Traj_Ramp_Slow_final.mat'
+                   'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
+
+# on Lauflabor PC
+# PATH_REF_TRAJECS = '/home/rustam/code/remote/assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
 
 
 class ReferenceTrajectories:
@@ -39,6 +43,8 @@ class ReferenceTrajectories:
         self.qvel_is = q_vel_indices
         # data contains 250 steps consisting of 37 trajectories
         self.data = self._load_trajecs()
+        # calculated and added trunk euler rotations
+        # self._add_trunk_euler_rotations()
         # current step
         self.step = self._get_random_step()
         # passed time before the current step was chosen
@@ -114,7 +120,7 @@ class ReferenceTrajectories:
             self.i_step += 1
 
         # update the so far traveled distance
-        self.dist = self.step[COM_POSX,-1]
+        self.dist = self.step[COM_POSX,-1].flatten()
         # choose the next step
         step = self.data[self.i_step]
         # add the so far traveled distance to the x pos of the COM
@@ -122,3 +128,47 @@ class ReferenceTrajectories:
         return step
 
 
+    def _add_trunk_euler_rotations(self):
+        '''Used to extend reference data with euler rotations of the trunk.
+           Before, trunk rotations were only given in unit quaternions.'''
+        from scipy.spatial.transform import Rotation as Rot
+
+        data_dict = spio.loadmat(self.path)
+        data = data_dict['Data']
+        new_data = np.ndarray(data.shape, dtype=np.object)
+        data = data.flatten()
+
+        # iterate over all steps and add three more dimensions containing trunk euler rotations
+        for i, step in enumerate(data):
+            # get trunk rotation in quaternions: q1...q4
+            q1, q2 = step[TRUNK_ROT_Q1,:], step[TRUNK_ROT_Q2,:]
+            q3, q4 = step[TRUNK_ROT_Q3,:], step[TRUNK_ROT_Q4,:]
+            # quaternion in scalar-last (x, y, z, w) format.
+            old_rot_quat = np.array([q2, q3, q4, q1])
+            rot_quat = Rot.from_quat(old_rot_quat.transpose())
+            # convert to euler rotations
+            euler_x, euler_y, euler_z = rot_quat.as_euler('xyz').transpose()
+            # save the new angles in the reference trajectory data
+            dims, dur = step.shape
+            new_step = np.ndarray((dims + 3, dur), dtype=np.object)
+            new_step[0:dims,:] = step
+            new_step[dims:,:] = [euler_x, euler_y, euler_z]
+
+            new_data[i,0] = new_step
+
+        self.data = new_data.flatten()
+
+        data_dict['Data'] = new_data
+        print('BEFORE saved final')
+        spio.savemat('Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat', data_dict, do_compression=True)
+        print('saved final')
+        raise SystemExit('This function was only used to transform '
+                         'the Trunk Quaternion to Euler Rotations.\n'
+                         'The transformed data was saved.\n'
+                         'This method is now only required for documentation.')
+
+
+
+
+if __name__ == '__main__':
+    refs = ReferenceTrajectories([],[])
