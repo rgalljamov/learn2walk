@@ -9,6 +9,8 @@ Script to handle reference trajectories.
 
 import numpy as np
 import scipy.io as spio
+from scripts.common.utils import is_remote
+
 
 
 # label every trajectory with the corresponding name
@@ -58,8 +60,7 @@ PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
 PATH_TRAJEC_RANGES = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
                      'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
 
-# todo: automatically detect LL PC
-REMOTE = False
+REMOTE = is_remote()
 
 # executing script on the Lauflabor PC
 if REMOTE:
@@ -82,7 +83,7 @@ class ReferenceTrajectories:
         # calculated and added trunk euler rotations
         # self._add_trunk_euler_rotations()
         # calculate ranges needed for Early Termination
-        self.ranges = self._determine_trajectory_ranges()
+        self.ranges = self._determine_trajectory_ranges(True)
         # current step
         self.step = self._get_random_step()
         # passed time before the current step was chosen
@@ -250,14 +251,19 @@ class ReferenceTrajectories:
                          'This method is now only required for documentation.')
 
 
-    def _determine_trajectory_ranges(self):
+    def _determine_trajectory_ranges(self, print_ranges=False):
         '''Needed for early termination. We terminate an episode when the agent
            deviated too much from the reference trajectories. How much deviation is allowed
            depends on the maximum range of a joint position or velocity.'''
         # load already determined and saved ranges or calculate and save if not yet happened
         try:
+            global labels
             npz = np.load(PATH_TRAJEC_RANGES)
-            return npz['ranges']
+            ranges = npz['ranges']
+            if print_ranges:
+                for label, range in zip(labels, ranges):
+                    print(f'{label}\t\t{range}')
+            return ranges
         except FileNotFoundError:
             print('COULD NOT LOAD TRAJEC RANGES, (RE)CALCULATING THEM!')
             pass

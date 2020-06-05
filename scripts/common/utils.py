@@ -39,6 +39,10 @@ def config_pyplot(font_size=PLOT_FONT_SIZE, tick_size=PLOT_TICKS_SIZE):
 
     return plt
 
+def is_remote():
+    from os import path, getcwd
+    # automatically detect running PC
+    return 'remote' in path.abspath(getcwd())
 
 def vec_env(env_name, num_envs=4, seed=33, norm_rew=True):
     '''creates environments, vectorizes them and sets different seeds
