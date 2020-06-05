@@ -10,6 +10,30 @@ Script to handle reference trajectories.
 import numpy as np
 import scipy.io as spio
 
+
+# label every trajectory with the corresponding name
+labels = np.array(['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
+          'Trunk Rot (quat,w)', 'Trunk Rot (quat,x)', 'Trunk Rot (quat,y)', 'Trunk Rot (quat,z)',
+          'Ang Hip Frontal R', 'Ang Hip Sagittal R',
+          'Ang Knee R', 'Ang Ankle R',
+          'Ang Hip Frontal L', 'Ang Hip Sagittal L',
+          'Ang Knee L', 'Ang Ankle L',
+
+          'COM Vel (X)', 'COM Vel (Y)', 'COM Vel (Z)',
+          'Trunk Ang Vel (X)', 'Trunk Ang Vel (Y)', 'Trunk Ang Vel (Z)',
+          'Vel Hip Frontal R', 'Vel Hip Sagittal R',
+          'Vel Knee R', 'Vel Ankle R',
+          'Vel Hip Frontal L', 'Vel Hip Sagittal L',
+          'Vel Knee L', 'Vel Ankle L',
+
+          'Foot Pos L (X)', 'Foot Pos L (Y)', 'Foot Pos L (Z)',
+          'Foot Pos R (X)', 'Foot Pos R (Y)', 'Foot Pos R (Z)',
+
+          'GRF R', 'GRF L',
+
+          'Trunk Rot (euler,x)', 'Trunk Rot (euler,y)', 'Trunk Rot (euler,z)',
+          ])
+
 # reference trajectory: joint position indices
 COM_POSX, COM_POSY, COM_POSZ = range(0,3)
 TRUNK_ROT_Q1, TRUNK_ROT_Q2, TRUNK_ROT_Q3, TRUNK_ROT_Q4 = range(3,7)
@@ -78,6 +102,18 @@ class ReferenceTrajectories:
     def get_kinematic_ranges(self):
         '''Returns the maximum range of qpos and qvel in reference trajecs.'''
         return self.ranges[self.qpos_is], self.ranges[self.qvel_is]
+
+    def get_labels_by_index(self, pos_rel_is, vel_rel_is):
+        '''@returns: the names/labels of the corresponding kinematics
+           given their relative index.
+           @params: both index lists are relative to qpos_is and qvel_is'''
+        global labels
+        pos_is = np.array(self.qpos_is)[pos_rel_is]
+        vel_is = np.array(self.qvel_is)[vel_rel_is]
+        pos_labels = labels[pos_is]
+        vel_labels = labels[vel_is]
+        return pos_labels, vel_labels
+
     def _adapt_trajecs_to_other_body(self, adapts: dict):
         '''The trajectories were collected from a single reference person.
            They have to be adjusted when used with a model
