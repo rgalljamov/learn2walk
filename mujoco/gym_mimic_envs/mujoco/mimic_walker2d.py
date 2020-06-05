@@ -56,15 +56,8 @@ class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle, MimicEnv):
         ob = self._get_obs()
         return ob, reward, done, {}
 
-    def _get_obs(self):
-        qpos = self.sim.data.qpos
-        qvel = self.sim.data.qvel
-        return np.concatenate([qpos[1:], np.clip(qvel, -10, 10)]).ravel()
-
     def reset_model(self):
-        qpos, qvel = self.refs.get_random_init_state()
-        self.set_state(qpos, qvel)
-        return self._get_obs()
+        return MimicEnv.reset_model(self)
 
     def viewer_setup(self):
         self.viewer.cam.trackbodyid = 2
