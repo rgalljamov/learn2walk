@@ -91,6 +91,8 @@ class ReferenceTrajectories:
         self.pos = 0
         # distance walked so far (COM X Position)
         self.dist = 0
+        # episode duration
+        self.ep_dur = 0
 
     def get_qpos(self, timestep):
         return self.get_by_indices(self.qpos_is, timestep)
@@ -98,6 +100,10 @@ class ReferenceTrajectories:
     def get_qvel(self, timestep):
         return self.get_by_indices(self.qvel_is, timestep)
 
+    def get_ref_kinmeatics(self, timestep=None):
+        if timestep is None: timestep = self.pos
+        self.ep_dur += 1
+        return self.get_qpos(timestep), self.get_qvel(timestep)
 
     def get_kinematic_ranges(self):
         '''Returns the maximum range of qpos and qvel in reference trajecs.'''
@@ -132,14 +138,13 @@ class ReferenceTrajectories:
             self.pos = 0
         return self.step[indices, self.pos]
 
-
     def get_random_init_state(self):
         ''' Random State Initialization:
             @returns: qpos and qvel of a random step at a random position'''
         self.step = self._get_random_step()
         self.pos = np.random.randint(0, len(self.step[0]) - 1)
+        self.ep_dur = 0
         return self.get_qpos(self.pos), self.get_qvel(self.pos)
-
 
     def get_com_kinematics(self):
         com_pos = self.step[:3,:]
