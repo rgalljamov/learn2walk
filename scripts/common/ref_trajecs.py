@@ -31,8 +31,19 @@ TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z = range(37,40)
 PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
                    'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
 
-# on Lauflabor PC
-# PATH_REF_TRAJECS = '/home/rustam/code/remote/assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
+PATH_TRAJEC_RANGES = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
+                     'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
+
+# todo: automatically detect LL PC
+REMOTE = False
+
+# executing script on the Lauflabor PC
+if REMOTE:
+    PATH_REF_TRAJECS = '/home/rustam/code/remote/' \
+                       'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
+
+    PATH_TRAJEC_RANGES = '/home/rustam/code/remote/' \
+                       'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
 
 
 class ReferenceTrajectories:
@@ -41,11 +52,13 @@ class ReferenceTrajectories:
         self.path = PATH_REF_TRAJECS
         self.qpos_is = qpos_indices
         self.qvel_is = q_vel_indices
-        # data contains 250 steps consisting of 37 trajectories
+        # data contains 250 steps consisting of 40 trajectories
         self.data = self._load_trajecs()
         self._adapt_trajecs_to_other_body(adaptations)
         # calculated and added trunk euler rotations
         # self._add_trunk_euler_rotations()
+        # calculate ranges needed for Early Termination
+        self.ranges = self._determine_trajectory_ranges()
         # current step
         self.step = self._get_random_step()
         # passed time before the current step was chosen
@@ -61,6 +74,10 @@ class ReferenceTrajectories:
     def get_qvel(self, timestep):
         return self.get_by_indices(self.qvel_is, timestep)
 
+
+    def get_kinematic_ranges(self):
+        '''Returns the maximum range of qpos and qvel in reference trajecs.'''
+        return self.ranges[self.qpos_is], self.ranges[self.qvel_is]
     def _adapt_trajecs_to_other_body(self, adapts: dict):
         '''The trajectories were collected from a single reference person.
            They have to be adjusted when used with a model
@@ -190,6 +207,35 @@ class ReferenceTrajectories:
                          'the Trunk Quaternion to Euler Rotations.\n'
                          'The transformed data was saved.\n'
                          'This method is now only required for documentation.')
+
+
+    def _determine_trajectory_ranges(self):
+        '''Needed for early termination. We terminate an episode when the agent
+           deviated too much from the reference trajectories. How much deviation is allowed
+           depends on the maximum range of a joint position or velocity.'''
+        # load already determined and saved ranges or calculate and save if not yet happened
+        try:
+            npz = np.load(PATH_TRAJEC_RANGES)
+            return npz['ranges']
+        except FileNotFoundError:
+            print('COULD NOT LOAD TRAJEC RANGES, (RE)CALCULATING THEM!')
+            pass
+
+        mins = np.ones((len(self.data),self.data[0].shape[0]))
+        maxs = np.ones_like(mins)
+        for i_step, step in enumerate(self.data):
+            for i_traj, traj in enumerate(step):
+                min = np.min(traj)[0][0]
+                max = np.max(traj)[0][0]
+                mins[i_step, i_traj] = min
+                maxs[i_step, i_traj] = max
+        mins = np.min(mins, axis=0)
+        maxs = np.max(maxs, axis=0)
+        ranges = maxs - mins
+        np.savez(PATH_TRAJEC_RANGES, mins=mins, maxs=maxs, ranges=ranges)
+        self.ranges = ranges
+
+
 
 
 
