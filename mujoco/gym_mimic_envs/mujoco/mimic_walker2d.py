@@ -2,12 +2,13 @@ import numpy as np
 from gym import utils
 from gym.envs.mujoco import mujoco_env
 from gym_mimic_envs.mimic_env import MimicEnv
+from scripts.common.utils import is_remote
 from scripts.common import ref_trajecs as refs
 from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
-pause_viewer_at_first_step = True
+pause_viewer_at_first_step = True and not is_remote()
 
 # qpos and qvel indices for quick access to the reference trajectories
 qpos_indices = [refs.COM_POSX, refs.COM_POSZ, refs.TRUNK_ROT_Y,
@@ -31,7 +32,7 @@ ref_trajec_adapts = {refs.COM_POSZ: 1.25/1.08, # difference between COM heights
                      refs.ANKLE_ANGVEL_R: -1, refs.ANKLE_ANGVEL_L: -1,}
 
 
-class MimicWalker2dEnv(mujoco_env.MujocoEnv, utils.EzPickle, MimicEnv):
+class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
 
     def __init__(self):
         mujoco_env.MujocoEnv.__init__(self, "walker2d.xml", 4)

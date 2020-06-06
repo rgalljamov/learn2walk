@@ -32,8 +32,8 @@ approach = 'test'
 
 # config environment
 n_parallel_envs = 4
-envs = ['Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
-env_names = ['walker2d', 'humanoid', 'blind_walker', 'walker']
+envs = ['MimicWalker2d-v0', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
+env_names = ['mim_walker2d', 'walker2d', 'humanoid', 'blind_walker', 'walker']
 env_index = 0
 env_id = envs[env_index]
 env_name = env_names[env_index]
@@ -46,7 +46,7 @@ HYPERS = HYPER_DEFAULT
 use_default_hypers = HYPERS == HYPER_DEFAULT
 
 # number of training steps
-mio_steps = 0.5 if use_default_hypers else 6
+mio_steps = 1 if use_default_hypers else 6
 
 algo = 'ppo2'
 hyperparam = 'zoo' if not use_default_hypers else 'default'

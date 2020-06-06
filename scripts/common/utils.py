@@ -4,13 +4,14 @@ import seaborn as sns
 
 from scripts.common.config import save_path
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
+import gym_mimic_envs
 
 def import_pyplot():
     """Imports pyplot and activates the right backend
        to render plots on local system even they're drawn remotely.
        @param: setup_plot_params: if true, activates seaborn and sets rcParams"""
     import matplotlib
-    matplotlib.use('tkagg')
+    # matplotlib.use('tkagg')
     from matplotlib import pyplot as plt
     return plt
 

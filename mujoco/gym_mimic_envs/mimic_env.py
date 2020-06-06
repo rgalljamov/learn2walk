@@ -110,4 +110,13 @@ class MimicEnv:
 
         return pos_exceeded.any() or vel_exceeded.any()
 
+    # ----------------------------
+    # Methods we override:
+    # ----------------------------
 
+    def close(self):
+        # overwritten to set RSI init flag to False
+        global _rsinitialized
+        _rsinitialized = False
+        # calls MujocoEnv.close()
+        super().close()
