@@ -15,7 +15,7 @@ RENDER = False
 PLOT_RESULTS = False
 
 # which model should be evaluated
-run_id = 890
+run_id = 260
 checkpoint = 999
 
 # evaluate for n episodes
@@ -189,6 +189,8 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
 
         # irrelevant episode, finish as quickly as possible
         else:
+            # reset the environment to init RSI and ET
+            env.reset()
             while True:
                 action = zero_actions
                 obs, reward, done, info = env.step(action)

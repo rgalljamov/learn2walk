@@ -43,8 +43,6 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         self.model.opt.timestep = 1e-3
         self.frame_skip = 5
 
-
-
     def step(self, a):
         # pause sim on startup to be able to change rendering speed, camera perspective etc.
         global pause_viewer_at_first_step
