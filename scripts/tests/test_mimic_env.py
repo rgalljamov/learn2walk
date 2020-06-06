@@ -4,7 +4,7 @@ import gym_mimic_envs
 import numpy as np
 
 env = gym.make('MimicWalker2d-v0')
-# env.playback_ref_trajectories(1000)
+# env.playback_ref_trajectories(2000)
 env.reset()
 
 for i in range(10000):

@@ -13,6 +13,9 @@ class MimicEnv:
     def __init__(self: gym.Env, ref_trajecs:RefTrajecs):
         '''@param: self: gym environment implementing the MimicEnv interface.'''
         self.refs = ref_trajecs
+        # adjust simulation properties to the frequency of the ref trajec
+        self.model.opt.timestep = 1e-3
+        self.frame_skip = 5
 
     def get_joint_kinematics(self):
         '''Returns qpos and qvel of the agent.'''
@@ -20,7 +23,7 @@ class MimicEnv:
         qvel = self.sim.data.qvel
         return qpos, qvel
 
-    def playback_ref_trajectories(self, timesteps=1000):
+    def playback_ref_trajectories(self, timesteps=2000):
         self.reset()
         sim = self.sim
         for i in range(timesteps):
@@ -47,6 +50,7 @@ class MimicEnv:
            Other gym environments just use reset().'''
         qpos, qvel = self.get_random_init_state()
         self.set_state(qpos, qvel)
+        assert not self.is_early_termination()
         return self._get_obs()
 
 
@@ -57,8 +61,10 @@ class MimicEnv:
         _rsinitialized = True
         return self.refs.get_random_init_state()
 
+    def get_ref_kinematics(self):
+        return self.refs.get_ref_kinmeatics()
 
-    def is_early_termination(self, max_dev_pos=0.25, max_dev_vel=0.25):
+    def is_early_termination(self, max_dev_pos=0.5, max_dev_vel=2):
         '''Early Termination:
            @returns: True if qpos and qvel have deviated
            too much from the reference trajectories.
@@ -70,8 +76,11 @@ class MimicEnv:
             return False
 
         qpos, qvel = self.get_joint_kinematics()
-        ref_qpos, ref_qvel = self.refs.get_ref_kinmeatics()
+        ref_qpos, ref_qvel = self.get_ref_kinematics()
         pos_ranges, vel_ranges = self.refs.get_kinematic_ranges()
+        # increase trunk y rotation range
+        pos_ranges[2] *= 5
+        vel_ranges[2] *= 5
         delta_pos = np.abs(ref_qpos - qpos)
         delta_vel = np.abs(ref_qvel - qvel)
 
@@ -85,16 +94,19 @@ class MimicEnv:
         vel_is = np.where(vel_exceeded==True)[0]
         pos_labels, vel_labels = self.refs.get_labels_by_index(pos_is, vel_is)
 
-        print()
-        for i_pos, pos_label in enumerate(pos_labels):
-            print(f"{pos_label} \t exceeded max range of {pos_ranges[i_pos]} "
-                  f"by {delta_pos[i_pos]} after {self.refs.ep_dur} steps")
+        DEBUG_ET = False
+        if DEBUG_ET and (pos_is.any() or vel_is.any()):
+            print()
+            for i_pos, pos_label in zip(pos_is, pos_labels):
+                print(f"{pos_label} \t exceeded the allowed deviation ({int(100*max_dev_pos)}% "
+                      f"of the max range of {pos_ranges[i_pos]}) after {self.refs.ep_dur} steps:"
+                      f"{delta_pos[i_pos]}")
 
-        print()
-        for i_vel, vel_label in enumerate(vel_labels):
-            print(f"{vel_label} \t exceeded max range of {vel_ranges[i_vel]} "
-                  f"by {delta_vel[i_vel]} after {self.refs.ep_dur} steps")
-
+            print()
+            for i_vel, vel_label in zip(vel_is, vel_labels):
+                print(f"{vel_label} \t exceeded the allowed deviation ({int(100*max_dev_vel)}% "
+                      f"of the max range of {vel_ranges[i_vel]}) after {self.refs.ep_dur} steps:"
+                      f"{delta_vel[i_vel]}")
 
         return pos_exceeded.any() or vel_exceeded.any()
 

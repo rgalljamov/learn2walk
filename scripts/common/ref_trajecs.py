@@ -79,11 +79,12 @@ class ReferenceTrajectories:
         self.qvel_is = q_vel_indices
         # data contains 250 steps consisting of 40 trajectories
         self.data = self._load_trajecs()
+        # calculate ranges needed for Early Termination
+        self.ranges = self._determine_trajectory_ranges()
+        # adapt trajectories to other environments
         self._adapt_trajecs_to_other_body(adaptations)
         # calculated and added trunk euler rotations
         # self._add_trunk_euler_rotations()
-        # calculate ranges needed for Early Termination
-        self.ranges = self._determine_trajectory_ranges(True)
         # current step
         self.step = self._get_random_step()
         # passed time before the current step was chosen
