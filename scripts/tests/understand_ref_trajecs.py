@@ -35,7 +35,7 @@ if test_refs:
 
     rt = RT(range(15), range(15,29))
     rt.step = rt.data[0]
-    compos, comvel = rt.get_com_kinematics()
+    compos, comvel = rt.get_com_kinematics_full()
     step = rt.step
     dofs, timesteps = step.shape
     # step[0:3,:] -= compos

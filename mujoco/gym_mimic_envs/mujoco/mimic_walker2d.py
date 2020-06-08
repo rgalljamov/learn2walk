@@ -23,7 +23,7 @@ qvel_indices = [refs.COM_VELX, refs.COM_VELY, refs.TRUNK_ANGVEL_Y,
 
 # adaptations needed to account for different body shape
 # and axes definitions in the reference trajectories
-ref_trajec_adapts = {refs.COM_POSZ: 1.25/1.08, # difference between COM heights
+ref_trajec_adapts = {refs.COM_POSZ: 1.25/1.10, # difference between COM heights
                      refs.HIP_SAG_ANG_R: -1, refs.HIP_SAG_ANG_L: -1,
                      refs.HIP_SAG_ANGVEL_R: -1, refs.HIP_SAG_ANGVEL_L: -1,
                      refs.KNEE_ANG_R: -1, refs.KNEE_ANG_L: -1,
@@ -83,13 +83,17 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             reward += alive_bonus
             reward -= 1e-3 * np.square(a).sum()
 
-        USE_ET = True
+
+        USE_ET = False
+        USE_REW_ET = True
         if USE_ET:
-            done = self.is_early_termination()
+            done = self.has_exceeded_allowed_deviations()
+        elif USE_REW_ET:
+            done = self.do_terminate_early(reward, height, ang)
         else:
             done = not (height > 0.8 and height < 2.0 and
                         ang > -1.0 and ang < 1.0)
-        if done: print('Done')
+        # if done: print('Done')
         ob = self._get_obs()
         return ob, reward, done, {}
 

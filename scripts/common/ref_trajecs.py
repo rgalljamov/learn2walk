@@ -157,10 +157,16 @@ class ReferenceTrajectories:
         self.ep_dur = 0
         return self.get_qpos(self.pos), self.get_qvel(self.pos)
 
-    def get_com_kinematics(self):
+    def get_com_kinematics_full(self):
         com_pos = self.step[:3,:]
         com_vel = self.step[15:18,:]
         return com_pos, com_vel
+
+    def get_com_height(self):
+        return self.step[COM_POSZ, self.pos]
+
+    def get_trunk_ang_saggit(self):
+        return self.step[TRUNK_ROT_Y, self.pos]
 
     def get_trunk_rotation(self):
         ''':returns trunk_rot: in quaternions (4D)

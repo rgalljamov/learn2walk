@@ -28,6 +28,9 @@ class MimicEnv:
             qvel = self._remove_by_indices(qvel, self._get_COM_indices())
         return qpos, qvel
 
+    def get_qpos(self):
+        return np.copy(self.sim.data.qpos)
+
     def playback_ref_trajectories(self, timesteps=2000):
         self.reset()
         sim = self.sim
@@ -63,7 +66,7 @@ class MimicEnv:
         self.set_state(qpos, qvel)
         rew = self.get_imitation_reward()
         assert rew > 0.5, "Reward should be at least 0.5 after RSI!"
-        assert not self.is_early_termination()
+        assert not self.has_exceeded_allowed_deviations()
         return self._get_obs()
 
 
@@ -132,8 +135,31 @@ class MimicEnv:
         imit_rew = w_pos * pos_rew + w_vel * vel_ref + w_com * com_rew
         return imit_rew
 
-    def is_early_termination(self, max_dev_pos=0.5, max_dev_vel=2):
-        '''Early Termination:
+    def do_terminate_early(self, rew, com_height, trunk_ang_saggit,
+                           rew_threshold = 0.05):
+        """
+        Early Termination based on reward, falling and episode duration
+        """
+        if not _rsinitialized:
+            # ET only works after RSI was executed
+            return False
+
+        # calculate if allowed com height was exceeded (e.g. walker felt down)
+        com_height_des = self.refs.get_com_height()
+        com_delta = np.abs(com_height_des - com_height)
+        com_deviation_prct = com_delta/com_height_des
+        allowed_com_deviation_prct = 0.4
+        com_max_dev_exceeded = com_deviation_prct > allowed_com_deviation_prct
+
+        # calculate if trunk angle exceeded limits of 45° (0.785 in rad)
+        trunk_ang_exceeded = np.abs(trunk_ang_saggit) > 0.7
+
+        rew_too_low = rew < rew_threshold
+        max_episode_dur_reached = self.refs.ep_dur > 1000
+        return com_max_dev_exceeded or trunk_ang_exceeded or rew_too_low or max_episode_dur_reached
+
+    def has_exceeded_allowed_deviations(self, max_dev_pos=0.5, max_dev_vel=2):
+        '''Early Termination based on trajectory deviations:
            @returns: True if qpos and qvel have deviated
            too much from the reference trajectories.
            @params: max_dev_x are both percentages of maximum range
