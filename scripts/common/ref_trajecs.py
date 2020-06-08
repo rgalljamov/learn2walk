@@ -9,7 +9,7 @@ Script to handle reference trajectories.
 
 import numpy as np
 import scipy.io as spio
-from scripts.common.utils import is_remote
+from scripts.common.utils import is_remote, config_pyplot, smooth_exponential
 
 
 
@@ -77,10 +77,14 @@ class ReferenceTrajectories:
         self.path = PATH_REF_TRAJECS
         self.qpos_is = qpos_indices
         self.qvel_is = q_vel_indices
+        # setup pyplot
+        self.plt = config_pyplot()
         # data contains 250 steps consisting of 40 trajectories
         self.data = self._load_trajecs()
         # calculate ranges needed for Early Termination
         self.ranges = self._determine_trajectory_ranges()
+        # calculate walking speeds for each step
+        self.step_velocities = self._calculate_walking_speed()
         # adapt trajectories to other environments
         self._adapt_trajecs_to_other_body(adaptations)
         # calculated and added trunk euler rotations
@@ -128,8 +132,13 @@ class ReferenceTrajectories:
            with different body properties compared to the reference person.'''
         indices = adapts.keys()
         for index in indices:
+            scalar = adapts[index]
+            # also adapt the kinematic ranges
+            self.ranges[index] *= np.abs(scalar)
+            # todo: ask Guoping if we also need to adjust velocity
             for i_step in range(len(self.data)):
-                self.data[i_step][index,:] *= adapts[index]
+                self.data[i_step][index,:] *= scalar
+
 
     def get_by_indices(self, indices, timestep):
         # after a first step was taken, we have to set the timestep to 0 again
@@ -211,7 +220,6 @@ class ReferenceTrajectories:
         step[COM_POSX,:] += self.dist
         return step
 
-
     def _add_trunk_euler_rotations(self):
         '''Used to extend reference data with euler rotations of the trunk.
            Before, trunk rotations were only given in unit quaternions.'''
@@ -251,6 +259,35 @@ class ReferenceTrajectories:
                          'The transformed data was saved.\n'
                          'This method is now only required for documentation.')
 
+    def _calculate_walking_speed(self):
+        step_speeds = []
+        for step in self.data:
+            com_vels = step[COM_VELX,:]
+            walk_speed = np.mean(com_vels).item()
+            step_speeds.append(walk_speed)
+
+            # filter speeds as are too noisy
+            speeds_filtered = smooth_exponential(step_speeds, alpha=0.2)
+
+        PLOT = False
+        if PLOT:
+            plt = self.plt
+            plt.plot(step_speeds)
+            plt.plot(speeds_filtered)
+            plt.xlabel('Step Nr. [ ]')
+            plt.ylabel('Mean COM Forward Velocity [m/s]')
+            plt.title('Changes in the walking speed of individual steps over time')
+            plt.legend([r'Original Mean Velocities', r'Exponentially Smoothed ($\alpha$=0.2)'])
+            plt.show()
+
+        return speeds_filtered
+
+    def get_step_velocity(self):
+        """
+        Returns the mean COM forward velocity of the current step
+        which is a rough estimation of the walking speed
+        """
+        return self.step_velocities[self.i_step]
 
     def _determine_trajectory_ranges(self, print_ranges=False):
         '''Needed for early termination. We terminate an episode when the agent

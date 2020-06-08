@@ -11,7 +11,10 @@ def import_pyplot():
        to render plots on local system even they're drawn remotely.
        @param: setup_plot_params: if true, activates seaborn and sets rcParams"""
     import matplotlib
-    # matplotlib.use('tkagg')
+    try:
+        matplotlib.use('tkagg')
+    except Exception:
+        pass
     from matplotlib import pyplot as plt
     return plt
 
@@ -21,7 +24,7 @@ PLOT_FONT_SIZE = 24
 PLOT_TICKS_SIZE = 18
 PLOT_LINE_WIDTH = 2
 
-def config_pyplot(font_size=PLOT_FONT_SIZE, tick_size=PLOT_TICKS_SIZE):
+def config_pyplot(font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TICKS_SIZE):
     """ set desired plotting settings and returns a pyplot object
      @ return: pyplot object with seaborn style and configured rcParams"""
 
@@ -131,3 +134,23 @@ def save_pi_weights(model, name):
     if len(attens) > 1:
         np.savez(save_path + 'models/params/attens_' + str(name),
                  A0=attens[0], A1=attens[1])
+
+def smooth_exponential(data, alpha=0.9):
+    smoothed = np.copy(data)
+    for t in range(1, len(data)):
+        smoothed[t] = alpha * data[t] + (1-alpha) * smoothed[t-1]
+    return smoothed
+
+def lowpass_filter_data(data, sample_rate, cutoff_freq, order=1):
+    """
+    Uses a butterworth filter to filter data in both directions without causing any delay.
+    """
+    from scipy import signal
+
+    nyquist_freq = sample_rate/2
+    norm_cutoff_freq = cutoff_freq/nyquist_freq
+
+    b, a = signal.butter(order, norm_cutoff_freq, 'low')
+    fltrd_data = signal.filtfilt(b, a, data)
+
+    return fltrd_data

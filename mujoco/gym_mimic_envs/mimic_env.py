@@ -47,9 +47,14 @@ class MimicEnv:
 
 
     def _get_obs(self):
+        global _rsinitialized
         qpos, qvel = self.get_joint_kinematics()
-        return np.concatenate([qpos, qvel]).ravel()
-
+        if _rsinitialized:
+            desired_walking_speed = self.refs.get_step_velocity()
+        else:
+            desired_walking_speed = -3.33
+        obs = np.concatenate([np.array([desired_walking_speed]), qpos, qvel]).ravel()
+        return obs
 
     def reset_model(self):
         '''WARNING: This method seems to be specific to MujocoEnv.
