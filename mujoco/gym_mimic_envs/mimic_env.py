@@ -80,7 +80,7 @@ class MimicEnv:
         if exclude_com:
             qpos = self._remove_by_indices(qpos, self._get_COM_indices())
             qvel = self._remove_by_indices(qvel, self._get_COM_indices())
-        return qpos.flatten(), qvel.flatten()
+        return qpos, qvel
 
 
     def get_pose_reward(self):

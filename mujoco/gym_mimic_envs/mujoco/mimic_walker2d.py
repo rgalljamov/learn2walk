@@ -77,7 +77,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         USE_DMM_REW = True
         if USE_DMM_REW:
             reward = self.get_imitation_reward()
-            print('Reward ', reward)
+            # print('Reward ', reward)
         else:
             reward = (com_x_vel_finite_difs)
             reward += alive_bonus

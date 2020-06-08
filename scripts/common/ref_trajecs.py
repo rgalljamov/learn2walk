@@ -189,7 +189,7 @@ class ReferenceTrajectories:
 
     def _load_trajecs(self):
         # load matlab data, containing trajectories of 250 steps
-        data = spio.loadmat(self.path)
+        data = spio.loadmat(self.path, squeeze_me=True)
         # 250 steps, shape (250,1), where 1 is an array with kinematic data
         data = data['Data']
         # flatten the array to have dim (steps,)
@@ -263,7 +263,7 @@ class ReferenceTrajectories:
         step_speeds = []
         for step in self.data:
             com_vels = step[COM_VELX,:]
-            walk_speed = np.mean(com_vels).item()
+            walk_speed = np.mean(com_vels)
             step_speeds.append(walk_speed)
 
             # filter speeds as are too noisy
