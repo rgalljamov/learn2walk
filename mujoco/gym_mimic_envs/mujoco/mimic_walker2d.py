@@ -33,6 +33,9 @@ ref_trajec_adapts = {refs.COM_POSZ: 1.25/1.08, # difference between COM heights
 
 
 class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
+    """
+    Building upon the Walker2d-v2 Environment with the id: Walker2d-v2
+    """
 
     def __init__(self):
         mujoco_env.MujocoEnv.__init__(self, "walker2d.xml", 4)
@@ -70,10 +73,23 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         com_x_vel_delta = com_x_vel_finite_difs - com_x_vel_qvel
         qvel_findifs = (qpos_delta)/self.dt
         qvel_delta = qvel_after - qvel_findifs
-        reward = (com_x_vel_finite_difs)
-        reward += alive_bonus
-        reward -= 1e-3 * np.square(a).sum()
-        done = self.is_early_termination()
+
+        USE_DMM_REW = True
+        if USE_DMM_REW:
+            reward = self.get_imitation_reward()
+            print('Reward ', reward)
+        else:
+            reward = (com_x_vel_finite_difs)
+            reward += alive_bonus
+            reward -= 1e-3 * np.square(a).sum()
+
+        USE_ET = True
+        if USE_ET:
+            done = self.is_early_termination()
+        else:
+            done = not (height > 0.8 and height < 2.0 and
+                        ang > -1.0 and ang < 1.0)
+        if done: print('Done')
         ob = self._get_obs()
         return ob, reward, done, {}
 
@@ -85,3 +101,10 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         self.viewer.cam.distance = self.model.stat.extent * 0.5
         self.viewer.cam.lookat[2] = 1.15
         self.viewer.cam.elevation = -20
+
+    # ----------------------------
+    # Methods we override:
+    # ----------------------------
+
+    def _get_COM_indices(self):
+        return [0,1]

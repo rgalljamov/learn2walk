@@ -5,6 +5,7 @@ import gym, mujoco_py
 import numpy as np
 from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
+
 # Workaround: MujocoEnv calls step() before calling reset()
 # Then, RSI is not executed yet and ET gets triggered during step()
 _rsinitialized = False
@@ -17,10 +18,14 @@ class MimicEnv:
         self.model.opt.timestep = 1e-3
         self.frame_skip = 5
 
-    def get_joint_kinematics(self):
+
+    def get_joint_kinematics(self, exclude_com=False):
         '''Returns qpos and qvel of the agent.'''
-        qpos = self.sim.data.qpos
-        qvel = self.sim.data.qvel
+        qpos = np.copy(self.sim.data.qpos)
+        qvel = np.copy(self.sim.data.qvel)
+        if exclude_com:
+            qpos = self._remove_by_indices(qpos, self._get_COM_indices())
+            qvel = self._remove_by_indices(qvel, self._get_COM_indices())
         return qpos, qvel
 
     def playback_ref_trajectories(self, timesteps=2000):
@@ -33,6 +38,7 @@ class MimicEnv:
                                              self.refs.get_qvel(i),
                                              old_state.act, old_state.udd_state)
             sim.set_state(new_state)
+            # self.step(np.zeros_like(self.action_space.sample()))
             sim.forward()
             self.render()
 
@@ -50,6 +56,8 @@ class MimicEnv:
            Other gym environments just use reset().'''
         qpos, qvel = self.get_random_init_state()
         self.set_state(qpos, qvel)
+        rew = self.get_imitation_reward()
+        assert rew > 0.5, "Reward should be at least 0.5 after RSI!"
         assert not self.is_early_termination()
         return self._get_obs()
 
@@ -61,8 +69,63 @@ class MimicEnv:
         _rsinitialized = True
         return self.refs.get_random_init_state()
 
-    def get_ref_kinematics(self):
-        return self.refs.get_ref_kinmeatics()
+
+    def get_ref_kinematics(self, exclude_com=False):
+        qpos, qvel = self.refs.get_ref_kinmeatics()
+        if exclude_com:
+            qpos = self._remove_by_indices(qpos, self._get_COM_indices())
+            qvel = self._remove_by_indices(qvel, self._get_COM_indices())
+        return qpos.flatten(), qvel.flatten()
+
+
+    def get_pose_reward(self):
+        # get sim and ref joint positions excluding com position
+        qpos, _ = self.get_joint_kinematics(exclude_com=True)
+        ref_pos, _ = self.get_ref_kinematics(exclude_com=True)
+        dif = qpos - ref_pos
+        dif_sqrd = np.square(dif)
+        sum = np.sum(dif_sqrd)
+        pose_rew = np.exp(-2 * sum)
+        return pose_rew
+
+    def get_vel_reward(self):
+        _, qvel = self.get_joint_kinematics(exclude_com=True)
+        _, ref_vel = self.get_ref_kinematics(exclude_com=True)
+        dif = qvel - ref_vel
+        dif_sqrd = np.square(dif)
+        sum = np.sum(dif_sqrd)
+        vel_rew = np.exp(-0.1 * sum)
+        return vel_rew
+
+    def get_com_reward(self):
+        qpos, qvel = self.get_joint_kinematics()
+        ref_pos, ref_vel = self.get_ref_kinematics()
+        com_is = self._get_COM_indices()
+        com_pos, com_ref = qpos[com_is], ref_pos[com_is]
+        dif = com_is - com_ref
+        dif_sqrd = np.square(dif)
+        sum = np.sum(dif_sqrd)
+        com_rew = np.exp(-10 * sum)
+        return com_rew
+
+    def _remove_by_indices(self, list, indices):
+        """
+        Removes specified indices from the passed list and returns it.
+        """
+        new_list = [item for i, item in enumerate(list) if i not in indices]
+        return np.array(new_list)
+
+    def get_imitation_reward(self):
+        global _rsinitialized
+        if not _rsinitialized:
+            return -3.33
+        # todo: do we need the end-effector reward?
+        w_pos, w_vel, w_com = 0.7, 0.15, 0.15
+        pos_rew = self.get_pose_reward()
+        vel_ref = self.get_vel_reward()
+        com_rew = self.get_com_reward()
+        imit_rew = w_pos * pos_rew + w_vel * vel_ref + w_com * com_rew
+        return imit_rew
 
     def is_early_termination(self, max_dev_pos=0.5, max_dev_vel=2):
         '''Early Termination:
@@ -120,3 +183,16 @@ class MimicEnv:
         _rsinitialized = False
         # calls MujocoEnv.close()
         super().close()
+
+    # ----------------------------
+    # Methods to override:
+    # ----------------------------
+
+    def _get_COM_indices(self):
+        """
+        Needed to distinguish between joint and COM kinematics.
+
+        Returns a list of indices pointing at COM joint position/index
+        in the considered robot model, e.g. [0,1,2]
+        """
+        raise NotImplementedError
