@@ -213,7 +213,7 @@ class ReferenceTrajectories:
             self.i_step += 1
 
         # update the so far traveled distance
-        self.dist = self.step[COM_POSX,-1].flatten()
+        self.dist = self.step[COM_POSX,-1]
         # choose the next step
         step = self.data[self.i_step]
         # add the so far traveled distance to the x pos of the COM
