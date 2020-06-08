@@ -26,30 +26,43 @@ def s(input):
     """ improves conversion of digits to strings """
     return str(input).replace('.','')
 
+def mod(mods:list):
+    modification = ''
+    for mod in mods:
+        modification += mod + '/'
+    return modification
+
 # choose approach
-AP_ORIGINAL = 'orig'
-approach = 'test'
+AP_DEEPMIMIC = 'deepmim'
+approach = AP_DEEPMIMIC
+
+MOD_ORIG = 'orig'
+# no phase variable, minimal state/action spaces, weak ET, no endeffector reward
+MOD_MINIMAL = 'minimal'
+MOD_REW_ET = 'rew_et'
+modification = mod([MOD_MINIMAL, MOD_REW_ET])
 
 # config environment
 n_parallel_envs = 4
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
 env_names = ['mim_walker2d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 1
+env_index = 0
 env_id = envs[env_index]
 env_name = env_names[env_index]
 
 # default hyperparameters from stable-baselines
-HYPER_DEFAULT = 'hyper_default'
+HYPER_DEFAULT = 'hyper_dflt'
 # hyperparameters from stable-baselines zoo
 HYPER_ZOO = 'hyper_zoo'
-HYPERS = HYPER_DEFAULT
-use_default_hypers = HYPERS == HYPER_DEFAULT
+HYPER_PENG = 'hyper_dpmm'
+HYPERS = HYPER_PENG
+# use_default_hypers = HYPERS == HYPER_DEFAULT
 
 # number of training steps
-mio_steps = 2 if use_default_hypers else 6
+mio_steps = {HYPER_DEFAULT:2, HYPER_PENG:2, HYPER_ZOO:2}[HYPERS]
 
 algo = 'ppo2'
-hyperparam = 'zoo' if not use_default_hypers else 'default'
+hyperparam = HYPERS
 
 # maybe useful later
 hid_size = 128
@@ -69,7 +82,7 @@ info = ''
 # construct the paths
 abs_project_path = dirname(dirname(dirname(__file__))) + '/'
 save_path_norun= abs_project_path + \
-                 f'models/{approach}/{env_name}/{algo}/{hyperparam}/{mio_steps}mio/' \
+                 f'models/{approach}/{modification}/{env_name}/{algo}/{hyperparam}/{mio_steps}mio/' \
                  + (f'{own_hypers + info}/' if len(own_hypers+info)>0 else '')
 save_path = save_path_norun + f'{run}/'
 
