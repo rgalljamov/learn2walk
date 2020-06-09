@@ -90,26 +90,30 @@ class ReferenceTrajectories:
         # calculated and added trunk euler rotations
         # self._add_trunk_euler_rotations()
         # current step
-        self.step = self._get_random_step()
-        # passed time before the current step was chosen
-        self._step_start_time = 0
-        # position on the current reference step trajectory
-        self.pos = 0
+        self._step = self._get_random_step()
+        # position on the reference trajectory of the current step
+        self._pos = 0
         # distance walked so far (COM X Position)
         self.dist = 0
         # episode duration
         self.ep_dur = 0
 
-    def get_qpos(self, timestep):
-        return self.get_by_indices(self.qpos_is, timestep)
-
-    def get_qvel(self, timestep):
-        return self.get_by_indices(self.qvel_is, timestep)
-
-    def get_ref_kinmeatics(self, timestep=None):
-        if timestep is None: timestep = self.pos
+    def next(self, increment=1):
+        """
+        Increases the internally managed position
+        on the current step trajectory by a specified amount.
+        """
+        self._pos += increment
         self.ep_dur += 1
-        return self.get_qpos(timestep), self.get_qvel(timestep)
+
+    def get_qpos(self):
+        return self._get_by_indices(self.qpos_is)
+
+    def get_qvel(self):
+        return self._get_by_indices(self.qvel_is)
+
+    def get_ref_kinmeatics(self):
+        return self.get_qpos(), self.get_qvel()
 
     def get_kinematic_ranges(self):
         '''Returns the maximum range of qpos and qvel in reference trajecs.'''
@@ -140,57 +144,74 @@ class ReferenceTrajectories:
                 self.data[i_step][index,:] *= scalar
 
 
-    def get_by_indices(self, indices, timestep):
-        # after a first step was taken, we have to set the timestep to 0 again
-        self.pos = timestep - self._step_start_time
-        if self.pos == len(self.step[0]):
-            self._step_start_time = timestep
-            self.step = self.get_next_step()
-            self.pos = 0
-        return self.step[indices, self.pos]
+    def _get_by_indices(self, joints):
+        """
+        This is the main internal method to get specified reference trajectories.
+        All other methods should call this one as it handles internal variables
+        like the current step.
+
+        todo: a user might forget to call refs.next().
+        todo: It would be nice to warm him, when self._pos doesn't change for too long.
+
+        Parameters
+        ----------
+        joints is a list of indices specifying joints of interest.
+               Use refs.COM_X etc. to specify your joints.
+
+        Returns
+        -------
+        Kinematics of specified joints at the current position
+        on the current step trajectory.
+        """
+        # when we reached the trajectory's end of the current step
+        if self._pos == len(self._step[0]):
+            # choose the next step
+            self._step = self._get_next_step()
+            # update the duration of previous steps
+        joint_kinematics = self._step[joints, self._pos]
+        return joint_kinematics
 
     def get_random_init_state(self):
         ''' Random State Initialization:
             @returns: qpos and qvel of a random step at a random position'''
-        self.step = self._get_random_step()
-        self.pos = np.random.randint(0, len(self.step[0]) - 1)
-        self.ep_dur = 0
-        return self.get_qpos(self.pos), self.get_qvel(self.pos)
+        self._step = self._get_random_step()
+        self._pos = np.random.randint(0, len(self._step[0]) - 1)
+        return self.get_qpos(), self.get_qvel()
 
     def get_com_kinematics_full(self):
-        com_pos = self.step[:3,:]
-        com_vel = self.step[15:18,:]
+        com_pos = self._step[:3, :]
+        com_vel = self._step[15:18, :]
         return com_pos, com_vel
 
     def get_com_height(self):
-        return self.step[COM_POSZ, self.pos]
+        return self._step[COM_POSZ, self._pos]
 
     def get_trunk_ang_saggit(self):
-        return self.step[TRUNK_ROT_Y, self.pos]
+        return self._step[TRUNK_ROT_Y, self._pos]
 
     def get_trunk_rotation(self):
         ''':returns trunk_rot: in quaternions (4D)
                     trun_ang_vel: corresponding angular velocities (3D)'''
-        trunk_rot = self.step[3:7,:]
-        trunk_ang_vel = self.step[18:21,:]
+        trunk_rot = self._step[3:7, :]
+        trunk_ang_vel = self._step[18:21, :]
         return trunk_rot, trunk_ang_vel
 
     def get_hip_kinematics(self):
         indices_angs = [7,8, 11,12]
         indices_vels = [21,22, 25,26]
-        ang_front_r, ang_sag_r, ang_front_l, ang_sag_l = self.step[indices_angs]
-        vel_front_r, vel_sag_r, vel_front_l, vel_sag_l = self.step[indices_vels]
+        ang_front_r, ang_sag_r, ang_front_l, ang_sag_l = self._step[indices_angs]
+        vel_front_r, vel_sag_r, vel_front_l, vel_sag_l = self._step[indices_vels]
         return ang_front_r, ang_sag_r, ang_front_l, ang_sag_l, \
                vel_front_r, vel_sag_r, vel_front_l, vel_sag_l
 
     def get_knee_kinematics(self):
         indices = [9, 13, 23,27]
-        ang_r, ang_l, vel_r, vel_l = self.step[indices]
+        ang_r, ang_l, vel_r, vel_l = self._step[indices]
         return ang_r, ang_l, vel_r, vel_l
 
     def get_ankle_kinematics(self):
         indices = [10,14, 24,28]
-        ang_r, ang_l, vel_r, vel_l = self.step[indices]
+        ang_r, ang_l, vel_r, vel_l = self._step[indices]
         return ang_r, ang_l, vel_r, vel_l
 
     def _load_trajecs(self):
@@ -204,26 +225,29 @@ class ReferenceTrajectories:
 
     def _get_random_step(self):
         # which of the 250 steps are we looking at
-        self.i_step = np.random.randint(0, len(self.data) - 1)
-        return self.data[self.i_step]
+        self._i_step = np.random.randint(0, len(self.data) - 1)
+        return self.data[self._i_step]
 
-    def get_next_step(self):
-        '''The steps are sorted. To get the next step, we just have to increase the index.
-           However, the COM X Position is zero'ed for each step.
-           Thus, we need to add the so far traveled distance to COM X Position.'''
+    def _get_next_step(self):
+        """
+        The steps are sorted. To get the next step, we just have to increase the index.
+        However, the COM X Position is zero'ed for each step.
+        Thus, we need to add the so far traveled distance to COM X Position.
+        """
 
         # increase the step index, reset if last step was reached
-        if self.i_step > len(self.data)-1:
-            self.i_step = 0
+        if self._i_step > len(self.data)-1:
+            self._i_step = 0
         else:
-            self.i_step += 1
-
+            self._i_step += 1
         # update the so far traveled distance
-        self.dist = self.step[COM_POSX,-1]
+        self.dist = self._step[COM_POSX, -1]
         # choose the next step
-        step = self.data[self.i_step]
+        step = self.data[self._i_step]
         # add the so far traveled distance to the x pos of the COM
         step[COM_POSX,:] += self.dist
+        # reset the position on the ref trajec to zero
+        self._pos = 0
         return step
 
     def _add_trunk_euler_rotations(self):
@@ -293,7 +317,7 @@ class ReferenceTrajectories:
         Returns the mean COM forward velocity of the current step
         which is a rough estimation of the walking speed
         """
-        return self.step_velocities[self.i_step]
+        return self.step_velocities[self._i_step]
 
     def _determine_trajectory_ranges(self, print_ranges=False):
         '''Needed for early termination. We terminate an episode when the agent

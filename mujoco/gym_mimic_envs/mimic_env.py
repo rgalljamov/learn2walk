@@ -18,6 +18,10 @@ class MimicEnv:
         self.model.opt.timestep = 1e-3
         self.frame_skip = 5
 
+    def step(self):
+        global _rsinitialized
+        if _rsinitialized:
+            self.refs.next()
 
     def get_joint_kinematics(self, exclude_com=False):
         '''Returns qpos and qvel of the agent.'''
