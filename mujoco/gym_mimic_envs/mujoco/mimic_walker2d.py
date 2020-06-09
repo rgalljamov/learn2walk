@@ -15,7 +15,7 @@ qpos_indices = [refs.COM_POSX, refs.COM_POSZ, refs.TRUNK_ROT_Y,
                 refs.HIP_SAG_ANG_R, refs.KNEE_ANG_R, refs.ANKLE_ANG_R,
                 refs.HIP_SAG_ANG_L, refs.KNEE_ANG_L, refs.ANKLE_ANG_L]
 
-qvel_indices = [refs.COM_VELX, refs.COM_VELY, refs.TRUNK_ANGVEL_Y,
+qvel_indices = [refs.COM_VELX, refs.COM_VELZ, refs.TRUNK_ANGVEL_Y,
                 refs.HIP_SAG_ANGVEL_R,
                 refs.KNEE_ANGVEL_R, refs.ANKLE_ANGVEL_R,
                 refs.HIP_SAG_ANGVEL_L,

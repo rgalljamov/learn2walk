@@ -78,7 +78,8 @@ class ReferenceTrajectories:
         self.qpos_is = qpos_indices
         self.qvel_is = q_vel_indices
         # setup pyplot
-        self.plt = config_pyplot()
+        self.plt = config_pyplot(fullscreen=True, font_size=12,
+                                 tick_size=12, legend_fontsize=16)
         # data contains 250 steps consisting of 40 trajectories
         self.data = self._load_trajecs()
         # calculate ranges needed for Early Termination
@@ -119,7 +120,7 @@ class ReferenceTrajectories:
         '''Returns the maximum range of qpos and qvel in reference trajecs.'''
         return self.ranges[self.qpos_is], self.ranges[self.qvel_is]
 
-    def get_labels_by_index(self, pos_rel_is, vel_rel_is):
+    def get_labels_by_model_index(self, pos_rel_is, vel_rel_is):
         '''@returns: the names/labels of the corresponding kinematics
            given their relative index.
            @params: both index lists are relative to qpos_is and qvel_is'''
@@ -129,6 +130,20 @@ class ReferenceTrajectories:
         pos_labels = labels[pos_is]
         vel_labels = labels[vel_is]
         return pos_labels, vel_labels
+
+    def get_kinematics_labels(self, concat=True):
+        """
+        Returns a list of all kinematic labels used with the current model.
+        @param: concat: if true, return a single list containing qpos and qvel labels,
+                        if false, return two lists qpos_labels and qvel_labels
+        """
+        global labels
+        qpos_labels = labels[self.qpos_is]
+        qvel_labels = labels[self.qvel_is]
+        if concat:
+            return np.concatenate([qpos_labels, qvel_labels]).flatten()
+        else:
+            return qpos_labels, qvel_labels
 
     def _adapt_trajecs_to_other_body(self, adapts: dict):
         '''The trajectories were collected from a single reference person.

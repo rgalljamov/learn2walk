@@ -24,7 +24,8 @@ PLOT_FONT_SIZE = 24
 PLOT_TICKS_SIZE = 18
 PLOT_LINE_WIDTH = 2
 
-def config_pyplot(font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TICKS_SIZE):
+def config_pyplot(fullscreen=False, font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TICKS_SIZE,
+                  legend_fontsize=PLOT_FONT_SIZE-4):
     """ set desired plotting settings and returns a pyplot object
      @ return: pyplot object with seaborn style and configured rcParams"""
 
@@ -33,13 +34,17 @@ def config_pyplot(font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TICKS_SIZE):
     sns.set_context(rc={"lines.linewidth": PLOT_LINE_WIDTH, 'xtick.labelsize': tick_size,
                         'ytick.labelsize': tick_size, 'savefig.dpi': 1024,
                         'axes.titlesize': tick_size, 'figure.autolayout': True,
-                        'legend.fontsize': font_size - 4, 'axes.labelsize': font_size})
+                        'legend.fontsize': legend_fontsize, 'axes.labelsize': font_size})
 
     # configure saving format and directory
     PLOT_FIGURE_SAVE_FORMAT = 'png'  # 'pdf' #'eps'
     plt.rcParams.update({'figure.autolayout': True})
     plt.rcParams.update({'savefig.format': PLOT_FIGURE_SAVE_FORMAT})
     plt.rcParams.update({"savefig.directory": '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/figures'})
+
+    if fullscreen:
+        # plot figure in full screen mode (scaled down aspect ratio of my screen)
+        plt.rcParams['figure.figsize'] = (19.2, 10.8)
 
     return plt
 

@@ -34,9 +34,9 @@ if test_refs:
     from scripts.common.ref_trajecs import ReferenceTrajectories as RT
 
     rt = RT(range(15), range(15,29))
-    rt.step = rt.data[0]
+    rt._step = rt.data[0]
     compos, comvel = rt.get_com_kinematics_full()
-    step = rt.step
+    step = rt._step
     dofs, timesteps = step.shape
     # step[0:3,:] -= compos
 

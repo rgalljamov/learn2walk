@@ -17,25 +17,77 @@ class MimicEnv:
         # adjust simulation properties to the frequency of the ref trajec
         self.model.opt.timestep = 1e-3
         self.frame_skip = 5
+        # names of all robot kinematics
+        self.joint_labels = self.refs.get_kinematics_labels()
+        # monitor sim and ref trajecs for comparison (sim/ref, joints, timesteps)
+        self.trajecs_buffer = np.zeros((2, len(self.joint_labels), 700))
 
     def step(self):
         global _rsinitialized
-        if _rsinitialized:
-            self.refs.next()
-
     def get_joint_kinematics(self, exclude_com=False):
+        if not _rsinitialized:
+            return
+
+        self.refs.next()
+        # save sim and ref trajecs in a buffer for comparison
+        sim_trajecs = self.get_joint_kinematics(concat=True)
+        ref_trajecs = self.get_ref_kinematics(concat=True)
+        # fifo approach, replace oldest entry with the newest one
+        self.trajecs_buffer = np.roll(self.trajecs_buffer, 1, axis=2)
+        self.trajecs_buffer[0, :, 0] = sim_trajecs
+        self.trajecs_buffer[1, :, 0] = ref_trajecs
+
+        # test
+        try: self.trajecs_recorded += 1
+        except: self.trajecs_recorded = 1
+        if self.trajecs_recorded % 700 == 0:
+            self.compare_sim_ref_trajecs()
+
+    def compare_sim_ref_trajecs(self):
+        """
+        Plot simulation and reference trajectories in a single figure
+        to compare them.
+        """
+        plt = self.refs.plt
+        plt.rcParams.update({'figure.autolayout': False})
+
+        num_joints = len(self.joint_labels)
+        cols = 4
+        rows = int(num_joints/cols) + 1
+        # plot sim trajecs
+        trajecs = self.trajecs_buffer[0,:,:]
+        for i_joint in range(num_joints):
+            plt.subplot(rows, cols, i_joint + 1)
+            plt.plot(trajecs[i_joint, :])
+        # plot ref trajecs
+        trajecs = self.trajecs_buffer[1,:,:]
+        for i_joint in range(num_joints):
+            plt.subplot(rows, cols, i_joint + 1)
+            plt.plot(trajecs[i_joint, :])
+            plt.title(self.joint_labels[i_joint])
+        plt.legend(['Simulation', 'Reference'], loc='lower right', bbox_to_anchor=(1.75, 0.1))
+        plt.suptitle('Comparison of Simulation and Reference Joint Kinematics over Time')
+        plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
+        plt.show()
+
+
+    def get_joint_kinematics(self, exclude_com=False, concat=False):
         '''Returns qpos and qvel of the agent.'''
         qpos = np.copy(self.sim.data.qpos)
         qvel = np.copy(self.sim.data.qvel)
         if exclude_com:
             qpos = self._remove_by_indices(qpos, self._get_COM_indices())
             qvel = self._remove_by_indices(qvel, self._get_COM_indices())
+        if concat:
+            return np.concatenate([qpos, qvel]).flatten()
         return qpos, qvel
 
     def get_qpos(self):
         return np.copy(self.sim.data.qpos)
 
     def playback_ref_trajectories(self, timesteps=2000):
+    def get_qvel(self):
+        return np.copy(self.sim.data.qvel)
         self.reset()
         sim = self.sim
         for i in range(timesteps):
@@ -82,11 +134,13 @@ class MimicEnv:
         return self.refs.get_random_init_state()
 
 
-    def get_ref_kinematics(self, exclude_com=False):
+    def get_ref_kinematics(self, exclude_com=False, concat=False):
         qpos, qvel = self.refs.get_ref_kinmeatics()
         if exclude_com:
             qpos = self._remove_by_indices(qpos, self._get_COM_indices())
             qvel = self._remove_by_indices(qvel, self._get_COM_indices())
+        if concat:
+            return np.concatenate([qpos, qvel]).flatten()
         return qpos, qvel
 
 
@@ -190,7 +244,7 @@ class MimicEnv:
         # which kinematics have exceeded the allowed deviations
         pos_is = np.where(pos_exceeded==True)[0]
         vel_is = np.where(vel_exceeded==True)[0]
-        pos_labels, vel_labels = self.refs.get_labels_by_index(pos_is, vel_is)
+        pos_labels, vel_labels = self.refs.get_labels_by_model_index(pos_is, vel_is)
 
         DEBUG_ET = False
         if DEBUG_ET and (pos_is.any() or vel_is.any()):
