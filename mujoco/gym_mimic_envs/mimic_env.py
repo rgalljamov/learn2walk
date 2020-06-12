@@ -105,6 +105,14 @@ class MimicEnv:
             qpos = self._remove_by_indices(qpos, self._get_COM_indices())
         return qpos
 
+    def get_ref_qvel(self, exclude_com=False, exclude_not_actuated_joints=False):
+        qvel = self.refs.get_qvel()
+        if exclude_not_actuated_joints:
+            qvel = self._remove_by_indices(qvel, self._get_not_actuated_joint_indices())
+        elif exclude_com:
+            qvel = self._remove_by_indices(qvel, self._get_COM_indices())
+        return qvel
+
     def playback_ref_trajectories(self, timesteps=2000, pd_pos_control=False):
         global _play_ref_trajecs
         _play_ref_trajecs = True
@@ -113,12 +121,13 @@ class MimicEnv:
             for i in range(timesteps):
                 # hold com x and z position and trunk rotation constant
                 FLIGHT = False
-                ignore_not_actuated_joints = True
+                ignore_not_actuated_joints = False
 
                 if not ignore_not_actuated_joints:
                     # position servos do not actuate all joints
                     # for those joints, we still have to set the joint positions by hand
                     ref_qpos = self.get_ref_qpos()
+                    ref_qvel = self.get_ref_qvel()
                     qpos = self.get_qpos()
                     qvel = self.get_qvel()
 
@@ -128,6 +137,7 @@ class MimicEnv:
                     # set the not actuated joint position from refs
                     not_actuated_is = self._get_not_actuated_joint_indices()
                     qpos[not_actuated_is] = ref_qpos[not_actuated_is]
+                    qvel[not_actuated_is] = ref_qvel[not_actuated_is]
                     self.set_joint_kinematics_in_sim(qpos, qvel)
 
                 if FLIGHT:

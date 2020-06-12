@@ -40,9 +40,9 @@ def get_com_vel_all_steps():
         com_vels.extend(vels)
     return com_vels, mean_vels
 
-# com_pos_all = get_com_pos_all_steps()
-# plt.plot(com_pos_all)
-# plt.show()
+com_pos_all = get_com_pos_all_steps()
+plt.plot(com_pos_all)
+plt.show()
 #
 com_vels, mean_vels = get_com_vel_all_steps()
 plt.plot(com_vels)

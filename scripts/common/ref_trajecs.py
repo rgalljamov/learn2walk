@@ -170,7 +170,7 @@ class ReferenceTrajectories:
                 self.data[i_step][index,:] *= scalar
 
 
-    def _get_by_indices(self, joints):
+    def _get_by_indices(self, indices):
         """
         This is the main internal method to get specified reference trajectories.
         All other methods should call this one as it handles internal variables
@@ -193,7 +193,7 @@ class ReferenceTrajectories:
         if self._pos == len(self._step[0]):
             # choose the next step
             self._step = self._get_next_step()
-        joint_kinematics = self._step[joints, self._pos]
+        joint_kinematics = self._step[indices, self._pos]
         return joint_kinematics
 
     def get_random_init_state(self):
@@ -201,8 +201,9 @@ class ReferenceTrajectories:
             @returns: qpos and qvel of a random step at a random position'''
         self._step = self._get_random_step()
         self._pos = np.random.randint(0, len(self._step[0]) - 1)
-        # reset episode duration
+        # reset episode duration and so far traveled distance
         self.ep_dur = 0
+        self.dist = 0
         return self.get_qpos(), self.get_qvel()
 
     def get_com_kinematics_full(self):
@@ -270,7 +271,11 @@ class ReferenceTrajectories:
         # update the so far traveled distance
         self.dist = self._step[COM_POSX, -1]
         # choose the next step
-        step = self.data[self._i_step]
+        # copy to add the com x position only of the current local step variable
+        step = np.copy(self.data[self._i_step])
+        assert step[COM_POSX, 0] < 0.005, \
+            "The COM X Position on each new step trajectory should start with 0.0 " \
+            f"but started with {step[COM_POSX, 0]}"
         # add the so far traveled distance to the x pos of the COM
         step[COM_POSX,:] += self.dist
         # reset the position on the ref trajec to zero
