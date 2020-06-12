@@ -10,6 +10,12 @@ from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
 # Then, RSI is not executed yet and ET gets triggered during step()
 _rsinitialized = False
 
+# flag if ref trajectories are played back
+_play_ref_trajecs = False
+
+# length of the buffer containing sim and ref trajecs for comparison
+_trajec_buffer_length = 2000
+
 class MimicEnv:
     def __init__(self: gym.Env, ref_trajecs:RefTrajecs):
         '''@param: self: gym environment implementing the MimicEnv interface.'''
@@ -20,10 +26,9 @@ class MimicEnv:
         # names of all robot kinematics
         self.joint_labels = self.refs.get_kinematics_labels()
         # monitor sim and ref trajecs for comparison (sim/ref, joints, timesteps)
-        self.trajecs_buffer = np.zeros((2, len(self.joint_labels), 2000))
+        self.trajecs_buffer = np.zeros((2, len(self.joint_labels), _trajec_buffer_length))
 
     def step(self):
-        global _rsinitialized
         if not _rsinitialized:
             return
 
@@ -39,7 +44,7 @@ class MimicEnv:
         # test
         try: self.trajecs_recorded += 1
         except: self.trajecs_recorded = 1
-        if self.trajecs_recorded % 2000 == 0:
+        if self.trajecs_recorded % _trajec_buffer_length == 0:
             self.compare_sim_ref_trajecs()
 
     def compare_sim_ref_trajecs(self):
@@ -101,6 +106,8 @@ class MimicEnv:
         return qpos
 
     def playback_ref_trajectories(self, timesteps=2000, pd_pos_control=False):
+        global _play_ref_trajecs
+        _play_ref_trajecs = True
         self.reset()
         if pd_pos_control:
             for i in range(timesteps):
@@ -125,7 +132,7 @@ class MimicEnv:
 
                 if FLIGHT:
                     self.sim.data.qpos[[0, 1, 2]] = [0, 1.5, 0]
-                    self.sim.data.qvel[[0,1]] = 0
+                    self.sim.data.qvel[[0, 1, 2]] = 0
                     # self.sim.data.qvel[:] = 0
                     # fix all other joints to focus tuning control gains of a single joint pair
                     # self.sim.data.qpos[[0, 2, 3, 4, 6, 7]] = 0
@@ -160,6 +167,7 @@ class MimicEnv:
                 self.sim.forward()
                 self.render()
 
+        _play_ref_trajecs = False
         self.close()
         raise SystemExit('Environment intentionally closed after playing back trajectories.')
 
@@ -264,7 +272,7 @@ class MimicEnv:
         """
         Early Termination based on reward, falling and episode duration
         """
-        if not _rsinitialized:
+        if (not _rsinitialized) or _play_ref_trajecs:
             # ET only works after RSI was executed
             return False
 
