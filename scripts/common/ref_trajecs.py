@@ -190,6 +190,8 @@ class ReferenceTrajectories:
             @returns: qpos and qvel of a random step at a random position'''
         self._step = self._get_random_step()
         self._pos = np.random.randint(0, len(self._step[0]) - 1)
+        # reset episode duration
+        self.ep_dur = 0
         return self.get_qpos(), self.get_qvel()
 
     def get_com_kinematics_full(self):

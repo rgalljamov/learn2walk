@@ -89,25 +89,87 @@ class MimicEnv:
     def get_qpos(self):
         return np.copy(self.sim.data.qpos)
 
-    def playback_ref_trajectories(self, timesteps=2000):
     def get_qvel(self):
         return np.copy(self.sim.data.qvel)
+
+    def get_ref_qpos(self, exclude_com=False, exclude_not_actuated_joints=False):
+        qpos = self.refs.get_qpos()
+        if exclude_not_actuated_joints:
+            qpos = self._remove_by_indices(qpos, self._get_not_actuated_joint_indices())
+        elif exclude_com:
+            qpos = self._remove_by_indices(qpos, self._get_COM_indices())
+        return qpos
+
+    def playback_ref_trajectories(self, timesteps=2000, pd_pos_control=False):
         self.reset()
-        sim = self.sim
-        for i in range(timesteps):
-            old_state = sim.get_state()
-            new_state = mujoco_py.MjSimState(old_state.time,
-                                             self.refs.get_qpos(i),
-                                             self.refs.get_qvel(i),
-                                             old_state.act, old_state.udd_state)
-            sim.set_state(new_state)
-            # self.step(np.zeros_like(self.action_space.sample()))
-            sim.forward()
-            self.render()
+        if pd_pos_control:
+            for i in range(timesteps):
+                # hold com x and z position and trunk rotation constant
+                FLIGHT = True
+                ignore_not_actuated_joints = True
+
+                if not ignore_not_actuated_joints:
+                    # position servos do not actuate all joints
+                    # for those joints, we still have to set the joint positions by hand
+                    ref_qpos = self.get_ref_qpos()
+                    qpos = self.get_qpos()
+                    qvel = self.get_qvel()
+
+                    if FLIGHT:
+                        ref_qpos[[0,1,2]] = [0, 1.5, 0]
+                        qvel[[0,1]] = 0
+                    # set the not actuated joint position from refs
+                    not_actuated_is = self._get_not_actuated_joint_indices()
+                    qpos[not_actuated_is] = ref_qpos[not_actuated_is]
+                    self.set_joint_kinematics_in_sim(qpos, qvel)
+
+                if FLIGHT:
+                    self.sim.data.qpos[[0, 1, 2]] = [0, 1.5, 0]
+                    self.sim.data.qvel[[0,1]] = 0
+                    # self.sim.data.qvel[:] = 0
+                    # fix all other joints to focus tuning control gains of a single joint pair
+                    # self.sim.data.qpos[[0, 2, 3, 4, 6, 7]] = 0
+                    # self.sim.data.qvel[[0, 2, 3, 4, 6, 7]] = 0
+
+
+                des_qpos = self.get_ref_qpos(exclude_not_actuated_joints=True)
+                # des_qpos[[0, 1, 3, 4]] = 0
+                # des_qpos[2] = des_qpos[5]
+                obs, reward, done, _ = self.step(des_qpos)
+                # obs, reward, done, _ = self.step(np.ones_like(des_qpos)*(0))
+                # ankle tune:
+                # obs, reward, done, _ = self.step([0, 0, -0.3, 0, 0, -0.3])
+                # knee tune:
+                # obs, reward, done, _ = self.step([0, 0.2, 0, 0, 0.2, 0])
+                # obs, reward, done, _ = self.step([-0.5, 1, -.2, -0.5, 1, -.2])
+                self.render()
+                if done:
+                    self.reset()
+        else:
+            for i in range(timesteps):
+                self.refs.next()
+                ZERO_INPUTS = False
+                if ZERO_INPUTS:
+                    qpos, qvel = self.get_joint_kinematics()
+                    qpos= np.zeros_like(qpos)
+                    qvel = np.zeros_like(qvel)
+                    self.set_joint_kinematics_in_sim(qpos, qvel)
+                else:
+                    self.set_joint_kinematics_in_sim()
+                # self.step(np.zeros_like(self.action_space.sample()))
+                self.sim.forward()
+                self.render()
 
         self.close()
         raise SystemExit('Environment intentionally closed after playing back trajectories.')
 
+    def set_joint_kinematics_in_sim(self, qpos=None, qvel=None):
+        old_state = self.sim.get_state()
+        if qpos is None:
+            qpos, qvel = self.refs.get_ref_kinmeatics()
+        new_state = mujoco_py.MjSimState(old_state.time, qpos, qvel,
+                                         old_state.act, old_state.udd_state)
+        self.sim.set_state(new_state)
 
     def _get_obs(self):
         global _rsinitialized
@@ -287,5 +349,16 @@ class MimicEnv:
 
         Returns a list of indices pointing at COM joint position/index
         in the considered robot model, e.g. [0,1,2]
+        """
+        raise NotImplementedError
+
+    def _get_not_actuated_joint_indices(self):
+        """
+        Needed for playing back reference trajectories
+        by using position servos in the actuated joints.
+
+        @returns a list of indices specifying indices of
+        joints in the considered robot model that are not actuated.
+        Example: return [0,1,2,6,7]
         """
         raise NotImplementedError

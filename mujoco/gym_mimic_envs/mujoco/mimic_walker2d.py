@@ -1,5 +1,6 @@
 import numpy as np
 from gym import utils
+from os.path import join, dirname
 from gym.envs.mujoco import mujoco_env
 from gym_mimic_envs.mimic_env import MimicEnv
 from scripts.common.utils import is_remote
@@ -23,13 +24,7 @@ qvel_indices = [refs.COM_VELX, refs.COM_VELZ, refs.TRUNK_ANGVEL_Y,
 
 # adaptations needed to account for different body shape
 # and axes definitions in the reference trajectories
-ref_trajec_adapts = {refs.COM_POSZ: 1.25/1.10, # difference between COM heights
-                     refs.HIP_SAG_ANG_R: -1, refs.HIP_SAG_ANG_L: -1,
-                     refs.HIP_SAG_ANGVEL_R: -1, refs.HIP_SAG_ANGVEL_L: -1,
-                     refs.KNEE_ANG_R: -1, refs.KNEE_ANG_L: -1,
-                     refs.KNEE_ANGVEL_R: -1, refs.KNEE_ANGVEL_L: -1,
-                     refs.ANKLE_ANG_R: -1, refs.ANKLE_ANG_L: -1,
-                     refs.ANKLE_ANGVEL_R: -1, refs.ANKLE_ANGVEL_L: -1,}
+ref_trajec_adapts = {}
 
 
 class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
@@ -38,10 +33,10 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
     """
 
     def __init__(self):
-        mujoco_env.MujocoEnv.__init__(self, "walker2d.xml", 4)
+        mujoco_env.MujocoEnv.__init__(self,
+                                      join(dirname(__file__), "assets", 'walker2d.xml'), 4)
         utils.EzPickle.__init__(self)
         # init the mimic environment, automatically loads and inits ref trajectories
-        global qpos_indices, qvel_indices
         MimicEnv.__init__(self, RefTrajecs(qpos_indices, qvel_indices, ref_trajec_adapts))
         self.model.opt.timestep = 1e-3
         self.frame_skip = 5
@@ -85,7 +80,6 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             reward += alive_bonus
             reward -= 1e-3 * np.square(a).sum()
 
-
         USE_ET = False
         USE_REW_ET = True
         if USE_ET:
@@ -114,3 +108,6 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
 
     def _get_COM_indices(self):
         return [0,1]
+
+    def _get_not_actuated_joint_indices(self):
+        return [0,1,2]
