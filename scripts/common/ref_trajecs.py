@@ -182,7 +182,6 @@ class ReferenceTrajectories:
         if self._pos == len(self._step[0]):
             # choose the next step
             self._step = self._get_next_step()
-            # update the duration of previous steps
         joint_kinematics = self._step[joints, self._pos]
         return joint_kinematics
 
@@ -251,7 +250,7 @@ class ReferenceTrajectories:
         """
 
         # increase the step index, reset if last step was reached
-        if self._i_step > len(self.data)-1:
+        if self._i_step >= len(self.data)-1:
             self._i_step = 0
         else:
             self._i_step += 1
