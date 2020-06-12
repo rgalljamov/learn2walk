@@ -55,11 +55,11 @@ HYPER_DEFAULT = 'hyper_dflt'
 # hyperparameters from stable-baselines zoo
 HYPER_ZOO = 'hyper_zoo'
 HYPER_PENG = 'hyper_dpmm'
-HYPERS = HYPER_PENG
+HYPERS = HYPER_ZOO
 # use_default_hypers = HYPERS == HYPER_DEFAULT
 
 # number of training steps
-mio_steps = {HYPER_DEFAULT:2, HYPER_PENG:2, HYPER_ZOO:2}[HYPERS]
+mio_steps = {HYPER_DEFAULT:2, HYPER_PENG:6, HYPER_ZOO:2}[HYPERS]
 
 algo = 'ppo2'
 hyperparam = HYPERS

@@ -9,7 +9,7 @@ from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
-pause_viewer_at_first_step = True and not is_remote()
+pause_viewer_at_first_step = False and not is_remote()
 
 # qpos and qvel indices for quick access to the reference trajectories
 qpos_indices = [refs.COM_POSX, refs.COM_POSZ, refs.TRUNK_ROT_Y,
@@ -47,7 +47,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         if pause_viewer_at_first_step:
             self._get_viewer('human')._paused = True
             pause_viewer_at_first_step = False
-
+        DEBUG = False
         MimicEnv.step(self)
 
         qpos_before = np.copy(self.sim.data.qpos)
@@ -74,7 +74,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         USE_DMM_REW = True
         if USE_DMM_REW:
             reward = self.get_imitation_reward()
-            # print('Reward ', reward)
+            if DEBUG: print('Reward ', reward)
         else:
             reward = (com_x_vel_finite_difs)
             reward += alive_bonus
@@ -89,7 +89,8 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         else:
             done = not (height > 0.8 and height < 2.0 and
                         ang > -1.0 and ang < 1.0)
-        # if done: print('Done')
+        if DEBUG and done: print('Done')
+        # self.render()
         ob = self._get_obs()
         return ob, reward, done, {}
 

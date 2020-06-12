@@ -40,8 +40,14 @@ if __name__ == "__main__":
                      tensorboard_log=cfg.save_path + 'tb_logs/')
     elif cfg.hyperparam == cfg.HYPER_PENG:
         model = PPO2(MlpPolicy, env,
-                     n_steps=1024, nminibatches=16, lam=0.95, verbose=1,
+                     n_steps=4096, nminibatches=16, lam=0.95, verbose=1,
                      gamma=0.95, learning_rate=5e-5, cliprange=0.2,
+                     tensorboard_log=cfg.save_path + 'tb_logs/')
+    elif cfg.hyperparam == cfg.HYPER_ZOO:
+        model = PPO2(MlpPolicy, env,
+                     n_steps=1024, nminibatches=64, lam=0.95, verbose=1,
+                     gamma=0.90, learning_rate=0.00025, cliprange=0.1,
+                     noptepochs=10, ent_coef=0, cliprange_vf=-1,
                      tensorboard_log=cfg.save_path + 'tb_logs/')
 
     # automatically launch tensorboard
