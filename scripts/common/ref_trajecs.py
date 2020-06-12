@@ -12,9 +12,28 @@ import scipy.io as spio
 from scripts.common.utils import is_remote, config_pyplot, smooth_exponential
 
 
+# relative paths to trajectories
+PATH_CONSTANT_SPEED = 'assets/ref_trajecs/Trajecs_Constant_Speed.mat'
+PATH_SPEED_RAMP = 'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
+
+# on my local PC
+PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' + PATH_CONSTANT_SPEED
+PATH_TRAJEC_RANGES = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
+                     'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
+
+REMOTE = is_remote()
+
+# executing script on the Lauflabor PC
+if REMOTE:
+    PATH_REF_TRAJECS = '/home/rustam/code/remote/' + PATH_CONSTANT_SPEED
+    PATH_TRAJEC_RANGES = '/home/rustam/code/remote/' \
+                       'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
+
+# is the trajectory with the constant speed chosen?
+_is_constant_speed = PATH_CONSTANT_SPEED in PATH_REF_TRAJECS
 
 # label every trajectory with the corresponding name
-labels = np.array(['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
+labels = ['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
           'Trunk Rot (quat,w)', 'Trunk Rot (quat,x)', 'Trunk Rot (quat,y)', 'Trunk Rot (quat,z)',
           'Ang Hip Frontal R', 'Ang Hip Sagittal R',
           'Ang Knee R', 'Ang Ankle R',
@@ -34,7 +53,13 @@ labels = np.array(['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
           'GRF R', 'GRF L',
 
           'Trunk Rot (euler,x)', 'Trunk Rot (euler,y)', 'Trunk Rot (euler,z)',
-          ])
+          ]
+
+if _is_constant_speed:
+    labels.remove('GRF R')
+    labels.remove('GRF L')
+
+labels = np.array(labels)
 
 # reference trajectory: joint position indices
 COM_POSX, COM_POSY, COM_POSZ = range(0,3)
@@ -50,25 +75,11 @@ HIP_FRONT_ANGVEL_L, HIP_SAG_ANGVEL_L, KNEE_ANGVEL_L, ANKLE_ANGVEL_L = range(25,2
 
 # reference trajectory: foot position and GRF indices
 FOOT_POSX_L, FOOT_POSY_L, FOOT_POSZ_L, FOOT_POSX_R, FOOT_POSY_R, FOOT_POSZ_R = range(29,35)
-GRF_R, GRF_L = range(35,37)
-TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z = range(37,40)
-
-# on my local PC
-PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
-                   'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
-
-PATH_TRAJEC_RANGES = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
-                     'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
-
-REMOTE = is_remote()
-
-# executing script on the Lauflabor PC
-if REMOTE:
-    PATH_REF_TRAJECS = '/home/rustam/code/remote/' \
-                       'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
-
-    PATH_TRAJEC_RANGES = '/home/rustam/code/remote/' \
-                       'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
+if _is_constant_speed:
+    TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z = range(35, 38)
+else:
+    GRF_R, GRF_L = range(35, 37)
+    TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z = range(37, 40)
 
 
 class ReferenceTrajectories:
@@ -273,8 +284,11 @@ class ReferenceTrajectories:
 
         data_dict = spio.loadmat(self.path)
         data = data_dict['Data']
-        new_data = np.ndarray(data.shape, dtype=np.object)
         data = data.flatten()
+        # save only the first 30 steps (constant speed)
+        data = data[:30]
+        new_data = np.ndarray(data.shape, dtype=np.object)
+
 
         # iterate over all steps and add three more dimensions containing trunk euler rotations
         for i, step in enumerate(data):
@@ -292,13 +306,14 @@ class ReferenceTrajectories:
             new_step[0:dims,:] = step
             new_step[dims:,:] = [euler_x, euler_y, euler_z]
 
-            new_data[i,0] = new_step
+            new_data[i] = new_step
 
         self.data = new_data.flatten()
 
         data_dict['Data'] = new_data
         print('BEFORE saved final')
-        spio.savemat('Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat', data_dict, do_compression=True)
+        # spio.savemat('Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat', data_dict, do_compression=True)
+        spio.savemat('Trajecs_Constant_Speed.mat', data_dict, do_compression=True)
         print('saved final')
         raise SystemExit('This function was only used to transform '
                          'the Trunk Quaternion to Euler Rotations.\n'

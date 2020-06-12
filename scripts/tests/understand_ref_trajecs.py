@@ -5,8 +5,11 @@ from scripts.common import utils
 plt = utils.config_pyplot(font_size=12, tick_size=12)
 
 # load matlab data, containing trajectories of 250 steps
-data = spio.loadmat('/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
-                    'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat')
+dir_path = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
+# file_path = 'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
+file_path = 'assets/ref_trajecs/Trajecs_Constant_Speed.mat'
+
+data = spio.loadmat(dir_path+file_path, squeeze_me=True)
 
 # data = spio.loadmat('/home/rustam/code/remote/assets/ref_trajecs/Traj_Ramp_Slow_final.mat')
 
@@ -14,6 +17,7 @@ data = spio.loadmat('/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
 data = data['Data']
 # flatten the array to have dim (steps,)
 data = data.flatten()
+print('Number of steps recorded: ', np.size(data))
 
 # first step (37 dims, 281 timesteps)
 step = data[0]
@@ -25,11 +29,28 @@ def get_com_pos_all_steps():
         com_pos.extend(data[step][0])
     return com_pos
 
+def get_com_vel_all_steps():
+    com_vels = []
+    mean_vels = []
+    for step in range(len(data)):
+        vels = data[step][15]
+        mean_vel = np.mean(vels)
+        print(f'{step} \t {mean_vel}')
+        mean_vels.extend(np.ones_like(vels)*mean_vel)
+        com_vels.extend(vels)
+    return com_vels, mean_vels
+
 # com_pos_all = get_com_pos_all_steps()
 # plt.plot(com_pos_all)
 # plt.show()
+#
+com_vels, mean_vels = get_com_vel_all_steps()
+plt.plot(com_vels)
+plt.plot(mean_vels)
+plt.show()
+# exit(33)
 
-test_refs = True
+test_refs = False
 if test_refs:
     from scripts.common.ref_trajecs import ReferenceTrajectories as RT
 
@@ -61,6 +82,11 @@ labels = ['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
           'GRF R', 'GRF L',
           'Trunk Rot (euler,x)', 'Trunk Rot (euler,y)', 'Trunk Rot (euler,z)',
           ]
+
+if file_path == 'assets/ref_trajecs/Trajecs_Constant_Speed.mat':
+    # have no GRFs included
+    labels.remove('GRF R')
+    labels.remove('GRF L')
 
 # plot figure in full screen mode (scaled down aspect ratio of my screen)
 plt.rcParams['figure.figsize'] = (19.2, 10.8)

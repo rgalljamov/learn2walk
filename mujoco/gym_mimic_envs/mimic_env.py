@@ -112,7 +112,7 @@ class MimicEnv:
         if pd_pos_control:
             for i in range(timesteps):
                 # hold com x and z position and trunk rotation constant
-                FLIGHT = True
+                FLIGHT = False
                 ignore_not_actuated_joints = True
 
                 if not ignore_not_actuated_joints:
