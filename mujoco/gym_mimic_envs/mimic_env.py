@@ -13,9 +13,6 @@ _rsinitialized = False
 # flag if ref trajectories are played back
 _play_ref_trajecs = False
 
-# length of the buffer containing sim and ref trajecs for comparison
-_trajec_buffer_length = 2000
-
 class MimicEnv:
     def __init__(self: gym.Env, ref_trajecs:RefTrajecs):
         '''@param: self: gym environment implementing the MimicEnv interface.'''
@@ -24,63 +21,12 @@ class MimicEnv:
         self.model.opt.timestep = 1e-3
         self.frame_skip = 5
         # names of all robot kinematics
-        self.joint_labels = self.refs.get_kinematics_labels()
-        # monitor sim and ref trajecs for comparison (sim/ref, joints, timesteps)
-        self.trajecs_buffer = np.zeros((2, len(self.joint_labels), _trajec_buffer_length))
+        self.kinem_labels = self.refs.get_kinematics_labels()
 
     def step(self):
         if not _rsinitialized:
             return
-
         self.refs.next()
-
-        COMPARE_TRAJECS = False
-        if COMPARE_TRAJECS:
-            # save sim and ref trajecs in a buffer for comparison
-            sim_trajecs = self.get_joint_kinematics(concat=True)
-            ref_trajecs = self.get_ref_kinematics(concat=True)
-            # fifo approach, replace oldest entry with the newest one
-            self.trajecs_buffer = np.roll(self.trajecs_buffer, -1, axis=2)
-            self.trajecs_buffer[0, :, -1] = sim_trajecs
-            self.trajecs_buffer[1, :, -1] = ref_trajecs
-
-            # test
-            try: self.trajecs_recorded += 1
-            except: self.trajecs_recorded = 1
-            if self.trajecs_recorded % (_trajec_buffer_length) == 0:
-                self.compare_sim_ref_trajecs()
-
-    def compare_sim_ref_trajecs(self):
-        """
-        Plot simulation and reference trajectories in a single figure
-        to compare them.
-        """
-        plt = self.refs.plt
-        plt.rcParams.update({'figure.autolayout': False})
-
-        num_joints = len(self.joint_labels)
-        cols = 4
-        rows = int(num_joints/cols) + 1
-        # plot sim trajecs
-        trajecs = self.trajecs_buffer[0,:,:]
-        axes = []
-        for i_joint in range(num_joints):
-            try: axes.append(plt.subplot(rows, cols, i_joint + 1, sharex=axes[i_joint-1]))
-            except: axes.append(plt.subplot(rows, cols, i_joint + 1))
-            plt.plot(trajecs[i_joint, :])
-            plt.title(self.joint_labels[i_joint])
-        # plot ref trajecs
-        PLOT_REFS = True
-        if PLOT_REFS:
-            trajecs = self.trajecs_buffer[1,:,:]
-            # copy ankle joint trajectories todo: remove
-            # trajecs[5, :] = trajecs[8, :]
-            for i_joint in range(num_joints):
-                axes[i_joint].plot(trajecs[i_joint, :])
-        plt.legend(['Simulation', 'Reference'], loc='lower right', bbox_to_anchor=(1.75, 0.1))
-        plt.suptitle('Comparison of Simulation and Reference Joint Kinematics over Time')
-        plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
-        plt.show()
 
 
     def get_joint_kinematics(self, exclude_com=False, concat=False):
