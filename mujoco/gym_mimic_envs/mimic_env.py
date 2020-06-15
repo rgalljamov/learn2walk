@@ -154,7 +154,7 @@ class MimicEnv:
         qpos, qvel = self.get_random_init_state()
         self.set_state(qpos, qvel)
         rew = self.get_imitation_reward()
-        assert rew > 0.5, "Reward should be at least 0.5 after RSI!"
+        assert rew > 0.95, f"Reward should be around 1 after RSI, but was {rew}!"
         assert not self.has_exceeded_allowed_deviations()
         return self._get_obs()
 
@@ -201,7 +201,7 @@ class MimicEnv:
         ref_pos, ref_vel = self.get_ref_kinematics()
         com_is = self._get_COM_indices()
         com_pos, com_ref = qpos[com_is], ref_pos[com_is]
-        dif = com_is - com_ref
+        dif = com_pos - com_ref
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
         com_rew = np.exp(-10 * sum)
