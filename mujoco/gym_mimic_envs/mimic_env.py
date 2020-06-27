@@ -24,11 +24,22 @@ class MimicEnv:
         self.frame_skip = 5
         # names of all robot kinematics
         self.kinem_labels = self.refs.get_kinematics_labels()
+        # keep the body in the air for testing purposes
+        self._FLY = True
+
 
     def step(self):
+        """
+        Returns
+        -------
+        True if MimicEnv was already instantiated.
+        Workaround (see doc string for _rsinitialized)
+        """
         if not _rsinitialized:
-            return
+            return False
+
         self.refs.next()
+        return True
 
 
     def get_joint_kinematics(self, exclude_com=False, concat=False):
@@ -70,12 +81,13 @@ class MimicEnv:
     def playback_ref_trajectories(self, timesteps=2000, pd_pos_control=False):
         global _play_ref_trajecs
         _play_ref_trajecs = True
+
         self.reset()
         if pd_pos_control:
             for i in range(timesteps):
                 # hold com x and z position and trunk rotation constant
-                FLIGHT = False
-                ignore_not_actuated_joints = False
+                FLIGHT = self._FLY
+                ignore_not_actuated_joints = True and not FLIGHT
 
                 if not ignore_not_actuated_joints:
                     # position servos do not actuate all joints
@@ -94,19 +106,22 @@ class MimicEnv:
                     qvel[not_actuated_is] = ref_qvel[not_actuated_is]
                     self.set_joint_kinematics_in_sim(qpos, qvel)
 
-                if FLIGHT:
-                    self.sim.data.qpos[[0, 1, 2]] = [0, 1.5, 0]
-                    self.sim.data.qvel[[0, 1, 2]] = 0
                     # self.sim.data.qvel[:] = 0
                     # fix all other joints to focus tuning control gains of a single joint pair
                     # self.sim.data.qpos[[0, 2, 3, 4, 6, 7]] = 0
                     # self.sim.data.qvel[[0, 2, 3, 4, 6, 7]] = 0
 
-
+                # follow desired trajecs
                 des_qpos = self.get_ref_qpos(exclude_not_actuated_joints=True)
-                # des_qpos[[0, 1, 3, 4]] = 0
-                # des_qpos[2] = des_qpos[5]
-                obs, reward, done, _ = self.step(des_qpos)
+                # des_qpos[0] = 0
+                # des_qpos[1] = 0.4
+                # if i % 60 == 0:
+                #     self.reset()
+                for _ in range(self.frame_skip):
+                    if FLIGHT:
+                        self.sim.data.qpos[[0, 1, 2]] = [0, 1.5, 0]
+                        self.sim.data.qvel[[0, 1, 2]] = 0
+                    obs, reward, done, _ = self.step(des_qpos)
                 # obs, reward, done, _ = self.step(np.ones_like(des_qpos)*(0))
                 # ankle tune:
                 # obs, reward, done, _ = self.step([0, 0, -0.3, 0, 0, -0.3])
@@ -157,6 +172,31 @@ class MimicEnv:
         '''WARNING: This method seems to be specific to MujocoEnv.
            Other gym environments just use reset().'''
         qpos, qvel = self.get_random_init_state()
+
+        # # tune hip pd gains
+        # left_hip_index = 6
+        # qpos_hip_left = qpos[left_hip_index]
+        # qvel_hip_left = qvel[left_hip_index]
+        # qpos = np.zeros_like(qpos)
+        # qvel = np.zeros_like(qvel)
+        # qpos[left_hip_index] = qpos_hip_left
+        # qvel[left_hip_index] = qvel_hip_left
+        # qpos[3] = 0.1
+
+        # # tune knee pd gains
+        # left_index = 7
+        # right_index = 4
+        # left_joint_pos = qpos[left_index]
+        # left_joint_vel = qvel[left_index]
+        # qpos[left_index] = left_joint_pos
+        # qvel[left_index] = left_joint_vel
+        # qpos[right_index] = 0.5
+        # qvel[right_index] = 0
+        # # set ankle pos and vel to zero
+        # ankle_ins = [5,8]
+        # qpos[ankle_ins] = 0
+        # qvel[ankle_ins] = 0
+
         ### avoid huge joint toqrues from PD servos after RSI
         # Explanation: on reset, ctrl is set to all zeros.
         # When we set a desired state during RSI, we suddenly change the current state.
@@ -166,7 +206,8 @@ class MimicEnv:
 
         self.set_state(qpos, qvel)
         rew = self.get_imitation_reward()
-        assert rew > 0.95, f"Reward should be around 1 after RSI, but was {rew}!"
+        assert rew > 0.95 if not self._FLY else 0.5, \
+            f"Reward should be around 1 after RSI, but was {rew}!"
         assert not self.has_exceeded_allowed_deviations()
         return self._get_obs()
 
@@ -193,6 +234,8 @@ class MimicEnv:
         # get sim and ref joint positions excluding com position
         qpos, _ = self.get_joint_kinematics(exclude_com=True)
         ref_pos, _ = self.get_ref_kinematics(exclude_com=True)
+        if self._FLY:
+            ref_pos[0] = 0
         dif = qpos - ref_pos
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
@@ -202,6 +245,8 @@ class MimicEnv:
     def get_vel_reward(self):
         _, qvel = self.get_joint_kinematics(exclude_com=True)
         _, ref_vel = self.get_ref_kinematics(exclude_com=True)
+        if self._FLY:
+            ref_vel[0] = 0
         dif = qvel - ref_vel
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)

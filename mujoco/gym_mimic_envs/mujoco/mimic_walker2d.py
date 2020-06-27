@@ -9,7 +9,7 @@ from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
-pause_viewer_at_first_step = False and not is_remote()
+pause_viewer_at_first_step = True and not is_remote()
 
 # qpos and qvel indices for quick access to the reference trajectories
 qpos_indices = [refs.COM_POSX, refs.COM_POSZ, refs.TRUNK_ROT_Y,
@@ -48,12 +48,26 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             self._get_viewer('human')._paused = True
             pause_viewer_at_first_step = False
         DEBUG = False
-        MimicEnv.step(self)
+        mimic_env_inited = MimicEnv.step(self)
+        if not mimic_env_inited:
+            ob = self._get_obs()
+            return ob, -3.33, False, {}
 
         qpos_before = np.copy(self.sim.data.qpos)
         qvel_before = np.copy(self.sim.data.qvel)
 
         posbefore = qpos_before[0]
+
+        # hold the agent in the air
+        if self._FLY:
+            # get current joint angles and velocities
+            qpos_set = np.copy(qpos_before)
+            qvel_set = np.copy(qvel_before)
+            # fix COM position, trunk rotation and corresponding velocities
+            qpos_set[[0,1,2]] = [0, 1.5, 0]
+            qvel_set[[0,1,2,]] = [0, 0, 0]
+            self.set_joint_kinematics_in_sim(qpos_set, qvel_set)
+
         self.do_simulation(a, self.frame_skip)
 
         qpos_after = self.sim.data.qpos
