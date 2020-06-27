@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     if cfg.hyperparam == cfg.HYPER_DEFAULT:
         utils.log('Training with default params from Stable Baselines')
-        model = PPO2(MlpPolicy, env, verbose=1, n_steps=512,
+        model = PPO2(MlpPolicy, env, verbose=1, n_steps=4096, gamma=0.999,
                      tensorboard_log=cfg.save_path + 'tb_logs/')
     elif cfg.hyperparam == cfg.HYPER_PENG:
         model = PPO2(MlpPolicy, env,

@@ -17,7 +17,7 @@ PATH_CONSTANT_SPEED = 'assets/ref_trajecs/Trajecs_Constant_Speed.mat'
 PATH_SPEED_RAMP = 'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
 
 # on my local PC
-PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' + PATH_CONSTANT_SPEED
+PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' + PATH_SPEED_RAMP
 PATH_TRAJEC_RANGES = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
                      'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
 

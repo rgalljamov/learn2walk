@@ -55,11 +55,11 @@ HYPER_DEFAULT = 'hyper_dflt'
 # hyperparameters from stable-baselines zoo
 HYPER_ZOO = 'hyper_zoo'
 HYPER_PENG = 'hyper_dpmm'
-HYPERS = HYPER_ZOO
+HYPERS = HYPER_DEFAULT
 # use_default_hypers = HYPERS == HYPER_DEFAULT
 
 # number of training steps
-mio_steps = {HYPER_DEFAULT:2, HYPER_PENG:6, HYPER_ZOO:2}[HYPERS]
+mio_steps = {HYPER_DEFAULT:10, HYPER_PENG:6, HYPER_ZOO:2}[HYPERS]
 
 algo = 'ppo2'
 hyperparam = HYPERS
@@ -77,7 +77,7 @@ sftm_inv_temp = 1
 
 own_hypers = '' # f'zero_prct{s(zero_prct)}/' # f'slope{rem_slope}_init{s(rem_prct_init)}/' # f'scale{s(sftmx_scale)}_init{sftmx_init}_shft{s(sftmx_shift)}_invtmp{s(sftm_inv_temp)}/' # f'l1_lam{s(l1_scale)}/' # f'hid{s(hid_size)}/' # f'tpl{s(tuple_size)}/' #  f'sigm_sl{s(sigm_slope)}_th{s(sigm_thres)}/'
 run = s(np.random.random_integers(0,1000))
-info = ''
+info = 'pun10_mxeplen1e4_nstp4096_gamma999'
 
 # construct the paths
 abs_project_path = dirname(dirname(dirname(__file__))) + '/'
