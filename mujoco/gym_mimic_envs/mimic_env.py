@@ -155,6 +155,13 @@ class MimicEnv:
         '''WARNING: This method seems to be specific to MujocoEnv.
            Other gym environments just use reset().'''
         qpos, qvel = self.get_random_init_state()
+        ### avoid huge joint toqrues from PD servos after RSI
+        # Explanation: on reset, ctrl is set to all zeros.
+        # When we set a desired state during RSI, we suddenly change the current state.
+        # Without also changing the target angles, there will be a huge difference
+        # between target and current angles and PD Servos will kick in with high torques
+        self.data.ctrl[:] = self._remove_by_indices(qpos, self._get_not_actuated_joint_indices())
+
         self.set_state(qpos, qvel)
         rew = self.get_imitation_reward()
         assert rew > 0.95, f"Reward should be around 1 after RSI, but was {rew}!"
