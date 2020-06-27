@@ -10,14 +10,18 @@ class Monitor(gym.Wrapper):
     def __init__(self, env: MimicEnv):
         self.env = env
         super(Monitor, self).__init__(self.env)
+
+        self.num_dofs = self.env.kinem_labels
+        self.num_actions = self.env.action_space.high.size
+
         self.setup_containers()
+
 
     def setup_containers(self):
         self.ep_len = 0
         self.rewards = []
         self.returns = []
         self.ep_lens = []
-        self.actions = []
         self.grfs_left = []
         self.grfs_right = []
 
@@ -25,12 +29,15 @@ class Monitor(gym.Wrapper):
         self.trajecs_buffer = np.zeros((2, len(self.num_dofs), _trajec_buffer_length))
         # monitor episode terminations
         self.dones_buf = np.zeros((_trajec_buffer_length,))
+        # monitor the joint torques
+        self.torque_buf = np.zeros((self.num_actions, _trajec_buffer_length))
 
     def step(self, action):
         obs, reward, done, _ = self.env.step(action)
 
         self.ep_len += 1
         self.rewards.append(reward)
+
         if done:
             self.returns.append(np.sum(self.rewards[:-self.ep_len]))
             self.ep_lens.append(self.ep_len)
@@ -48,8 +55,11 @@ class Monitor(gym.Wrapper):
             # do the same with the dones
             self.dones_buf = np.roll(self.dones_buf, -1)
             self.dones_buf[-1] = done
+            # save joint toqrues
+            self.torque_buf = np.roll(self.torque_buf, -1, axis=1)
+            self.torque_buf[:, -1] = self.get_joint_torques()
 
-            # test
+            # plot trajecs when the buffers are filled
             try: self.trajecs_recorded += 1
             except: self.trajecs_recorded = 1
             if self.trajecs_recorded % (_trajec_buffer_length) == 0:
@@ -91,6 +101,23 @@ class Monitor(gym.Wrapper):
                 axes[i_joint].plot(trajecs[i_joint, :])
         plt.legend(['Simulation', 'Reference'], loc='lower right', bbox_to_anchor=(1.75, 0.1))
         plt.suptitle('Comparison of Simulation and Reference Joint Kinematics over Time')
+
+        PLOT_TORQUES = True
+        if PLOT_TORQUES:
+            i_not_actuated = self.env._get_not_actuated_joint_indices()
+            i_actuated = 0
+            plt.rcParams['lines.linewidth'] = 1
+            for i_joint in range(num_joints):
+                if i_joint in i_not_actuated:
+                    continue
+                if i_actuated >= self.torque_buf.shape[0]:
+                    break
+                tor_plt = axes[i_joint].twinx()
+                line = tor_plt.plot(self.torque_buf[i_actuated, :], '#77777777')
+                tor_plt.tick_params(axis='y', labelcolor='#777777')
+                i_actuated += 1
+            plt.rcParams['lines.linewidth'] = 2
+            lines.append(line[0])
         # fix title overlapping when tight_layout is true
         plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
 
@@ -100,5 +127,6 @@ class Monitor(gym.Wrapper):
         plt.vlines(np.argwhere(self.dones_buf).flatten()+1,
                    0 , 1, colors='#cccccc')
         plt.title('Rewards')
+
 
         plt.show()

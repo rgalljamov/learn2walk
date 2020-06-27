@@ -62,6 +62,9 @@ class MimicEnv:
             qvel = self._remove_by_indices(qvel, self._get_COM_indices())
         return qvel
 
+    def get_joint_torques(self):
+        return np.copy(self.sim.data.actuator_force)
+
     def playback_ref_trajectories(self, timesteps=2000, pd_pos_control=False):
         global _play_ref_trajecs
         _play_ref_trajecs = True
