@@ -3,6 +3,7 @@ Interface for environments using reference trajectories.
 '''
 import gym, mujoco_py
 import numpy as np
+import seaborn as sns
 from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 
@@ -14,6 +15,7 @@ _rsinitialized = False
 _play_ref_trajecs = False
 
 class MimicEnv:
+
     def __init__(self: gym.Env, ref_trajecs:RefTrajecs):
         '''@param: self: gym environment implementing the MimicEnv interface.'''
         self.refs = ref_trajecs

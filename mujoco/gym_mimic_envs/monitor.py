@@ -1,6 +1,7 @@
 import gym
-from gym_mimic_envs.mimic_env import MimicEnv
 import numpy as np
+import seaborn as sns
+from gym_mimic_envs.mimic_env import MimicEnv
 
 # length of the buffer containing sim and ref trajecs for comparison
 _trajec_buffer_length = 2000
@@ -75,22 +76,30 @@ class Monitor(gym.Wrapper):
         """
         plt = self.env.refs.plt
         plt.rcParams.update({'figure.autolayout': False})
+        sns.set_style("whitegrid", {'axes.edgecolor':'white'})
 
         num_joints = len(self.kinem_labels)
         cols = 5
         rows = int((num_joints+1)/cols) + 1
         # plot sim trajecs
         trajecs = self.trajecs_buffer[0,:,:]
+        # collect axes to reuse them for overlaying multiple plots
         axes = []
+        # collect different lines to place the legend in a separate subplot
+        lines = []
         for i_joint in range(num_joints):
             try: axes.append(plt.subplot(rows, cols, i_joint + 1, sharex=axes[i_joint-1]))
             except: axes.append(plt.subplot(rows, cols, i_joint + 1))
             trajec = trajecs[i_joint, :]
-            plt.plot(trajec)
+            line = plt.plot(trajec)
             # show episode ends
+            plt.rcParams['lines.linewidth'] = 1
             plt.vlines(np.argwhere(self.dones_buf).flatten()+1,
-                       np.min(trajec), np.max(trajec), colors='#cccccc')
+                       np.min(trajec), np.max(trajec), colors='#cccccc', linestyles='dashed')
+            plt.rcParams['lines.linewidth'] = 2
             plt.title(self.kinem_labels[i_joint])
+        lines.append(line[0])
+
         # plot ref trajecs
         PLOT_REFS = True
         if PLOT_REFS:
@@ -98,9 +107,8 @@ class Monitor(gym.Wrapper):
             # copy ankle joint trajectories todo: remove
             # trajecs[5, :] = trajecs[8, :]
             for i_joint in range(num_joints):
-                axes[i_joint].plot(trajecs[i_joint, :])
-        plt.legend(['Simulation', 'Reference'], loc='lower right', bbox_to_anchor=(1.75, 0.1))
-        plt.suptitle('Comparison of Simulation and Reference Joint Kinematics over Time')
+                line = axes[i_joint].plot(trajecs[i_joint, :])
+            lines.append(line[0])
 
         PLOT_TORQUES = True
         if PLOT_TORQUES:
@@ -118,15 +126,29 @@ class Monitor(gym.Wrapper):
                 i_actuated += 1
             plt.rcParams['lines.linewidth'] = 2
             lines.append(line[0])
+
+        # plot the legend in a separate subplot
+        with sns.axes_style("white", {"axes.edgecolor": 'white'}):
+            legend_subplot = plt.subplot(rows, cols, num_joints + 2)
+            legend_subplot.set_xticks([])
+            legend_subplot.set_yticks([])
+            legend_subplot.legend(lines, ['Simulation [rad]', 'Reference [rad]',
+                                          "Joint Torque [Nm]"], loc='lower right')
+
         # fix title overlapping when tight_layout is true
         plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
+        plt.suptitle('Simulation and Reference Joint Kinematics over Time '
+                     '(Angles in [rad], Angular Velocities in [rad/s])')
+
 
         # add rewards
         plt.subplot(rows, cols, len(axes)+1, sharex=axes[-1])
         plt.plot(self.rewards[-_trajec_buffer_length:])
         plt.vlines(np.argwhere(self.dones_buf).flatten()+1,
                    0 , 1, colors='#cccccc')
+        plt.ylim([-0.775, 1.025])
         plt.title('Rewards')
 
 
         plt.show()
+        raise SystemExit('Planned exit after closing trajectory comparison plot.')
