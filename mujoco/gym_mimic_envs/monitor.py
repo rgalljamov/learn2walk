@@ -147,7 +147,7 @@ class Monitor(gym.Wrapper):
             plot_actions(self.torque_buf/1000, "Joint Torque [kNm]")
             second_y_axis_pos = 1.12
 
-        PLOT_ACTIONS = True
+        PLOT_ACTIONS = False
         if PLOT_ACTIONS:
             plot_actions(self.action_buf, 'PD Target [rad]', '#ff0000')
 
@@ -170,9 +170,8 @@ class Monitor(gym.Wrapper):
         plt.plot(self.rewards[-_trajec_buffer_length:])
         plt.vlines(np.argwhere(self.dones_buf).flatten()+1,
                    0 , 1, colors='#cccccc')
-        plt.ylim([-0.775, 1.025])
+        plt.ylim([-0.075, 1.025])
         plt.title('Rewards')
-
 
         plt.show()
         raise SystemExit('Planned exit after closing trajectory comparison plot.')

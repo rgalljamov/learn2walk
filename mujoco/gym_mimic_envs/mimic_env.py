@@ -117,11 +117,10 @@ class MimicEnv:
                 # des_qpos[1] = 0.4
                 # if i % 60 == 0:
                 #     self.reset()
-                for _ in range(self.frame_skip):
-                    if FLIGHT:
-                        self.sim.data.qpos[[0, 1, 2]] = [0, 1.5, 0]
-                        self.sim.data.qvel[[0, 1, 2]] = 0
-                    obs, reward, done, _ = self.step(des_qpos)
+                if FLIGHT:
+                    self.sim.data.qpos[[0, 1, 2]] = [0, 1.5, 0]
+                    self.sim.data.qvel[[0, 1, 2]] = 0
+                obs, reward, done, _ = self.step(des_qpos)
                 # obs, reward, done, _ = self.step(np.ones_like(des_qpos)*(0))
                 # ankle tune:
                 # obs, reward, done, _ = self.step([0, 0, -0.3, 0, 0, -0.3])
@@ -298,6 +297,7 @@ class MimicEnv:
         com_deviation_prct = com_delta/com_height_des
         allowed_com_deviation_prct = 0.4
         com_max_dev_exceeded = com_deviation_prct > allowed_com_deviation_prct
+        if self._FLY: com_max_dev_exceeded = False
 
         # calculate if trunk angle exceeded limits of 45° (0.785 in rad)
         trunk_ang_exceeded = np.abs(trunk_ang_saggit) > 0.7
