@@ -25,7 +25,7 @@ class MimicEnv:
         # names of all robot kinematics
         self.kinem_labels = self.refs.get_kinematics_labels()
         # keep the body in the air for testing purposes
-        self._FLY = True
+        self._FLY = False
 
 
     def step(self):

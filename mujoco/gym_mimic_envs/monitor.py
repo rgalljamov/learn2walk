@@ -1,6 +1,7 @@
 import gym
 import numpy as np
 import seaborn as sns
+from scripts.common.utils import config_pyplot
 from gym_mimic_envs.mimic_env import MimicEnv
 
 # length of the buffer containing sim and ref trajecs for comparison
@@ -17,6 +18,9 @@ class Monitor(gym.Wrapper):
 
         self.setup_containers()
 
+        self.plt = config_pyplot(fullscreen=True, font_size=12,
+                                 tick_size=12, legend_fontsize=16)
+
 
     def setup_containers(self):
         self.ep_len = 0
@@ -30,6 +34,8 @@ class Monitor(gym.Wrapper):
         self.trajecs_buffer = np.zeros((2, len(self.num_dofs), _trajec_buffer_length))
         # monitor episode terminations
         self.dones_buf = np.zeros((_trajec_buffer_length,))
+        # monitor the actions at actuated joints (PD target angles)
+        self.action_buf = np.zeros((self.num_actions, _trajec_buffer_length))
         # monitor the joint torques
         self.torque_buf = np.zeros((self.num_actions, _trajec_buffer_length))
 
@@ -56,6 +62,9 @@ class Monitor(gym.Wrapper):
             # do the same with the dones
             self.dones_buf = np.roll(self.dones_buf, -1)
             self.dones_buf[-1] = done
+            # save actions
+            self.action_buf = np.roll(self.action_buf, -1, axis=1)
+            self.action_buf[:, -1] = action
             # save joint toqrues
             self.torque_buf = np.roll(self.torque_buf, -1, axis=1)
             self.torque_buf[:, -1] = self.get_joint_torques()
@@ -74,9 +83,11 @@ class Monitor(gym.Wrapper):
         Plot simulation and reference trajectories in a single figure
         to compare them.
         """
-        plt = self.env.refs.plt
+        plt = self.plt
         plt.rcParams.update({'figure.autolayout': False})
-        sns.set_style("whitegrid", {'axes.edgecolor':'white'})
+        sns.set_style("whitegrid", {'axes.edgecolor':'#ffffff00'})
+        names = ['Simulation [rad]'] # line names (legend)
+        second_y_axis_pos = 1.0
 
         num_joints = len(self.kinem_labels)
         cols = 5
@@ -109,34 +120,47 @@ class Monitor(gym.Wrapper):
             for i_joint in range(num_joints):
                 line = axes[i_joint].plot(trajecs[i_joint, :])
             lines.append(line[0])
+            names.append('Reference [rad]')
+
+        def plot_actions(buffer, name, line_color='#777777'):
+            with sns.axes_style("white", {"axes.edgecolor": '#ffffff00',
+                                          "ytick.color":'#ffffff00'}):
+                i_not_actuated = self.env._get_not_actuated_joint_indices()
+                i_actuated = 0
+                plt.rcParams['lines.linewidth'] = 1
+                for i_joint in range(num_joints):
+                    if i_joint in i_not_actuated:
+                        continue
+                    if i_actuated >= buffer.shape[0]:
+                        break
+                    act_plt = axes[i_joint].twinx()
+                    act_plt.spines['right'].set_position(('axes', second_y_axis_pos))
+                    line = act_plt.plot(buffer[i_actuated, :], line_color+'77')
+                    act_plt.tick_params(axis='y', labelcolor=line_color)
+                    i_actuated += 1
+                plt.rcParams['lines.linewidth'] = 2
+            lines.append(line[0])
+            names.append(name)
 
         PLOT_TORQUES = True
         if PLOT_TORQUES:
-            i_not_actuated = self.env._get_not_actuated_joint_indices()
-            i_actuated = 0
-            plt.rcParams['lines.linewidth'] = 1
-            for i_joint in range(num_joints):
-                if i_joint in i_not_actuated:
-                    continue
-                if i_actuated >= self.torque_buf.shape[0]:
-                    break
-                tor_plt = axes[i_joint].twinx()
-                line = tor_plt.plot(self.torque_buf[i_actuated, :], '#77777777')
-                tor_plt.tick_params(axis='y', labelcolor='#777777')
-                i_actuated += 1
-            plt.rcParams['lines.linewidth'] = 2
-            lines.append(line[0])
+            plot_actions(self.torque_buf/1000, "Joint Torque [kNm]")
+            second_y_axis_pos = 1.12
+
+        PLOT_ACTIONS = True
+        if PLOT_ACTIONS:
+            plot_actions(self.action_buf, 'PD Target [rad]', '#ff0000')
 
         # plot the legend in a separate subplot
         with sns.axes_style("white", {"axes.edgecolor": 'white'}):
             legend_subplot = plt.subplot(rows, cols, num_joints + 2)
             legend_subplot.set_xticks([])
             legend_subplot.set_yticks([])
-            legend_subplot.legend(lines, ['Simulation [rad]', 'Reference [rad]',
-                                          "Joint Torque [Nm]"], loc='lower right')
+            legend_subplot.legend(lines, names, loc='lower right')
 
         # fix title overlapping when tight_layout is true
         plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
+        plt.subplots_adjust(wspace=0.55, hspace=0.5)
         plt.suptitle('Simulation and Reference Joint Kinematics over Time '
                      '(Angles in [rad], Angular Velocities in [rad/s])')
 
