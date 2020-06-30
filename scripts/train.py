@@ -61,6 +61,9 @@ if __name__ == "__main__":
     # save model after training
     utils.save_model(model, cfg.save_path, cfg.final_checkpoint)
 
+    # close envioronment
+    env.close()
+
     # evaluate last saved model
     # todo: evaluate multiple models, if previous models were better
     eval.eval_model()
