@@ -14,9 +14,12 @@ from stable_baselines.common.policies import MlpPolicy
 
 def run_tensorboard():
     import os, threading
+    print('You can start tensorboard with the following command:\n'
+          'tensorboard --logdir="' + cfg.save_path + 'tb_logs/"')
+    tb_path = '/home/rustam/anaconda3/envs/drl/bin/tensorboard ' if utils.is_remote() \
+        else '/home/rustam/.conda/envs/tensorflow/bin/tensorboard '
     tb_thread = threading.Thread(
-        target=lambda: os.system('/home/rustam/anaconda3/envs/drl/bin/tensorboard '
-                                 '--logdir=' + cfg.save_path + "tb_logs/"),
+        target=lambda: os.system(tb_path + '--logdir="' + cfg.save_path + 'tb_logs/"'),
         daemon=True)
     tb_thread.start()
 
