@@ -15,6 +15,7 @@ plt = utils.import_pyplot()
 RENDER = True and not utils.is_remote()
 NO_ET = True
 PLOT_RESULTS = False
+DETERMINISTIC_ACTIONS = False
 
 FROM_PATH = True
 PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/deepmim/" \
@@ -73,7 +74,7 @@ def eval_model(from_config=True):
 
     while True:
         ep_dur += 1
-        action, hid_states = model.predict(obs, deterministic=False)
+        action, hid_states = model.predict(obs, deterministic=DETERMINISTIC_ACTIONS)
         if ep_dur <= rec_n_steps:
             all_actions[ep_count, :, ep_dur - 1] = action
         obs, reward, done, info = env.step(action)
@@ -205,7 +206,7 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
 
 
             while step <= rec_n_steps:
-                action, hid_states = model.predict(obs, deterministic=False)
+                action, hid_states = model.predict(obs, deterministic=DETERMINISTIC_ACTIONS)
                 obs, reward, done, info = video_env.step(action)
                 step += 1
                 # only reset when agent has fallen
