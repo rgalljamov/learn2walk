@@ -4,7 +4,7 @@ import seaborn as sns
 
 from scripts.common.config import save_path
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
-import gym_mimic_envs
+# import gym_mimic_envs
 
 def import_pyplot():
     """Imports pyplot and activates the right backend
@@ -57,9 +57,16 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True):
     '''creates environments, vectorizes them and sets different seeds
     @:param norm_rew: reward should only be normalized during training'''
 
+    from gym_mimic_envs.mimic_env import MimicEnv
+    from gym_mimic_envs.monitor import Monitor as EnvMonitor
+
     def make_env_func(env_name, seed, rank):
         def make_env():
             env = gym.make(env_name)
+            if isinstance(env, MimicEnv):
+                # wrap a MimicEnv in the EnvMonitor
+                # has to be done before converting into a VecEnv!
+                env = EnvMonitor(env)
             env.seed(seed+rank*100)
             return env
         return make_env

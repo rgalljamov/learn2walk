@@ -2,6 +2,7 @@ import os.path
 import numpy as np
 from scripts.common import utils
 from scripts.common import config as cfg
+from gym_mimic_envs.monitor import Monitor as EnvMonitor
 
 # to decrease the amount of deprecation warnings
 import tensorflow as tf
@@ -49,6 +50,7 @@ def eval_model(from_config=True):
     print('\nModel:\n', model_path + '\n')
 
     env = load_env(checkpoint, save_path)
+    env = EnvMonitor(env, True)
 
     ep_rewards, all_returns, ep_durations = [], [], []
     all_rewards = np.zeros((n_eps, rec_n_steps))

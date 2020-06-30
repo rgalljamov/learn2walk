@@ -1,8 +1,7 @@
 import os.path
-import scripts.common.config as cfg
-from scripts.common import utils
-from scripts.common.callback import callback
 from scripts import eval
+from scripts.common import config as cfg, utils
+from scripts.common.callback import TrainingMonitor
 
 # to decrease the amount of deprecation warnings
 import tensorflow as tf

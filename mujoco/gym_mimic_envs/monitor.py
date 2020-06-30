@@ -1,19 +1,37 @@
 import gym
 import numpy as np
 import seaborn as sns
-from scripts.common.utils import config_pyplot
+from scripts.common.utils import config_pyplot, is_remote
 from gym_mimic_envs.mimic_env import MimicEnv
+from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 
 # length of the buffer containing sim and ref trajecs for comparison
 _trajec_buffer_length = 2000
 
 class Monitor(gym.Wrapper):
 
-    def __init__(self, env: MimicEnv):
-        self.env = env
+    def __init__(self, env: MimicEnv, eval=False):
+        self.is_eval = eval
+        try:
+            env_type = type(env)
+            env_is_mimic_env = isinstance(env, MimicEnv)
+            env_is_subproc = isinstance(env.venv, SubprocVecEnv)
+            env_is_normalize = isinstance(env, VecNormalize)
+            env_is_dummy = isinstance(env, DummyVecEnv)
+        except:
+            pass
+        if isinstance(env, MimicEnv):
+            self.env = env
+        if isinstance(env, VecNormalize):
+            self.env = env.venv.envs[0]
+        elif isinstance(env, DummyVecEnv):
+            self.env = env.envs[0]
+
+
         super(Monitor, self).__init__(self.env)
 
-        self.num_dofs = self.env.kinem_labels
+        self.num_dofs = len(self.env.kinem_labels)
+        # self.num_dofs = self.env.observation_space.high.size
         self.num_actions = self.env.action_space.high.size
 
         self.setup_containers()
@@ -31,7 +49,7 @@ class Monitor(gym.Wrapper):
         self.grfs_right = []
 
         # monitor sim and ref trajecs for comparison (sim/ref, kinem_indices, timesteps)
-        self.trajecs_buffer = np.zeros((2, len(self.num_dofs), _trajec_buffer_length))
+        self.trajecs_buffer = np.zeros((2, self.num_dofs, _trajec_buffer_length))
         # monitor episode terminations
         self.dones_buf = np.zeros((_trajec_buffer_length,))
         # monitor the actions at actuated joints (PD target angles)
@@ -50,7 +68,7 @@ class Monitor(gym.Wrapper):
             self.ep_lens.append(self.ep_len)
             self.ep_len = 0
 
-        COMPARE_TRAJECS = True
+        COMPARE_TRAJECS = True and not is_remote()
         if COMPARE_TRAJECS:
             # save sim and ref trajecs in a buffer for comparison
             sim_trajecs = self.env.get_joint_kinematics(concat=True)
@@ -72,7 +90,7 @@ class Monitor(gym.Wrapper):
             # plot trajecs when the buffers are filled
             try: self.trajecs_recorded += 1
             except: self.trajecs_recorded = 1
-            if self.trajecs_recorded % (_trajec_buffer_length) == 0:
+            if not self.is_eval and self.trajecs_recorded % (1 * _trajec_buffer_length) == 0:
                 self.compare_sim_ref_trajecs()
 
         return obs, reward, done, _
@@ -174,4 +192,5 @@ class Monitor(gym.Wrapper):
         plt.title('Rewards')
 
         plt.show()
-        raise SystemExit('Planned exit after closing trajectory comparison plot.')
+        # if not self.is_eval:
+        #     raise SystemExit('Planned exit after closing trajectory comparison plot.')
