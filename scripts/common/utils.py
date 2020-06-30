@@ -83,6 +83,18 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True):
     return vec_env
 
 
+def check_environment(env_name):
+    from gym_mimic_envs.monitor import Monitor as EnvMonitor
+    from stable_baselines.common.env_checker import check_env
+    env = gym.make(env_name)
+    log('Checking custom environment')
+    check_env(env)
+    env = EnvMonitor(env)
+    log('Checking custom env in custom monitor wrapper')
+    check_env(env)
+    exit(33)
+
+
 def log(text):
     print("\n---------------------------------------\n"
           + text +
