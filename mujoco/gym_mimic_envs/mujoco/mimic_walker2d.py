@@ -25,13 +25,13 @@ qvel_indices = [refs.COM_VELX, refs.COM_VELZ, refs.TRUNK_ANGVEL_Y,
 # adaptations needed to account for different body shape
 # and axes definitions in the reference trajectories
 ref_trajec_adapts = {}
-
+step_count = 0
+ep_dur = 0
 
 class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
     """
     Building upon the Walker2d-v2 Environment with the id: Walker2d-v2
     """
-
     def __init__(self):
         mujoco_env.MujocoEnv.__init__(self,
                                       join(dirname(__file__), "assets", 'walker2d.xml'), 4)
@@ -47,6 +47,11 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         if pause_viewer_at_first_step:
             self._get_viewer('human')._paused = True
             pause_viewer_at_first_step = False
+
+        global step_count, ep_dur
+        step_count += 1
+        ep_dur += 1
+
         DEBUG = False
         mimic_env_inited = MimicEnv.step(self)
         if not mimic_env_inited:
@@ -99,16 +104,26 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         if USE_ET:
             done = self.has_exceeded_allowed_deviations()
         elif USE_REW_ET:
-            done = self.do_terminate_early(reward, height, ang, rew_threshold=0.1)
+            done = self.do_terminate_early(reward, height, ang, rew_threshold=0.2)
         else:
             done = not (height > 0.8 and height < 2.0 and
                         ang > -1.0 and ang < 1.0)
+            done = done or ep_dur > 4000
         if DEBUG and done: print('Done')
 
-        # set reward to zero when episode terminated
-        if done: reward = -10
+        # punish episode termination
+        if done: reward = -100
 
-        # self.render()
+        do_render = False
+        if step_count % 240000 == 0:
+            print("start rendering, step: ", step_count)
+            # do_render = True
+            # pause_viewer_at_first_step = True
+        elif step_count % 250000 == 0:
+            print("stop rendering, step: ", step_count)
+            # do_render = False
+        if do_render: self.render()
+
         ob = self._get_obs()
         return ob, reward, done, {}
 

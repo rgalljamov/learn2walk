@@ -30,20 +30,24 @@ def mod(mods:list):
     modification = ''
     for mod in mods:
         modification += mod + '/'
+    # remove last /
+    modification = modification[:-1]
     return modification
 
 # choose approach
 AP_DEEPMIMIC = 'deepmim'
+AP_RUN = 'run'
 approach = AP_DEEPMIMIC
 
+MOD_FLY = 'fly'
 MOD_ORIG = 'orig'
+MOD_REAL_TORQUE_PEAKS = 'real_torque'
 # no phase variable, minimal state/action spaces, weak ET, no endeffector reward
 MOD_MINIMAL = 'minimal'
-MOD_REW_ET = 'rew_et'
-modification = mod([MOD_MINIMAL, MOD_REW_ET])
+modification = MOD_REAL_TORQUE_PEAKS # mod([MOD_MINIMAL, MOD_REW_ET])
 
 # config environment
-n_parallel_envs = 4
+n_parallel_envs = 1
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
 env_names = ['mim_walker2d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
 env_index = 0
@@ -77,12 +81,12 @@ sftm_inv_temp = 1
 
 own_hypers = '' # f'zero_prct{s(zero_prct)}/' # f'slope{rem_slope}_init{s(rem_prct_init)}/' # f'scale{s(sftmx_scale)}_init{sftmx_init}_shft{s(sftmx_shift)}_invtmp{s(sftm_inv_temp)}/' # f'l1_lam{s(l1_scale)}/' # f'hid{s(hid_size)}/' # f'tpl{s(tuple_size)}/' #  f'sigm_sl{s(sigm_slope)}_th{s(sigm_thres)}/'
 run = s(np.random.random_integers(0,1000))
-info = 'pun10_mxeplen1e4_nstp4096_gamma999'
+info = 'pun100_nstp4096_gamma999'
 
 # construct the paths
 abs_project_path = dirname(dirname(dirname(__file__))) + '/'
 save_path_norun= abs_project_path + \
-                 f'models/{approach}/{modification}/{env_name}/{algo}/{hyperparam}/{mio_steps}mio/' \
+                 f'models/monit/{approach}/{modification}/{env_name}/{n_parallel_envs}envs/{algo}/{hyperparam}/{mio_steps}mio/' \
                  + (f'{own_hypers + info}/' if len(own_hypers+info)>0 else '')
 save_path = save_path_norun + f'{run}/'
 

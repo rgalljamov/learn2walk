@@ -12,11 +12,17 @@ from stable_baselines import PPO2
 plt = utils.import_pyplot()
 
 
-RENDER = False
+RENDER = True and not utils.is_remote()
+NO_ET = True
 PLOT_RESULTS = False
 
+FROM_PATH = True
+PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/deepmim/" \
+       "real_torque/mim_walker2d/1envs/ppo2/hyper_dflt/10mio/pun100_nstp4096_gamma999/299"
+if not PATH.endswith('/'): PATH += '/'
+
 # which model should be evaluated
-run_id = 260
+run_id = 78
 checkpoint = 999
 
 # evaluate for n episodes
@@ -41,7 +47,11 @@ def eval_model(from_config=True):
         checkpoint = cfg.final_checkpoint
 
     # change save_path to specified model
-    save_path = cfg.save_path_norun + f'{run_id}/'
+    if FROM_PATH:
+        save_path = PATH
+    else:
+        save_path = cfg.save_path_norun + f'{run_id}/'
+
 
     # load model
     model_path = save_path + f'models/model_{checkpoint}.zip'
@@ -63,27 +73,35 @@ def eval_model(from_config=True):
 
     while True:
         ep_dur += 1
-        action, hid_states = model.predict(obs, deterministic=True)
+        action, hid_states = model.predict(obs, deterministic=False)
         if ep_dur <= rec_n_steps:
             all_actions[ep_count, :, ep_dur - 1] = action
         obs, reward, done, info = env.step(action)
-        ep_rewards += [reward[0]]
-        if done.any():
+        ep_rewards += [reward[0] if isinstance(reward,list) else reward]
+        done_is_scalar = isinstance(done, bool) or \
+                         isinstance(done, np.bool_) or isinstance(done, np.bool)
+        done_is_list = isinstance(done, list)
+        done = (done_is_scalar and done) or (done_is_list and done.any())
+        # end the episode also after a max amount of steps
+        done = done or (ep_dur > 2000)
+        if done:
             ep_durations.append(ep_dur)
             # clip ep_dur to max number of steps to save
             ep_dur = min(ep_dur, rec_n_steps)
             all_rewards[ep_count,:ep_dur] = np.asarray(ep_rewards)[:ep_dur]
             ep_return = np.sum(ep_rewards)
             all_returns.append(ep_return)
-            if RENDER: print('ep_return : ', ep_return)
+            if RENDER: print('ep_return: ', ep_return)
             # reset all episode specific containers and counters
             ep_rewards = []
             ep_dur = 0
             ep_count += 1
             # stop evaluation after enough episodes were observed
             if ep_count >= n_eps: break
-            elif ep_count % 10 == 0:
+            elif ep_count % 5 == 0:
                 print(f'-> {ep_count}', end=' ', flush=True)
+            env.reset()
+
         if RENDER: env.render()
     env.close()
 
@@ -150,7 +168,10 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
     relevant_eps_names = ['best', 'worst', 'mean']
 
     # reload environment to replicate behavior of evaluation episodes (determinism tested)
-    save_path = cfg.save_path_norun + f'{run_id}/'
+    if FROM_PATH:
+        save_path = PATH
+    else:
+        save_path = cfg.save_path_norun + f'{run_id}/'
     env = load_env(checkpoint, save_path)
     obs = env.reset()
 
@@ -164,7 +185,7 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
     # if epoch is not interesting, choose a bad action to finish it quickly
     zero_actions = np.zeros_like(model.action_space.high)
 
-    # repeat only as much episodes as possible
+    # repeat only as much episodes as necessary
     while ep_count <= max(relevant_eps):
 
         if ep_count in relevant_eps:
@@ -177,13 +198,21 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
                                          record_video_trigger=lambda x: x > 0,
                                          video_length=video_len,
                                          name_prefix=f'{ep_name}_{int(ep_ret)}_')
+            if 'fly' in save_path:
+                video_env.env.venv.envs[0].env._FLY = True
+                print('flight detected')
             obs = video_env.reset()
 
+
             while step <= rec_n_steps:
-                action, hid_states = model.predict(obs, deterministic=True)
+                action, hid_states = model.predict(obs, deterministic=False)
                 obs, reward, done, info = video_env.step(action)
                 step += 1
-                if done.any(): break
+                # only reset when agent has fallen
+                if has_fallen(video_env):
+                    video_env.reset()
+
+
 
             video_env.close()
             utils.log(f"Saved performance video after {step} steps.")
@@ -205,6 +234,9 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
         ep_count += 1
     env.close()
 
+def has_fallen(video_env):
+    com_z_pos = video_env.env.venv.envs[0].env.data.qpos[1]
+    return com_z_pos < 0.5
 
 def load_env(checkpoint, save_path):
     # load a single environment for evaluation
@@ -221,3 +253,4 @@ if __name__ == "__main__":
 # eval.py was called from another script
 else:
     RENDER = False
+    FROM_PATH = False
