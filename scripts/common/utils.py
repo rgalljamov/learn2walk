@@ -6,6 +6,12 @@ from scripts.common.config import save_path
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 # import gym_mimic_envs
 
+# used for running mean
+_running_means = {}
+
+# used for exponential running smoothing
+_exp_weighted_averages = {}
+
 def import_pyplot():
     """Imports pyplot and activates the right backend
        to render plots on local system even they're drawn remotely.
@@ -178,3 +184,52 @@ def lowpass_filter_data(data, sample_rate, cutoff_freq, order=1):
     fltrd_data = signal.filtfilt(b, a, data)
 
     return fltrd_data
+
+
+def running_mean(label: str, new_value):
+    """
+    Computes the running mean, given a new value.
+    Several running means can be monitored parallely by providing different labels.
+    :param label: give your running mean a name.
+                  Will be used as a dict key to save current running mean value.
+    :return: current running mean value for the provided label
+    """
+
+    if label in  _running_means:
+        old_mean, num_values = _running_means[label]
+        new_mean = (old_mean * num_values + new_value) / (num_values + 1)
+        _running_means[label] = [new_mean, num_values + 1]
+    else:
+        # first value for the running mean
+        _running_means[label] = [new_value, 1]
+
+    return _running_means[label][0]
+
+
+def exponential_running_smoothing(label, new_value, smoothing_factor=0.9):
+    """
+    Implements an exponential running smoothing filter.
+    Several inputs can be filtered parallely by providing different labels.
+    :param label: give your filtered data a name.
+                  Will be used as a dict key to save current filtered value.
+    :return: current filtered value for the provided label
+    """
+    global _exp_weighted_averages
+
+    if label not in _exp_weighted_averages:
+        _exp_weighted_averages[label] = new_value
+        return new_value
+
+    new_average = smoothing_factor * new_value + (1 - smoothing_factor) * _exp_weighted_averages[label]
+    _exp_weighted_averages[label] = new_average
+
+    return new_average
+
+
+def resetExponentialRunningSmoothing(label):
+    """
+    Sets the current value of the exponential running smoothing identified by the label to zero.
+    """
+    global _exp_weighted_averages
+    _exp_weighted_averages[label] = 0
+    return True
