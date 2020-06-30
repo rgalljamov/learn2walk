@@ -59,7 +59,7 @@ if __name__ == "__main__":
     utils.save_model(model, cfg.save_path, cfg.init_checkpoint)
 
     # train model
-    model.learn(total_timesteps=int(cfg.mio_steps * 1e6)) #, callback=callback)
+    model.learn(total_timesteps=int(cfg.mio_steps * 1e6), callback=TrainingMonitor())
 
     # save model after training
     utils.save_model(model, cfg.save_path, cfg.final_checkpoint)

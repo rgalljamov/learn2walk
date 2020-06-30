@@ -1,7 +1,30 @@
 from os import makedirs
+import tensorflow as tf
 import numpy as np
 
 from scripts.common import config as cfg, utils
+from stable_baselines.common.callbacks import BaseCallback
+
+class TrainingMonitor(BaseCallback):
+    def __init__(self, verbose=0):
+        self.is_tb_set = False
+        super(TrainingMonitor, self).__init__(verbose)
+
+    def _on_training_start(self) -> None:
+        self.env = self.training_env
+
+    def _on_step(self) -> bool:
+        ep_len = np.mean(self.env.get_attr('ep_len_smoothed'))
+        ep_ret = np.mean(self.env.get_attr('ep_ret_smoothed'))
+
+        # Log scalar value (here a random variable)
+        summary = tf.Summary(value=[
+            tf.Summary.Value(tag='own_data/mean_smoothed_episode_length', simple_value=ep_len),
+            tf.Summary.Value(tag='own_data/mean_smoothed_episode_return', simple_value=ep_ret)])
+
+        self.locals['writer'].add_summary(summary, self.num_timesteps)
+
+        return True
 
 
 def _save_rews_n_rets(locals):

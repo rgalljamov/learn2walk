@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 import seaborn as sns
-from scripts.common.utils import config_pyplot, is_remote
+from scripts.common.utils import config_pyplot, is_remote, exponential_running_smoothing as smooth
 from gym_mimic_envs.mimic_env import MimicEnv
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 
@@ -42,8 +42,10 @@ class Monitor(gym.Wrapper):
 
     def setup_containers(self):
         self.ep_len = 0
+        self.ep_len_smoothed = 0
         self.rewards = []
         self.returns = []
+        self.ep_ret_smoothed = 0
         self.ep_lens = []
         self.grfs_left = []
         self.grfs_right = []
@@ -64,8 +66,11 @@ class Monitor(gym.Wrapper):
         self.rewards.append(reward)
 
         if done:
-            self.returns.append(np.sum(self.rewards[:-self.ep_len]))
+            ep_return = np.sum(self.rewards[-self.ep_len:])
+            self.returns.append(ep_return)
+            self.ep_ret_smoothed = smooth('ep_ret', ep_return, 0.75)
             self.ep_lens.append(self.ep_len)
+            self.ep_len_smoothed = smooth('ep_len', self.ep_len, 0.75)
             self.ep_len = 0
 
         COMPARE_TRAJECS = True and not is_remote()
