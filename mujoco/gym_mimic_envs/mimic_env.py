@@ -4,6 +4,7 @@ Interface for environments using reference trajectories.
 import gym, mujoco_py
 import numpy as np
 import seaborn as sns
+from scripts.common.utils import log
 from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 
@@ -36,6 +37,10 @@ class MimicEnv:
         Workaround (see doc string for _rsinitialized)
         """
         if not _rsinitialized:
+            return False
+
+        if self.refs is None:
+            log("MimicEnv.step() called before refs were initialized!")
             return False
 
         self.refs.next()
