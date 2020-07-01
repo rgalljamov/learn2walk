@@ -4,6 +4,7 @@ Interface for environments using reference trajectories.
 import gym, mujoco_py
 import numpy as np
 import seaborn as sns
+from scripts.common import config as cfg
 from scripts.common.utils import log
 from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
@@ -26,7 +27,8 @@ class MimicEnv:
         # names of all robot kinematics
         self.kinem_labels = self.refs.get_kinematics_labels()
         # keep the body in the air for testing purposes
-        self._FLY = False
+        self._FLY = False or cfg.is_mod(cfg.MOD_FLY)
+        self._evaluation_on = False
 
 
     def step(self):
@@ -79,6 +81,12 @@ class MimicEnv:
         elif exclude_com:
             qvel = self._remove_by_indices(qvel, self._get_COM_indices())
         return qvel
+
+    def activate_evaluation(self):
+        self._evaluation_on = True
+
+    def is_evaluation_on(self):
+        return self._evaluation_on
 
     def get_joint_torques(self):
         return np.copy(self.sim.data.actuator_force)

@@ -18,13 +18,13 @@ PLOT_RESULTS = False
 DETERMINISTIC_ACTIONS = False
 
 FROM_PATH = True
-PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/deepmim/" \
-       "real_torque/mim_walker2d/1envs/ppo2/hyper_dflt/10mio/pun100_nstp4096_gamma999/299"
+PATH = "/home/rustam/code/remote/models/run/500Nm/mim_walker2d/16envs/ppo2/hyper_dflt/" \
+       "20mio/lr500to1_clp1_bs8_imrew514_pun100_gamma999/832-evaled"
 if not PATH.endswith('/'): PATH += '/'
 
 # which model should be evaluated
 run_id = 78
-checkpoint = 999
+checkpoint = 23500 # 999
 
 # evaluate for n episodes
 n_eps = 25
@@ -62,6 +62,7 @@ def eval_model(from_config=True):
 
     env = utils.load_env(checkpoint, save_path)
     env = EnvMonitor(env, True)
+    env.activate_evaluation()
 
     ep_rewards, all_returns, ep_durations = [], [], []
     all_rewards = np.zeros((n_eps, rec_n_steps))
@@ -195,7 +196,8 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
             ep_name = relevant_eps_names[ep_index]
 
             # create an environment that captures performance on video
-            video_env = VecVideoRecorder(env, save_path + 'videos',
+            video_env = VecVideoRecorder(env, save_path + 'videos_' +
+                                         ('determin' if DETERMINISTIC_ACTIONS else 'stochastic'),
                                          record_video_trigger=lambda x: x > 0,
                                          video_length=video_len,
                                          name_prefix=f'{ep_name}_{int(ep_ret)}_')

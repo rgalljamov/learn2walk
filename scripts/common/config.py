@@ -34,10 +34,16 @@ def mod(mods:list):
     modification = modification[:-1]
     return modification
 
+def is_mod(mod_str):
+    return mod_str in modification
+
+def do_run():
+    return AP_RUN in approach
+
 # choose approach
 AP_DEEPMIMIC = 'deepmim'
 AP_RUN = 'run'
-approach = AP_DEEPMIMIC
+approach = AP_RUN
 
 MOD_FLY = 'fly'
 MOD_ORIG = 'orig'
@@ -46,13 +52,17 @@ MOD_REAL_TORQUE_PEAKS = 'real_torque'
 MOD_TORQUE_500 = '500Nm'
 # no phase variable, minimal state/action spaces, weak ET, no endeffector reward
 MOD_MINIMAL = 'minimal'
-modification = MOD_REAL_TORQUE_PEAKS # mod([MOD_MINIMAL, MOD_REW_ET])
+modification = mod([MOD_TORQUE_500]) # mod([MOD_MINIMAL, MOD_REW_ET])
 
 # config environment
-n_parallel_envs = 1
+n_envs = 16
+batch_size = 8192
 learning_rate = 5e-5
 lr_final = 1
 lr_start = 500
+cliprange = 0.1
+ent_coef = 0.1
+
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
 env_names = ['mim_walker2d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
 env_index = 0
@@ -68,7 +78,7 @@ HYPERS = HYPER_DEFAULT
 # use_default_hypers = HYPERS == HYPER_DEFAULT
 
 # number of training steps
-mio_steps = {HYPER_DEFAULT:10, HYPER_PENG:6, HYPER_ZOO:2}[HYPERS]
+mio_steps = {HYPER_DEFAULT:20, HYPER_PENG:6, HYPER_ZOO:2}[HYPERS]
 
 algo = 'ppo2'
 hyperparam = HYPERS
@@ -86,12 +96,13 @@ sftm_inv_temp = 1
 
 own_hypers = '' # f'zero_prct{s(zero_prct)}/' # f'slope{rem_slope}_init{s(rem_prct_init)}/' # f'scale{s(sftmx_scale)}_init{sftmx_init}_shft{s(sftmx_shift)}_invtmp{s(sftm_inv_temp)}/' # f'l1_lam{s(l1_scale)}/' # f'hid{s(hid_size)}/' # f'tpl{s(tuple_size)}/' #  f'sigm_sl{s(sigm_slope)}_th{s(sigm_thres)}/'
 run = s(np.random.random_integers(0,1000))
-info = 'pun100_nstp4096_gamma999'
+info = f'lr{lr_start}to{lr_final}_clp{int(cliprange*10)}_' \
+       f'bs{int(batch_size/1000)}_imrew514_pun100_gamma999'
 
 # construct the paths
 abs_project_path = dirname(dirname(dirname(__file__))) + '/'
 save_path_norun= abs_project_path + \
-                 f'models/monit/{approach}/{modification}/{env_name}/{n_parallel_envs}envs/{algo}/{hyperparam}/{mio_steps}mio/' \
+                 f'models/{approach}/{modification}/{env_name}/{n_envs}envs/{algo}/{hyperparam}/{mio_steps}mio/' \
                  + (f'{own_hypers + info}/' if len(own_hypers+info)>0 else '')
 save_path = save_path_norun + f'{run}/'
 

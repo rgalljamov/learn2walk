@@ -5,6 +5,7 @@ from gym.envs.mujoco import mujoco_env
 from gym_mimic_envs.mimic_env import MimicEnv
 from scripts.common.utils import is_remote
 from scripts.common import ref_trajecs as refs
+from scripts.common.config import do_run
 from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 
@@ -90,7 +91,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         qvel_findifs = (qpos_delta)/self.dt
         qvel_delta = qvel_after - qvel_findifs
 
-        USE_DMM_REW = True
+        USE_DMM_REW = True and not do_run()
         if USE_DMM_REW:
             reward = self.get_imitation_reward()
             if DEBUG: print('Reward ', reward)
@@ -100,11 +101,13 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             reward -= 1e-3 * np.square(a).sum()
 
         USE_ET = False
-        USE_REW_ET = True
-        if USE_ET:
+        USE_REW_ET = True and not do_run()
+        if self.is_evaluation_on():
+            done = height < 0.5
+        elif USE_ET:
             done = self.has_exceeded_allowed_deviations()
         elif USE_REW_ET:
-            done = self.do_terminate_early(reward, height, ang, rew_threshold=0.2)
+            done = self.do_terminate_early(reward, height, ang, rew_threshold=0.1)
         else:
             done = not (height > 0.8 and height < 2.0 and
                         ang > -1.0 and ang < 1.0)
@@ -112,9 +115,11 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         if DEBUG and done: print('Done')
 
         # punish episode termination
-        if done: reward = -100
+        if done:
+            reward = -100 if not do_run() else 0
+            ep_dur = 0
 
-        do_render = False
+        do_render = True and not is_remote()
         if step_count % 240000 == 0:
             print("start rendering, step: ", step_count)
             # do_render = True

@@ -35,13 +35,18 @@ if __name__ == "__main__":
         os.makedirs(cfg.save_path + 'models/params')
         os.makedirs(cfg.save_path + 'envs')
 
-    env = utils.vec_env(cfg.env_id, num_envs=cfg.n_parallel_envs, norm_rew=True)
+    env = utils.vec_env(cfg.env_id, norm_rew=True,
+                        num_envs=cfg.n_envs if utils.is_remote() else 1, )
+
+    training_timesteps = int(cfg.mio_steps * 1e6)
     learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
 
     if cfg.hyperparam == cfg.HYPER_DEFAULT:
         utils.log('Training with default params from Stable Baselines')
-        model = PPO2(MlpPolicy, env, verbose=1, n_steps=4096, gamma=0.999,
+        model = PPO2(MlpPolicy, env, verbose=1,
+                     n_steps=int(cfg.batch_size / (cfg.n_envs if utils.is_remote() else 1)),
                      learning_rate=learning_rate_schedule,
+                     gamma=0.999, cliprange=cfg.cliprange,
                      tensorboard_log=cfg.save_path + 'tb_logs/')
     elif cfg.hyperparam == cfg.HYPER_PENG:
         model = PPO2(MlpPolicy, env,
@@ -62,7 +67,7 @@ if __name__ == "__main__":
     utils.save_model(model, cfg.save_path, cfg.init_checkpoint)
 
     # train model
-    model.learn(total_timesteps=int(cfg.mio_steps * 1e6), callback=TrainingMonitor())
+    model.learn(total_timesteps=training_timesteps, callback=TrainingMonitor())
 
     # save model after training
     utils.save_model(model, cfg.save_path, cfg.final_checkpoint)
