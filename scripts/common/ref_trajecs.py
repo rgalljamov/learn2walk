@@ -124,6 +124,11 @@ class ReferenceTrajectories:
     def get_qvel(self):
         return self._get_by_indices(self.qvel_is)
 
+    def get_phase_variable(self):
+        trajec_duration = len(self._step[0])
+        phase = self._pos / trajec_duration
+        return phase
+
     def get_ref_kinmeatics(self):
         return self.get_qpos(), self.get_qvel()
 

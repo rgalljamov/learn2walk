@@ -167,9 +167,11 @@ class MimicEnv:
         qpos, qvel = self.get_joint_kinematics()
         if _rsinitialized:
             desired_walking_speed = self.refs.get_step_velocity()
+            phase = self.refs.get_phase_variable()
         else:
             desired_walking_speed = -3.33
-        obs = np.concatenate([np.array([desired_walking_speed]), qpos, qvel]).ravel()
+            phase = 0
+        obs = np.concatenate([np.array([phase, desired_walking_speed]), qpos, qvel]).ravel()
         return obs
 
     def reset_model(self):

@@ -41,6 +41,7 @@ approach = AP_DEEPMIMIC
 
 MOD_FLY = 'fly'
 MOD_ORIG = 'orig'
+MOD_PHASE_VAR = 'phase_var'
 MOD_REAL_TORQUE_PEAKS = 'real_torque'
 MOD_TORQUE_500 = '500Nm'
 # no phase variable, minimal state/action spaces, weak ET, no endeffector reward
