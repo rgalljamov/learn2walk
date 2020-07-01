@@ -282,7 +282,7 @@ class MimicEnv:
         if not _rsinitialized:
             return -3.33
         # todo: do we need the end-effector reward?
-        w_pos, w_vel, w_com = 0.7, 0.15, 0.15
+        w_pos, w_vel, w_com = 0.5, 0.1, 0.4
         pos_rew = self.get_pose_reward()
         vel_ref = self.get_vel_reward()
         com_rew = self.get_com_reward()
