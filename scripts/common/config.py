@@ -50,6 +50,9 @@ modification = MOD_REAL_TORQUE_PEAKS # mod([MOD_MINIMAL, MOD_REW_ET])
 
 # config environment
 n_parallel_envs = 1
+learning_rate = 5e-5
+lr_final = 1
+lr_start = 500
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
 env_names = ['mim_walker2d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
 env_index = 0

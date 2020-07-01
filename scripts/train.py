@@ -1,6 +1,7 @@
 import os.path
 from scripts import eval
 from scripts.common import config as cfg, utils
+from scripts.common.schedules import LinearSchedule
 from scripts.common.callback import TrainingMonitor
 
 # to decrease the amount of deprecation warnings
@@ -35,10 +36,12 @@ if __name__ == "__main__":
         os.makedirs(cfg.save_path + 'envs')
 
     env = utils.vec_env(cfg.env_id, num_envs=cfg.n_parallel_envs, norm_rew=True)
+    learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
 
     if cfg.hyperparam == cfg.HYPER_DEFAULT:
         utils.log('Training with default params from Stable Baselines')
         model = PPO2(MlpPolicy, env, verbose=1, n_steps=4096, gamma=0.999,
+                     learning_rate=learning_rate_schedule,
                      tensorboard_log=cfg.save_path + 'tb_logs/')
     elif cfg.hyperparam == cfg.HYPER_PENG:
         model = PPO2(MlpPolicy, env,
