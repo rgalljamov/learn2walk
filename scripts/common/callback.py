@@ -14,17 +14,27 @@ class TrainingMonitor(BaseCallback):
         self.env = self.training_env
 
     def _on_step(self) -> bool:
-        ep_len = np.mean(self.env.get_attr('ep_len_smoothed'))
-        ep_ret = np.mean(self.env.get_attr('ep_ret_smoothed'))
+        ep_len = self.get_mean('ep_len_smoothed')
+        ep_ret = self.get_mean('ep_ret_smoothed')
+        mean_rew = self.get_mean('mean_reward_smoothed')
 
-        # Log scalar value (here a random variable)
-        summary = tf.Summary(value=[
-            tf.Summary.Value(tag='own_data/mean_smoothed_episode_length', simple_value=ep_len),
-            tf.Summary.Value(tag='own_data/mean_smoothed_episode_return', simple_value=ep_ret)])
-
-        self.locals['writer'].add_summary(summary, self.num_timesteps)
+        self.log_to_tb(mean_rew, ep_len, ep_ret)
 
         return True
+
+    def get_mean(self, attribute_name):
+        return np.mean(self.env.get_attr(attribute_name))
+
+    def log_to_tb(self, mean_rew, ep_len, ep_ret):
+        moved_distance = self.get_mean('moved_distance_smooth')
+        # Log scalar values
+        summary = tf.Summary(value=[
+            tf.Summary.Value(tag='_own_data/1. moved distance (smoothed 0.75)', simple_value=moved_distance),
+            tf.Summary.Value(tag='_own_data/2. step reward (smoothed 0.25)', simple_value=mean_rew),
+            tf.Summary.Value(tag='_own_data/3. episode length (smoothed 0.75)', simple_value=ep_len),
+            tf.Summary.Value(tag='_own_data/4. episode return (smoothed 0.75)', simple_value=ep_ret)])
+        self.locals['writer'].add_summary(summary, self.num_timesteps)
+
 
 
 def _save_rews_n_rets(locals):

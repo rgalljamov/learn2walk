@@ -42,13 +42,17 @@ class Monitor(gym.Wrapper):
 
     def setup_containers(self):
         self.ep_len = 0
+        self.reward = 0
         self.ep_len_smoothed = 0
         self.rewards = []
+        # mean reward per step, calculated at each episode end
+        self.mean_reward_smoothed = 0
         self.returns = []
         self.ep_ret_smoothed = 0
         self.ep_lens = []
         self.grfs_left = []
         self.grfs_right = []
+        self.moved_distance_smooth = 0
 
         # monitor sim and ref trajecs for comparison (sim/ref, kinem_indices, timesteps)
         self.trajecs_buffer = np.zeros((2, self.num_dofs, _trajec_buffer_length))
@@ -62,16 +66,24 @@ class Monitor(gym.Wrapper):
     def step(self, action):
         obs, reward, done, _ = self.env.step(action)
 
+        self.reward = reward
         self.ep_len += 1
         self.rewards.append(reward)
 
         if done:
-            ep_return = np.sum(self.rewards[-self.ep_len:])
+            ep_rewards = self.rewards[-self.ep_len:]
+            mean_reward = np.mean(ep_rewards[:-1])
+            self.mean_reward_smoothed = smooth('rew', mean_reward)
+
+            ep_return = np.sum(ep_rewards)
             self.returns.append(ep_return)
-            self.ep_ret_smoothed = smooth('ep_ret', ep_return, 0.75)
+            self.ep_ret_smoothed = smooth('ep_ret', ep_return, 0.25)
+
             self.ep_lens.append(self.ep_len)
             self.ep_len_smoothed = smooth('ep_len', self.ep_len, 0.75)
             self.ep_len = 0
+
+            self.moved_distance_smooth = smooth('dist', self.env.data.qpos[0], 0.75)
 
         COMPARE_TRAJECS = True and not is_remote()
         if COMPARE_TRAJECS:
