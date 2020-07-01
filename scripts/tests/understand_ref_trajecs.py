@@ -1,13 +1,16 @@
 import numpy as np
 import scipy.io as spio
+import seaborn as sns
 from scripts.common import utils
 
-plt = utils.config_pyplot(font_size=12, tick_size=12)
+plt = utils.config_pyplot(font_size=12, tick_size=12, legend_fontsize=13)
+plt.rcParams.update({'figure.autolayout': False})
 
 # load matlab data, containing trajectories of 250 steps
 dir_path = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
 # file_path = 'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
-file_path = 'assets/ref_trajecs/Trajecs_Constant_Speed.mat'
+# file_path = 'assets/ref_trajecs/Trajecs_Constant_Speed.mat'
+file_path = 'assets/ref_trajecs/original/Traj_Ramp_Slow_final.mat'
 
 data = spio.loadmat(dir_path+file_path, squeeze_me=True)
 
@@ -20,7 +23,7 @@ data = data.flatten()
 print('Number of steps recorded: ', np.size(data))
 
 # first step (37 dims, 281 timesteps)
-step = data[0]
+step = data[100]
 dofs, timesteps = step.shape
 
 def get_com_pos_all_steps():
@@ -79,14 +82,14 @@ labels = ['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
           'Foot Pos L (X)', 'Foot Pos L (Y)', 'Foot Pos L (Z)',
           'Foot Pos R (X)', 'Foot Pos R (Y)', 'Foot Pos R (Z)',
 
-          'GRF R', 'GRF L',
+          'GRF R [N]', 'GRF L [N]',
           'Trunk Rot (euler,x)', 'Trunk Rot (euler,y)', 'Trunk Rot (euler,z)',
           ]
 
 if file_path == 'assets/ref_trajecs/Trajecs_Constant_Speed.mat':
     # have no GRFs included
-    labels.remove('GRF R')
-    labels.remove('GRF L')
+    labels.remove('GRF R [N]')
+    labels.remove('GRF L [N]')
 
 # plot figure in full screen mode (scaled down aspect ratio of my screen)
 plt.rcParams['figure.figsize'] = (19.2, 10.8)
@@ -94,18 +97,40 @@ plt.rcParams['figure.figsize'] = (19.2, 10.8)
 for i in range(dofs):
     subplt = plt.subplot(8,5,i+1)
     curve = step[i, :]
-    plt.plot(curve)
+    if i < 15 or i > 28:
+        line_blue = plt.plot(curve)
+    else:
+        # plot vels in orange
+        line_red = plt.plot(curve, 'red')
     plt.title(f'{i} - {labels[i]}')
 
     # plot the derivatives to easier find corresponding velocities
     if i < 15:
         velplt = subplt.twinx()
-        velplt.plot(np.gradient(curve, 1 / 250), '#aaaaaa')
-        velplt.tick_params(axis='y', labelcolor='#777777')
+        line_orange = velplt.plot(np.gradient(curve, 1 / 200), 'darkorange')
+        velplt.tick_params(axis='y', labelcolor='darkorange')
 
     # remove x labels from first rows
     if i < 32:
         plt.xticks([])
+
+# collect different lines to place the legend in a separate subplot
+lines = [line_blue[0], line_orange[0], line_red[0]]
+# plot the legend in a separate subplot
+with sns.axes_style("white", {"axes.edgecolor": 'white'}):
+    legend_subplot = plt.subplot(8, 5, i + 2)
+    legend_subplot.set_xticks([])
+    legend_subplot.set_yticks([])
+    legend_subplot.legend(lines, ['Joint Positions [rad]',
+                                  'Joint Position Derivatives [rad/s]',
+                                  'Joint Velocities (Dataset) [rad/s]'],
+                          bbox_to_anchor=(1.15, 1.05) )
+
+# fix title overlapping when tight_layout is true
+plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
+plt.subplots_adjust(wspace=0.55, hspace=0.5)
+plt.suptitle('Mismatch in the Amplitudes of Joint Angle Derivatives (orange)'
+             ' and corresponding Joint Velocities (red): ')
 
 plt.show()
 

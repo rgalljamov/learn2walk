@@ -18,8 +18,7 @@ PATH_SPEED_RAMP = 'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.ma
 
 # on my local PC
 PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' + PATH_SPEED_RAMP
-PATH_TRAJEC_RANGES = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' \
-                     'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
+PATH_TRAJEC_RANGES = '/assets/ref_trajecs/UPDATE_VELOCITY_RANGES_BEFORE_USING_Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
 
 REMOTE = is_remote()
 
@@ -27,7 +26,7 @@ REMOTE = is_remote()
 if REMOTE:
     PATH_REF_TRAJECS = '/home/rustam/code/remote/' + PATH_CONSTANT_SPEED
     PATH_TRAJEC_RANGES = '/home/rustam/code/remote/' \
-                       'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
+                       'assets/ref_trajecs/UPDATE_VELOCITY_RANGES_BEFORE_USING_Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
 
 # is the trajectory with the constant speed chosen?
 _is_constant_speed = PATH_CONSTANT_SPEED in PATH_REF_TRAJECS
