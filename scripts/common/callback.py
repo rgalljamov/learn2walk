@@ -5,10 +5,16 @@ import numpy as np
 from scripts.common import config as cfg, utils
 from stable_baselines.common.callbacks import BaseCallback
 
+# save the model everytime when ep_return surpassed a threshold
+EP_RETURN_THRES = 200 if not cfg.do_run() else 500
+MEAN_REW_THRES = 0.1 if not cfg.do_run() else 10
+
 class TrainingMonitor(BaseCallback):
     def __init__(self, verbose=0):
-        self.is_tb_set = False
         super(TrainingMonitor, self).__init__(verbose)
+        # to control how often to save the model
+        self.times_surpassed_ep_return_threshold = 0
+        self.times_surpassed_mean_reward_threshold = 0
 
     def _on_training_start(self) -> None:
         self.env = self.training_env
@@ -19,6 +25,7 @@ class TrainingMonitor(BaseCallback):
         mean_rew = self.get_mean('mean_reward_smoothed')
 
         self.log_to_tb(mean_rew, ep_len, ep_ret)
+        self.save_model_if_good(mean_rew, ep_ret)
 
         return True
 
@@ -34,6 +41,22 @@ class TrainingMonitor(BaseCallback):
             tf.Summary.Value(tag='_own_data/3. episode length (smoothed 0.75)', simple_value=ep_len),
             tf.Summary.Value(tag='_own_data/4. episode return (smoothed 0.75)', simple_value=ep_ret)])
         self.locals['writer'].add_summary(summary, self.num_timesteps)
+
+
+    def save_model_if_good(self, mean_rew, ep_ret):
+
+        ep_ret_thres = int(EP_RETURN_THRES * (self.times_surpassed_ep_return_threshold + 1))
+        if ep_ret > ep_ret_thres:
+            utils.save_model(self.model, cfg.save_path, 'ep_ret' + str(ep_ret_thres))
+            self.times_surpassed_ep_return_threshold += 1
+            print(f'Saving model after surpassing EPISODE RETURN of {ep_ret_thres}.')
+
+        mean_rew_thres = 0.4 + MEAN_REW_THRES * (self.times_surpassed_mean_reward_threshold + 1)
+        if mean_rew > (mean_rew_thres):
+            utils.save_model(self.model, cfg.save_path, 'mean_rew' + str(int(100*mean_rew_thres)))
+            self.times_surpassed_mean_reward_threshold += 1
+            print(f'Saving model after surpassing MEAN REWARD of {mean_rew_thres}.')
+
 
 
 
