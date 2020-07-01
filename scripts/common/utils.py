@@ -2,7 +2,7 @@ import gym, os
 import numpy as np
 import seaborn as sns
 
-from scripts.common.config import save_path
+from scripts.common.config import save_path, env_id
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 # import gym_mimic_envs
 
@@ -164,6 +164,14 @@ def save_pi_weights(model, name):
     if len(attens) > 1:
         np.savez(save_path + 'models/params/attens_' + str(name),
                  A0=attens[0], A1=attens[1])
+
+def load_env(checkpoint, save_path):
+    # load a single environment for evaluation
+    # todo: we could also use multiple envs to speedup eval
+    env = vec_env(env_id, num_envs=1, norm_rew=False)
+    # set the calculated running means for obs and rets
+    env.load_running_average(save_path + f'envs/env_{checkpoint}')
+    return env
 
 def smooth_exponential(data, alpha=0.9):
     smoothed = np.copy(data)

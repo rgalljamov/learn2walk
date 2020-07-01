@@ -60,7 +60,7 @@ def eval_model(from_config=True):
 
     print('\nModel:\n', model_path + '\n')
 
-    env = load_env(checkpoint, save_path)
+    env = utils.load_env(checkpoint, save_path)
     env = EnvMonitor(env, True)
 
     ep_rewards, all_returns, ep_durations = [], [], []
@@ -173,7 +173,7 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
         save_path = PATH
     else:
         save_path = cfg.save_path_norun + f'{run_id}/'
-    env = load_env(checkpoint, save_path)
+    env = utils.load_env(checkpoint, save_path)
     obs = env.reset()
 
     ep_count, step = 0, 0
@@ -238,14 +238,6 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
 def has_fallen(video_env):
     com_z_pos = video_env.env.venv.envs[0].env.data.qpos[1]
     return com_z_pos < 0.5
-
-def load_env(checkpoint, save_path):
-    # load a single environment for evaluation
-    # todo: we could also use multiple envs to speedup eval
-    env = utils.vec_env(cfg.env_id, num_envs=1, norm_rew=False)
-    # set the calculated running means for obs and rets
-    env.load_running_average(save_path + f'envs/env_{checkpoint}')
-    return env
 
 
 if __name__ == "__main__":
