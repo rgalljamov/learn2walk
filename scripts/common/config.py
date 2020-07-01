@@ -42,6 +42,7 @@ approach = AP_DEEPMIMIC
 MOD_FLY = 'fly'
 MOD_ORIG = 'orig'
 MOD_REAL_TORQUE_PEAKS = 'real_torque'
+MOD_TORQUE_500 = '500Nm'
 # no phase variable, minimal state/action spaces, weak ET, no endeffector reward
 MOD_MINIMAL = 'minimal'
 modification = MOD_REAL_TORQUE_PEAKS # mod([MOD_MINIMAL, MOD_REW_ET])
