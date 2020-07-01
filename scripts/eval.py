@@ -235,6 +235,9 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
         ep_count += 1
     env.close()
 
+    # rename folder to mark it as evaluated
+    os.rename(save_path[:-1], save_path[:-1] + '-evaled')
+
 def has_fallen(video_env):
     com_z_pos = video_env.env.venv.envs[0].env.data.qpos[1]
     return com_z_pos < 0.5
