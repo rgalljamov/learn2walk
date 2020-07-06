@@ -44,16 +44,27 @@ def do_run():
 # choose approach
 AP_DEEPMIMIC = 'deepmim'
 AP_RUN = 'run'
-approach = AP_RUN
+approach = AP_DEEPMIMIC
+
+
 
 MOD_FLY = 'fly'
 MOD_ORIG = 'orig'
-MOD_PHASE_VAR = 'phase_var'
-MOD_REAL_TORQUE_PEAKS = 'real_torque'
-MOD_TORQUE_500 = '500Nm'
 # no phase variable, minimal state/action spaces, weak ET, no endeffector reward
 MOD_MINIMAL = 'minimal'
-modification = mod([MOD_TORQUE_500]) # mod([MOD_MINIMAL, MOD_REW_ET])
+MOD_PHASE_VAR = 'phase_var'
+
+MOD_REAL_TORQUE_PEAKS = 'real_torque'
+MOD_TORQUE_500 = '500Nm'
+
+MOD_REFS_RAMP = 'refs_ramp'
+
+MOD_REW_ET_25 = 'rew_et25'
+MOD_DEV_ET = 'et_devi'
+# steeper exp functions in individual reward functions and rew_et05
+MOD_STEEP_REWS = 'steep_rews'
+
+modification = mod([MOD_TORQUE_500, MOD_STEEP_REWS]) # mod([MOD_MINIMAL, MOD_REW_ET])
 
 # config environment
 n_envs = 8 if utils.is_remote() else 1
@@ -79,7 +90,7 @@ HYPERS = HYPER_DEFAULT
 # use_default_hypers = HYPERS == HYPER_DEFAULT
 
 # number of training steps
-mio_steps = {HYPER_DEFAULT:20, HYPER_PENG:6, HYPER_ZOO:2}[HYPERS]
+mio_steps = {HYPER_DEFAULT:10, HYPER_PENG:6, HYPER_ZOO:2}[HYPERS]
 
 algo = 'ppo2'
 hyperparam = HYPERS

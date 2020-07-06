@@ -88,6 +88,9 @@ class MimicEnv:
     def is_evaluation_on(self):
         return self._evaluation_on
 
+    def do_fly(self, fly=True):
+        self._FLY = fly
+
     def get_joint_torques(self):
         return np.copy(self.sim.data.actuator_force)
 
@@ -95,7 +98,10 @@ class MimicEnv:
         global _play_ref_trajecs
         _play_ref_trajecs = True
 
-        self.reset()
+        from gym_mimic_envs.monitor import Monitor
+        env = Monitor(self)
+
+        env.reset()
         if pd_pos_control:
             for i in range(timesteps):
                 # hold com x and z position and trunk rotation constant
@@ -133,7 +139,7 @@ class MimicEnv:
                 if FLIGHT:
                     self.sim.data.qpos[[0, 1, 2]] = [0, 1.5, 0]
                     self.sim.data.qvel[[0, 1, 2]] = 0
-                obs, reward, done, _ = self.step(des_qpos)
+                obs, reward, done, _ = env.step(des_qpos)
                 # obs, reward, done, _ = self.step(np.ones_like(des_qpos)*(0))
                 # ankle tune:
                 # obs, reward, done, _ = self.step([0, 0, -0.3, 0, 0, -0.3])
@@ -173,13 +179,16 @@ class MimicEnv:
     def _get_obs(self):
         global _rsinitialized
         qpos, qvel = self.get_joint_kinematics()
-        if _rsinitialized:
+        if _rsinitialized and not cfg.approach == cfg.AP_RUN:
             desired_walking_speed = self.refs.get_step_velocity()
             phase = self.refs.get_phase_variable()
         else:
             desired_walking_speed = -3.33
             phase = 0
-        obs = np.concatenate([np.array([phase, desired_walking_speed]), qpos, qvel]).ravel()
+        if cfg.approach == cfg.AP_RUN:
+            obs = np.concatenate([qpos, qvel]).ravel()
+        else:
+            obs = np.concatenate([np.array([phase, desired_walking_speed]), qpos, qvel]).ravel()
         return obs
 
     def reset_model(self):
@@ -222,7 +231,7 @@ class MimicEnv:
         rew = self.get_imitation_reward()
         assert rew > 0.95 if not self._FLY else 0.5, \
             f"Reward should be around 1 after RSI, but was {rew}!"
-        assert not self.has_exceeded_allowed_deviations()
+        # assert not self.has_exceeded_allowed_deviations()
         return self._get_obs()
 
 
@@ -253,7 +262,7 @@ class MimicEnv:
         dif = qpos - ref_pos
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
-        pose_rew = np.exp(-2 * sum)
+        pose_rew = np.exp(-4 * sum)
         return pose_rew
 
     def get_vel_reward(self):
@@ -264,7 +273,7 @@ class MimicEnv:
         dif = qvel - ref_vel
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
-        vel_rew = np.exp(-0.1 * sum)
+        vel_rew = np.exp(-0.2 * sum)
         return vel_rew
 
     def get_com_reward(self):
@@ -275,7 +284,7 @@ class MimicEnv:
         dif = com_pos - com_ref
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
-        com_rew = np.exp(-10 * sum)
+        com_rew = np.exp(-12 * sum)
         return com_rew
 
     def _remove_by_indices(self, list, indices):
@@ -290,7 +299,7 @@ class MimicEnv:
         if not _rsinitialized:
             return -3.33
         # todo: do we need the end-effector reward?
-        w_pos, w_vel, w_com = 0.5, 0.1, 0.4
+        w_pos, w_vel, w_com = 0.6, 0.1, 0.3
         pos_rew = self.get_pose_reward()
         vel_ref = self.get_vel_reward()
         com_rew = self.get_com_reward()

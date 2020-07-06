@@ -6,8 +6,8 @@ from scripts.common import config as cfg, utils
 from stable_baselines.common.callbacks import BaseCallback
 
 # save the model everytime when ep_return surpassed a threshold
-EP_RETURN_THRES = 200 if not cfg.do_run() else 500
-MEAN_REW_THRES = 0.1 if not cfg.do_run() else 10
+EP_RETURN_THRES = 500 if not cfg.do_run() else 5000
+MEAN_REW_THRES = 0.1 if not cfg.do_run() else 2.5
 
 class TrainingMonitor(BaseCallback):
     def __init__(self, verbose=0):
@@ -30,7 +30,8 @@ class TrainingMonitor(BaseCallback):
         return True
 
     def get_mean(self, attribute_name):
-        return np.mean(self.env.get_attr(attribute_name))
+        try: return np.mean(self.env.get_attr(attribute_name))
+        except: return 0.333
 
     def log_to_tb(self, mean_rew, ep_len, ep_ret):
         moved_distance = self.get_mean('moved_distance_smooth')
