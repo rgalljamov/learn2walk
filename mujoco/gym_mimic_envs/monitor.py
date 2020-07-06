@@ -107,7 +107,7 @@ class Monitor(gym.Wrapper):
             # plot trajecs when the buffers are filled
             try: self.trajecs_recorded += 1
             except: self.trajecs_recorded = 1
-            if not self.is_eval and self.trajecs_recorded % (1 * _trajec_buffer_length) == 0:
+            if self.trajecs_recorded % (1 * _trajec_buffer_length) == 0:
                 self.compare_sim_ref_trajecs()
 
         return obs, reward, done, _
@@ -191,22 +191,29 @@ class Monitor(gym.Wrapper):
             legend_subplot = plt.subplot(rows, cols, num_joints + 2)
             legend_subplot.set_xticks([])
             legend_subplot.set_yticks([])
-            legend_subplot.legend(lines, names, loc='lower right')
+            legend_subplot.legend(lines, names, bbox_to_anchor=(1.2, 0.8))
 
         # fix title overlapping when tight_layout is true
         plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
         plt.subplots_adjust(wspace=0.55, hspace=0.5)
-        dampings = self.env.model.dof_damping[3:].astype(int).tolist()
-        kps = self.env.model.actuator_gainprm[:,0].astype(int).tolist()
-        plt.suptitle(f'PD Gains Tuning:    kp={kps}    kd={dampings}')
-        # plt.suptitle('Simulation and Reference Joint Kinematics over Time '
-        #              '(Angles in [rad], Angular Velocities in [rad/s])')
+        PD_TUNING = False
+        if PD_TUNING:
+            dampings = self.env.model.dof_damping[3:].astype(int).tolist()
+            kps = self.env.model.actuator_gainprm[:,0].astype(int).tolist()
+            plt.suptitle(f'PD Gains Tuning:    kp={kps}    kd={dampings}')
+        else:
+            plt.suptitle('Simulation and Reference Joint Kinematics over Time '
+                         '(Angles in [rad], Angular Velocities in [rad/s])')
 
+        # add rewards and returns
+        rew_plot = plt.subplot(rows, cols, len(axes)+1, sharex=axes[-1])
+        rew_plot.plot(self.rewards[-_trajec_buffer_length:])
+        ret_plot = rew_plot.twinx()
+        ret_plot.plot(self.returns, '#77777777')
         plt.vlines(np.argwhere(self.dones_buf).flatten()+1,
                    0 , 1, colors='#cccccc')
         plt.ylim([-0.075, 1.025])
-        plt.title('Rewards')
-        plt.xlim([-5,405])
+        plt.title('Rewards & Returns')
 
         plt.show()
         # if not self.is_eval:
