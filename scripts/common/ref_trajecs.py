@@ -17,7 +17,7 @@ PATH_CONSTANT_SPEED = 'assets/ref_trajecs/Trajecs_Constant_Speed.mat'
 PATH_SPEED_RAMP = 'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
 
 # on my local PC
-PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' + PATH_SPEED_RAMP
+PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' + PATH_CONSTANT_SPEED
 PATH_TRAJEC_RANGES = '/assets/ref_trajecs/UPDATE_VELOCITY_RANGES_BEFORE_USING_Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
 
 REMOTE = is_remote()
@@ -93,7 +93,7 @@ class ReferenceTrajectories:
         # data contains 250 steps consisting of 40 trajectories
         self.data = self._load_trajecs()
         # calculate ranges needed for Early Termination
-        self.ranges = self._determine_trajectory_ranges()
+        # self.ranges = self._determine_trajectory_ranges()
         # calculate walking speeds for each step
         self.step_velocities = self._calculate_walking_speed()
         # adapt trajectories to other environments
@@ -109,10 +109,12 @@ class ReferenceTrajectories:
         # episode duration
         self.ep_dur = 0
 
-    def next(self, increment=1):
+    def next(self, increment=2):
         """
         Increases the internally managed position
-        on the current step trajectory by a specified amount.
+                on the current step trajectory by a specified amount.
+        :param increment number of points to proceed on the ref trajecs
+                         increment=2 corresponds to 200Hz sample frequency
         """
         self._pos += increment
         self.ep_dur += 1
@@ -124,8 +126,9 @@ class ReferenceTrajectories:
         return self._get_by_indices(self.qvel_is)
 
     def get_phase_variable(self):
-        trajec_duration = len(self._step[0])
+        trajec_duration = len(self._step[self._i_step])
         phase = self._pos / trajec_duration
+        assert phase <= 1, f'Phase Variable should be between 0 and 1 but was {phase}'
         return phase
 
     def get_ref_kinmeatics(self):
@@ -181,7 +184,7 @@ class ReferenceTrajectories:
         like the current step.
 
         todo: a user might forget to call refs.next().
-        todo: It would be nice to warm him, when self._pos doesn't change for too long.
+        todo: It would be nice to warn him, when self._pos doesn't change for too long.
 
         Parameters
         ----------
@@ -194,7 +197,7 @@ class ReferenceTrajectories:
         on the current step trajectory.
         """
         # when we reached the trajectory's end of the current step
-        if self._pos == len(self._step[0]):
+        if self._pos >= len(self._step[self._i_step]):
             # choose the next step
             self._step = self._get_next_step()
         joint_kinematics = self._step[indices, self._pos]
@@ -204,7 +207,7 @@ class ReferenceTrajectories:
         ''' Random State Initialization:
             @returns: qpos and qvel of a random step at a random position'''
         self._step = self._get_random_step()
-        self._pos = np.random.randint(0, len(self._step[0]) - 1)
+        self._pos = np.random.randint(0, len(self._step[self._i_step]) - 1)
         # reset episode duration and so far traveled distance
         self.ep_dur = 0
         self.dist = 0

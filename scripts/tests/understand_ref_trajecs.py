@@ -4,7 +4,7 @@ import seaborn as sns
 from scripts.common import utils
 
 plt = utils.config_pyplot(font_size=12, tick_size=12, legend_fontsize=13)
-plt.rcParams.update({'figure.autolayout': False})
+# plt.rcParams.update({'figure.autolayout': False})
 
 # load matlab data, containing trajectories of 250 steps
 dir_path = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
@@ -13,8 +13,6 @@ dir_path = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
 file_path = 'assets/ref_trajecs/original/Traj_Ramp_Slow_final.mat'
 
 data = spio.loadmat(dir_path+file_path, squeeze_me=True)
-
-# data = spio.loadmat('/home/rustam/code/remote/assets/ref_trajecs/Traj_Ramp_Slow_final.mat')
 
 # 250 steps, shape (250,1), where 1 is an array with kinematic data
 data = data['Data']
@@ -43,6 +41,7 @@ def get_com_vel_all_steps():
         com_vels.extend(vels)
     return com_vels, mean_vels
 
+
 com_pos_all = get_com_pos_all_steps()
 plt.plot(com_pos_all)
 plt.show()
@@ -63,6 +62,7 @@ if test_refs:
     step = rt._step
     dofs, timesteps = step.shape
     # step[0:3,:] -= compos
+
 
 # label every trajectory with the corresponding name
 labels = ['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
@@ -107,7 +107,7 @@ for i in range(dofs):
     # plot the derivatives to easier find corresponding velocities
     if i < 15:
         velplt = subplt.twinx()
-        line_orange = velplt.plot(np.gradient(curve, 1 / 200), 'darkorange')
+        line_orange = velplt.plot(np.gradient(curve, 1/400), 'darkorange')
         velplt.tick_params(axis='y', labelcolor='darkorange')
 
     # remove x labels from first rows
@@ -126,11 +126,10 @@ with sns.axes_style("white", {"axes.edgecolor": 'white'}):
                                   'Joint Velocities (Dataset) [rad/s]'],
                           bbox_to_anchor=(1.15, 1.05) )
 
-# fix title overlapping when tight_layout is true
-plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
-plt.subplots_adjust(wspace=0.55, hspace=0.5)
-plt.suptitle('Mismatch in the Amplitudes of Joint Angle Derivatives (orange)'
-             ' and corresponding Joint Velocities (red): ')
+# # fix title overlapping when tight_layout is true
+# plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
+# plt.subplots_adjust(wspace=0.55, hspace=0.5)
+# plt.suptitle('Trajectories')
 
 plt.show()
 
