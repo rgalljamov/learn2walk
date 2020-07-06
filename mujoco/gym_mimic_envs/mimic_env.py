@@ -179,6 +179,8 @@ class MimicEnv:
     def _get_obs(self):
         global _rsinitialized
         qpos, qvel = self.get_joint_kinematics()
+        # remove COM x position as the action should be independent of it
+        qpos = qpos[1:]
         if _rsinitialized and not cfg.approach == cfg.AP_RUN:
             desired_walking_speed = self.refs.get_step_velocity()
             phase = self.refs.get_phase_variable()
