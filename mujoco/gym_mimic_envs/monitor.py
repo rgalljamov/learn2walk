@@ -196,17 +196,17 @@ class Monitor(gym.Wrapper):
         # fix title overlapping when tight_layout is true
         plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
         plt.subplots_adjust(wspace=0.55, hspace=0.5)
-        plt.suptitle('Simulation and Reference Joint Kinematics over Time '
-                     '(Angles in [rad], Angular Velocities in [rad/s])')
+        dampings = self.env.model.dof_damping[3:].astype(int).tolist()
+        kps = self.env.model.actuator_gainprm[:,0].astype(int).tolist()
+        plt.suptitle(f'PD Gains Tuning:    kp={kps}    kd={dampings}')
+        # plt.suptitle('Simulation and Reference Joint Kinematics over Time '
+        #              '(Angles in [rad], Angular Velocities in [rad/s])')
 
-
-        # add rewards
-        plt.subplot(rows, cols, len(axes)+1, sharex=axes[-1])
-        plt.plot(self.rewards[-_trajec_buffer_length:])
         plt.vlines(np.argwhere(self.dones_buf).flatten()+1,
                    0 , 1, colors='#cccccc')
         plt.ylim([-0.075, 1.025])
         plt.title('Rewards')
+        plt.xlim([-5,405])
 
         plt.show()
         # if not self.is_eval:
