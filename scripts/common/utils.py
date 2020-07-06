@@ -59,9 +59,12 @@ def config_pyplot(fullscreen=False, font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TI
 
     return plt
 
-def vec_env(env_name, num_envs=4, seed=33, norm_rew=True):
+def vec_env(env_name, num_envs=4, seed=33, norm_rew=True, load_path=None):
     '''creates environments, vectorizes them and sets different seeds
-    @:param norm_rew: reward should only be normalized during training'''
+    :param norm_rew: reward should only be normalized during training
+    :param load_path: if set, the VecNormalize environment will
+                      load the running means from this path.
+    :returns: VecNormalize (wrapped Subproc- or Dummy-VecEnv) '''
 
     from gym_mimic_envs.mimic_env import MimicEnv
     from gym_mimic_envs.monitor import Monitor as EnvMonitor
@@ -84,9 +87,12 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True):
         vec_env = SubprocVecEnv(env_fncts)
 
     # normalize environments
-    vec_env = VecNormalize(vec_env, norm_obs=True, norm_reward=norm_rew)
+    if load_path is not None:
+        vec_normed = VecNormalize.load(load_path, vec_env)
+    else:
+        vec_normed = VecNormalize(vec_env, norm_obs=True, norm_reward=norm_rew)
 
-    return vec_env
+    return vec_normed
 
 
 def check_environment(env_name):
@@ -128,9 +134,7 @@ def save_model(model, path, checkpoint):
     model.save(save_path=model_path)
     save_pi_weights(model, checkpoint)
     # save Running mean of observations and reward
-    env_path = path + 'envs/env_' + str(checkpoint)
-    os.makedirs(env_path)
-    model.get_env().save_running_average(env_path)
+    model.get_env().save(path + f'envs/env_{checkpoint}')
 
 
 def save_pi_weights(model, name):
@@ -167,10 +171,10 @@ def save_pi_weights(model, name):
 
 def load_env(checkpoint, save_path):
     # load a single environment for evaluation
-    # todo: we could also use multiple envs to speedup eval
-    env = vec_env(env_id, num_envs=1, norm_rew=False)
+    env_path = save_path + f'envs/env_{checkpoint}'
+    env = vec_env(env_id, num_envs=1, norm_rew=False, load_path=env_path)
     # set the calculated running means for obs and rets
-    env.load_running_average(save_path + f'envs/env_{checkpoint}')
+    # env.load(env_path)
     return env
 
 def smooth_exponential(data, alpha=0.9):

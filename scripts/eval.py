@@ -12,19 +12,19 @@ from stable_baselines import PPO2
 plt = utils.import_pyplot()
 
 
-RENDER = True and not utils.is_remote()
+RENDER = False and not utils.is_remote()
 NO_ET = True
 PLOT_RESULTS = False
 DETERMINISTIC_ACTIONS = False
 
 FROM_PATH = True
-PATH = "/home/rustam/code/remote/models/run/500Nm/mim_walker2d/16envs/ppo2/hyper_dflt/" \
-       "20mio/lr500to1_clp1_bs8_imrew514_pun100_gamma999/832-evaled"
+PATH = "/home/rustam/code/remote/models/deepmim/500Nm/et25/mim_walker2d/" \
+       "8envs/ppo2/hyper_dflt/10mio/ent-250_lr500to1_clp1_bs8_imrew613_pun100_gamma999/312-evaled"
 if not PATH.endswith('/'): PATH += '/'
 
 # which model should be evaluated
 run_id = 78
-checkpoint = 23500 # 999
+checkpoint = 'mean_rew50' #'ep_ret1500' # 999
 
 # evaluate for n episodes
 n_eps = 25
@@ -61,8 +61,7 @@ def eval_model(from_config=True):
     print('\nModel:\n', model_path + '\n')
 
     env = utils.load_env(checkpoint, save_path)
-    env = EnvMonitor(env, True)
-    env.activate_evaluation()
+    env.venv.envs[0].activate_evaluation()
 
     ep_rewards, all_returns, ep_durations = [], [], []
     all_rewards = np.zeros((n_eps, rec_n_steps))
@@ -90,7 +89,7 @@ def eval_model(from_config=True):
             ep_durations.append(ep_dur)
             # clip ep_dur to max number of steps to save
             ep_dur = min(ep_dur, rec_n_steps)
-            all_rewards[ep_count,:ep_dur] = np.asarray(ep_rewards)[:ep_dur]
+            all_rewards[ep_count,:ep_dur] = np.asarray(ep_rewards)[:ep_dur].flatten()
             ep_return = np.sum(ep_rewards)
             all_returns.append(ep_return)
             if RENDER: print('ep_return: ', ep_return)
@@ -118,6 +117,7 @@ def eval_model(from_config=True):
     np.save(metrics_path + '/rewards', all_rewards)
     np.save(metrics_path + '/actions', all_actions)
     np.save(metrics_path + '/ep_returns', all_returns)
+    np.save(metrics_path + '/ep_durations_' + str(int(np.mean(ep_durations))), ep_durations)
 
     # count and save number of parameters in the model
     num_policy_params = np.sum([np.prod(tensor.get_shape().as_list())

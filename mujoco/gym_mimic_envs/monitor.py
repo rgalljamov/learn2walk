@@ -10,8 +10,7 @@ _trajec_buffer_length = 2000
 
 class Monitor(gym.Wrapper):
 
-    def __init__(self, env: MimicEnv, eval=False):
-        self.is_eval = eval
+    def __init__(self, env: MimicEnv):
         try:
             env_type = type(env)
             env_is_mimic_env = isinstance(env, MimicEnv)
@@ -22,8 +21,6 @@ class Monitor(gym.Wrapper):
             pass
         if isinstance(env, MimicEnv):
             self.env = env
-        if isinstance(env, VecNormalize):
-            self.env = env.venv.envs[0]
         elif isinstance(env, DummyVecEnv):
             self.env = env.envs[0]
 
