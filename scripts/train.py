@@ -36,7 +36,7 @@ if __name__ == "__main__":
         os.makedirs(cfg.save_path + 'envs')
 
     env = utils.vec_env(cfg.env_id, norm_rew=True,
-                        num_envs=cfg.n_envs if utils.is_remote() else 1, )
+                        num_envs=cfg.n_envs)
 
     training_timesteps = int(cfg.mio_steps * 1e6)
     learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
@@ -44,8 +44,8 @@ if __name__ == "__main__":
     if cfg.hyperparam == cfg.HYPER_DEFAULT:
         utils.log('Training with default params from Stable Baselines')
         model = PPO2(MlpPolicy, env, verbose=1,
-                     n_steps=int(cfg.batch_size / (cfg.n_envs if utils.is_remote() else 1)),
-                     learning_rate=learning_rate_schedule,
+                     n_steps=int(cfg.batch_size/cfg.n_envs),
+                     learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
                      gamma=0.999, cliprange=cfg.cliprange,
                      tensorboard_log=cfg.save_path + 'tb_logs/')
     elif cfg.hyperparam == cfg.HYPER_PENG:

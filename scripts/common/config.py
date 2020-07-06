@@ -1,5 +1,6 @@
 import numpy as np
 from os.path import dirname, abspath
+from scripts.common import utils
 
 # ARCHS
 ARC_FC_MLP = 'mlp'
@@ -55,13 +56,13 @@ MOD_MINIMAL = 'minimal'
 modification = mod([MOD_TORQUE_500]) # mod([MOD_MINIMAL, MOD_REW_ET])
 
 # config environment
-n_envs = 16
-batch_size = 8192
+n_envs = 8 if utils.is_remote() else 1
+batch_size = 8192 if utils.is_remote() else 1024
 learning_rate = 5e-5
 lr_final = 1
 lr_start = 500
 cliprange = 0.1
-ent_coef = 0.1
+ent_coef = -0.25
 
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
 env_names = ['mim_walker2d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
@@ -96,8 +97,8 @@ sftm_inv_temp = 1
 
 own_hypers = '' # f'zero_prct{s(zero_prct)}/' # f'slope{rem_slope}_init{s(rem_prct_init)}/' # f'scale{s(sftmx_scale)}_init{sftmx_init}_shft{s(sftmx_shift)}_invtmp{s(sftm_inv_temp)}/' # f'l1_lam{s(l1_scale)}/' # f'hid{s(hid_size)}/' # f'tpl{s(tuple_size)}/' #  f'sigm_sl{s(sigm_slope)}_th{s(sigm_thres)}/'
 run = s(np.random.random_integers(0,1000))
-info = f'lr{lr_start}to{lr_final}_clp{int(cliprange*10)}_' \
-       f'bs{int(batch_size/1000)}_imrew514_pun100_gamma999'
+info = f'ent{int(ent_coef*1000)}_lr{lr_start}to{lr_final}_clp{int(cliprange*10)}_' \
+       f'bs{int(batch_size/1000)}_imrew613_pun100_gamma999'
 
 # construct the paths
 abs_project_path = dirname(dirname(dirname(__file__))) + '/'
