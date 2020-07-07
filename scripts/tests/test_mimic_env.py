@@ -5,15 +5,14 @@ from gym_mimic_envs.monitor import Monitor
 from gym_mimic_envs.mimic_env import MimicEnv
 from stable_baselines import PPO2
 from scripts.common.utils import load_env
-import numpy as np
 
 DETERMINISTIC_ACTIONS = False
-FROM_PATH = False
+FROM_PATH = True
 RENDER = True
-PATH = "/home/rustam/code/remote/models/deepmim/500Nm/et25/mim_walker2d/" \
-       "8envs/ppo2/hyper_dflt/10mio/ent-250_lr500to1_clp1_bs8_imrew613_pun100_gamma999/312"
+PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/deepmim/500Nm/fly/" \
+       "mim_walker2d/8envs/ppo2/hyper_dflt/4mio/hl6464_ent0_lr1000to5_clp1_bs8_imrew613_gamma950/993-evaled"
 if not PATH.endswith('/'): PATH += '/'
-checkpoint = 'ep_ret1500' # 999
+checkpoint = 'ep_ret4000' #'mean_rew60' # 999
 
 if FROM_PATH:
     # load model
@@ -30,12 +29,12 @@ else:
     env = Monitor(env)
     # env.playback_ref_trajectories(10000, pd_pos_control=True)
 
-obs = env.reset()
 if not isinstance(env, Monitor):
     # VecNormalize wrapped DummyVecEnv
     vec_env = env
     env = env.venv.envs[0]
 
+obs = env.reset()
 env.do_fly()
 env.activate_evaluation()
 

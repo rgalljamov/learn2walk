@@ -18,13 +18,13 @@ PLOT_RESULTS = False
 DETERMINISTIC_ACTIONS = False
 
 FROM_PATH = True
-PATH = "/home/rustam/code/remote/models/deepmim/500Nm/et25/mim_walker2d/" \
-       "8envs/ppo2/hyper_dflt/10mio/ent-250_lr500to1_clp1_bs8_imrew613_pun100_gamma999/312-evaled"
+PATH = "/home/rustam/code/remote/models/deepmim/500Nm/steep_rews/mim_walker2d/" \
+       "8envs/ppo2/hyper_dflt/10mio/ent-250_lr500to1_clp1_bs8_imrew613_pun100_gamma999/648"
 if not PATH.endswith('/'): PATH += '/'
 
 # which model should be evaluated
 run_id = 78
-checkpoint = 'mean_rew50' #'ep_ret1500' # 999
+checkpoint = 'ep_ret1500' # 999
 
 # evaluate for n episodes
 n_eps = 25
@@ -182,7 +182,7 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
     # determine video duration
     fps = env.venv.metadata['video.frames_per_second']
     video_len_secs = 10
-    video_len = video_len_secs * fps
+    video_n_steps = video_len_secs * fps
 
     # if epoch is not interesting, choose a bad action to finish it quickly
     zero_actions = np.zeros_like(model.action_space.high)
@@ -199,7 +199,7 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
             video_env = VecVideoRecorder(env, save_path + 'videos_' +
                                          ('determin' if DETERMINISTIC_ACTIONS else 'stochastic'),
                                          record_video_trigger=lambda x: x > 0,
-                                         video_length=video_len,
+                                         video_length=video_n_steps,
                                          name_prefix=f'{ep_name}_{int(ep_ret)}_')
             if 'fly' in save_path:
                 video_env.env.venv.envs[0].env._FLY = True
@@ -207,7 +207,7 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
             obs = video_env.reset()
 
 
-            while step <= rec_n_steps:
+            while step <= video_n_steps:
                 action, hid_states = model.predict(obs, deterministic=DETERMINISTIC_ACTIONS)
                 obs, reward, done, info = video_env.step(action)
                 step += 1

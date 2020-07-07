@@ -45,8 +45,9 @@ if __name__ == "__main__":
         utils.log('Training with default params from Stable Baselines')
         model = PPO2(MlpPolicy, env, verbose=1,
                      n_steps=int(cfg.batch_size/cfg.n_envs),
+                     policy_kwargs={'net_arch':[{'vf':cfg.hid_layers, 'pi':cfg.hid_layers}]},
                      learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
-                     gamma=0.999, cliprange=cfg.cliprange,
+                     gamma=cfg.gamma, cliprange=cfg.cliprange,
                      tensorboard_log=cfg.save_path + 'tb_logs/')
     elif cfg.hyperparam == cfg.HYPER_PENG:
         model = PPO2(MlpPolicy, env,
@@ -72,7 +73,7 @@ if __name__ == "__main__":
     # save model after training
     utils.save_model(model, cfg.save_path, cfg.final_checkpoint)
 
-    # close envioronment
+    # close environment
     env.close()
 
     # evaluate last saved model
