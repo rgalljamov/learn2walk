@@ -51,6 +51,10 @@ class Monitor(gym.Wrapper):
         self.grfs_right = []
         self.moved_distance_smooth = 0
 
+        # monitor energy efficiency
+        self.ep_torques_abs = []
+        self.mean_abs_torque_smoothed = 0
+
         # monitor sim and ref trajecs for comparison (sim/ref, kinem_indices, timesteps)
         self.trajecs_buffer = np.zeros((2, self.num_dofs, _trajec_buffer_length))
         # monitor episode terminations
@@ -66,6 +70,7 @@ class Monitor(gym.Wrapper):
         self.reward = reward
         self.ep_len += 1
         self.rewards.append(reward)
+        self.ep_torques_abs.append(self.env.get_joint_torques(True))
 
         if done:
             ep_rewards = self.rewards[-self.ep_len:]
@@ -80,7 +85,11 @@ class Monitor(gym.Wrapper):
             self.ep_len_smoothed = smooth('ep_len', self.ep_len, 0.75)
             self.ep_len = 0
 
-            self.moved_distance_smooth = smooth('dist', self.env.data.qpos[0], 0.75)
+            self.moved_distance_smooth = smooth('dist', self.env.data.qpos[0], 0.25)
+
+            self.mean_abs_torque_smoothed = \
+                smooth('mean_ep_tor', np.mean(self.ep_torques_abs), 0.1)
+            self.ep_torques_abs = []
 
         COMPARE_TRAJECS = True and not is_remote()
         if COMPARE_TRAJECS:
@@ -205,11 +214,16 @@ class Monitor(gym.Wrapper):
         # add rewards and returns
         rew_plot = plt.subplot(rows, cols, len(axes)+1, sharex=axes[-1])
         rew_plot.plot(self.rewards[-_trajec_buffer_length:])
-        ret_plot = rew_plot.twinx()
-        ret_plot.plot(self.returns, '#77777777')
+        rew_plot.set_ylim([-0.075, 1.025])
+        # plot episode terminations
         plt.vlines(np.argwhere(self.dones_buf).flatten()+1,
                    0 , 1, colors='#cccccc')
-        plt.ylim([-0.075, 1.025])
+        # plot episode returns
+        ret_plot = rew_plot.twinx().twiny()
+        ret_plot.plot(self.returns, '#77777777')
+        ret_plot.tick_params(axis='y', labelcolor='#77777777')
+        ret_plot.set_xticks([])
+
         plt.title('Rewards & Returns')
 
         plt.show()

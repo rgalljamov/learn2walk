@@ -91,8 +91,12 @@ class MimicEnv:
     def do_fly(self, fly=True):
         self._FLY = fly
 
-    def get_joint_torques(self):
-        return np.copy(self.sim.data.actuator_force)
+    def get_joint_torques(self, abs_mean=False):
+        tors = np.copy(self.sim.data.actuator_force)
+        return np.mean(np.abs(tors)) if abs_mean else tors
+
+    def get_force_ranges(self):
+        return np.copy(self.model.actuator_forcerange)
 
     def playback_ref_trajectories(self, timesteps=2000, pd_pos_control=False):
         global _play_ref_trajecs
@@ -289,6 +293,17 @@ class MimicEnv:
         com_rew = np.exp(-12 * sum)
         return com_rew
 
+    def get_energy_reward(self):
+        torques = np.abs(self.get_joint_torques())
+        max_tors = self.get_force_ranges().max(axis=1)
+        tor_prct = torques/max_tors
+        mean_tor_prct = np.mean(tor_prct)
+        energy_rew = np.exp(-4*mean_tor_prct)
+        assert energy_rew <= 1, \
+            f'Energy Reward should be between 0 and 1 but was {energy_rew}'
+        return energy_rew
+
+
     def _remove_by_indices(self, list, indices):
         """
         Removes specified indices from the passed list and returns it.
@@ -301,11 +316,12 @@ class MimicEnv:
         if not _rsinitialized:
             return -3.33
         # todo: do we need the end-effector reward?
-        w_pos, w_vel, w_com = 0.6, 0.1, 0.3
+        w_pos, w_vel, w_com, w_pow = 0.6, 0.1, 0.2, 0.1
         pos_rew = self.get_pose_reward()
         vel_ref = self.get_vel_reward()
         com_rew = self.get_com_reward()
-        imit_rew = w_pos * pos_rew + w_vel * vel_ref + w_com * com_rew
+        energy_rew = self.get_energy_reward()
+        imit_rew = w_pos * pos_rew + w_vel * vel_ref + w_com * com_rew + w_pow * energy_rew
         return imit_rew
 
     def do_terminate_early(self, rew, com_height, trunk_ang_saggit,

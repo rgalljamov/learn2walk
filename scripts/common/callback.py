@@ -6,7 +6,8 @@ from scripts.common import config as cfg, utils
 from stable_baselines.common.callbacks import BaseCallback
 
 # save the model everytime when ep_return surpassed a threshold
-EP_RETURN_THRES = 500 if not cfg.do_run() else 5000
+EP_RETURN_THRES = 500 if not cfg.do_run() \
+    else (1000 if cfg.is_mod(cfg.MOD_FLY) else 5000)
 MEAN_REW_THRES = 0.1 if not cfg.do_run() else 2.5
 
 class TrainingMonitor(BaseCallback):
@@ -35,12 +36,16 @@ class TrainingMonitor(BaseCallback):
 
     def log_to_tb(self, mean_rew, ep_len, ep_ret):
         moved_distance = self.get_mean('moved_distance_smooth')
+        mean_ep_tor = self.get_mean('mean_abs_torque_smoothed')
+
         # Log scalar values
         summary = tf.Summary(value=[
-            tf.Summary.Value(tag='_own_data/1. moved distance (smoothed 0.75)', simple_value=moved_distance),
+            tf.Summary.Value(tag='_own_data/1. moved distance (smoothed 0.25)', simple_value=moved_distance),
             tf.Summary.Value(tag='_own_data/2. step reward (smoothed 0.25)', simple_value=mean_rew),
             tf.Summary.Value(tag='_own_data/3. episode length (smoothed 0.75)', simple_value=ep_len),
-            tf.Summary.Value(tag='_own_data/4. episode return (smoothed 0.75)', simple_value=ep_ret)])
+            tf.Summary.Value(tag='_own_data/4. episode return (smoothed 0.75)', simple_value=ep_ret),
+            tf.Summary.Value(tag='_own_data/5. mean absolute episode torque (smoothed 0.1)', simple_value=mean_ep_tor)
+        ])
         self.locals['writer'].add_summary(summary, self.num_timesteps)
 
 
