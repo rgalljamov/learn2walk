@@ -8,9 +8,9 @@ plt = utils.config_pyplot(font_size=12, tick_size=12, legend_fontsize=13)
 
 # load matlab data, containing trajectories of 250 steps
 dir_path = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
-# file_path = 'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
-# file_path = 'assets/ref_trajecs/Trajecs_Constant_Speed.mat'
-file_path = 'assets/ref_trajecs/original/Traj_Ramp_Slow_final.mat'
+# file_path = 'assets/ref_trajecs/Trajecs_Ramp_Slow_400Hz_EulerTrunkAdded.mat'
+file_path = 'assets/ref_trajecs/Trajecs_Constant_Speed_400Hz.mat'
+# file_path = 'assets/ref_trajecs/original/Traj_Ramp_Slow_final.mat'
 
 data = spio.loadmat(dir_path+file_path, squeeze_me=True)
 
@@ -21,7 +21,7 @@ data = data.flatten()
 print('Number of steps recorded: ', np.size(data))
 
 # first step (37 dims, 281 timesteps)
-step = data[100]
+step = data[3]
 dofs, timesteps = step.shape
 
 def get_com_pos_all_steps():
@@ -86,7 +86,7 @@ labels = ['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
           'Trunk Rot (euler,x)', 'Trunk Rot (euler,y)', 'Trunk Rot (euler,z)',
           ]
 
-if file_path == 'assets/ref_trajecs/Trajecs_Constant_Speed.mat':
+if file_path == 'assets/ref_trajecs/Trajecs_Constant_Speed_400Hz.mat':
     # have no GRFs included
     labels.remove('GRF R [N]')
     labels.remove('GRF L [N]')

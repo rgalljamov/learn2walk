@@ -13,20 +13,19 @@ from scripts.common.utils import is_remote, config_pyplot, smooth_exponential
 
 
 # relative paths to trajectories
-PATH_CONSTANT_SPEED = 'assets/ref_trajecs/Trajecs_Constant_Speed.mat'
-PATH_SPEED_RAMP = 'assets/ref_trajecs/Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat'
-
-# on my local PC
-PATH_REF_TRAJECS = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/' + PATH_CONSTANT_SPEED
-PATH_TRAJEC_RANGES = '/assets/ref_trajecs/UPDATE_VELOCITY_RANGES_BEFORE_USING_Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
+PATH_CONSTANT_SPEED = 'assets/ref_trajecs/Trajecs_Constant_Speed_400Hz.mat'
+PATH_SPEED_RAMP = 'assets/ref_trajecs/Trajecs_Ramp_Slow_400Hz_EulerTrunkAdded.mat'
+PATH_TRAJEC_RANGES = 'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
 
 REMOTE = is_remote()
 
-# executing script on the Lauflabor PC
-if REMOTE:
-    PATH_REF_TRAJECS = '/home/rustam/code/remote/' + PATH_CONSTANT_SPEED
-    PATH_TRAJEC_RANGES = '/home/rustam/code/remote/' \
-                       'assets/ref_trajecs/UPDATE_VELOCITY_RANGES_BEFORE_USING_Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
+assets_path = '/home/rustam/code/remote/' if REMOTE \
+    else '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
+
+PATH_TRAJEC_RANGES = assets_path + \
+                     'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
+
+PATH_REF_TRAJECS = assets_path + PATH_CONSTANT_SPEED
 
 # is the trajectory with the constant speed chosen?
 _is_constant_speed = PATH_CONSTANT_SPEED in PATH_REF_TRAJECS
@@ -93,7 +92,7 @@ class ReferenceTrajectories:
         # data contains 250 steps consisting of 40 trajectories
         self.data = self._load_trajecs()
         # calculate ranges needed for Early Termination
-        # self.ranges = self._determine_trajectory_ranges()
+        self.ranges = self._determine_trajectory_ranges()
         # calculate walking speeds for each step
         self.step_velocities = self._calculate_walking_speed()
         # adapt trajectories to other environments
@@ -324,8 +323,8 @@ class ReferenceTrajectories:
 
         data_dict['Data'] = new_data
         print('BEFORE saved final')
-        # spio.savemat('Trajecs_Ramp_Slow_200Hz_EulerTrunkAdded.mat', data_dict, do_compression=True)
-        spio.savemat('Trajecs_Constant_Speed.mat', data_dict, do_compression=True)
+        # spio.savemat('Trajecs_Ramp_Slow_400Hz_EulerTrunkAdded.mat', data_dict, do_compression=True)
+        spio.savemat('Trajecs_Constant_Speed_400Hz.mat', data_dict, do_compression=True)
         print('saved final')
         raise SystemExit('This function was only used to transform '
                          'the Trunk Quaternion to Euler Rotations.\n'
