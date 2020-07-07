@@ -25,7 +25,16 @@ AT_SOFTMAX = 'at_softmax'
 
 def s(input):
     """ improves conversion of digits to strings """
-    return str(input).replace('.','')
+    as_string = str(input)
+    if str.isnumeric(as_string):
+        return as_string.replace('.','')
+    elif isinstance(input, list):
+        str_list = [str(item) for item in input]
+        res = ''.join(str_list)
+        return res
+    else:
+        raise TypeError('s() only converts numeric values and lists.')
+
 
 def mod(mods:list):
     modification = ''

@@ -107,10 +107,16 @@ def check_environment(env_name):
     exit(33)
 
 
-def log(text):
+def log(text, input_list=None):
+
+    if input_list is not None and isinstance(input_list, list):
+        list_as_str = '\n'.join([str(item) for item in input_list])
+        text += '\n' + list_as_str
+
     print("\n---------------------------------------\n"
           + text +
           "\n---------------------------------------\n")
+
 
 
 def plot_weight_matrix(weight_matrix, show=True, max_abs_value=1, center_cmap=True):
@@ -143,6 +149,9 @@ def save_pi_weights(model, name):
     weights = []
     biases = []
     attens = []
+
+    log('Model Parameters:', model.params)
+
     for param in model.params:
         if 'pi' in param.name:
             if 'w:0' in param.name:
