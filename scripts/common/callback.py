@@ -30,13 +30,14 @@ class TrainingMonitor(BaseCallback):
 
         return True
 
+
     def get_mean(self, attribute_name):
         try: return np.mean(self.env.get_attr(attribute_name))
         except: return 0.333
 
     def log_to_tb(self, mean_rew, ep_len, ep_ret):
         moved_distance = self.get_mean('moved_distance_smooth')
-        mean_ep_tor = self.get_mean('mean_abs_torque_smoothed')
+        mean_ep_joint_pow_sum = self.get_mean('mean_ep_joint_pow_sum_normed_smoothed')
 
         # Log scalar values
         summary = tf.Summary(value=[
@@ -44,7 +45,7 @@ class TrainingMonitor(BaseCallback):
             tf.Summary.Value(tag='_own_data/2. step reward (smoothed 0.25)', simple_value=mean_rew),
             tf.Summary.Value(tag='_own_data/3. episode length (smoothed 0.75)', simple_value=ep_len),
             tf.Summary.Value(tag='_own_data/4. episode return (smoothed 0.75)', simple_value=ep_ret),
-            tf.Summary.Value(tag='_own_data/5. mean absolute episode torque (smoothed 0.1)', simple_value=mean_ep_tor)
+            tf.Summary.Value(tag='_own_data/5. mean absolute episode joint power (smoothed 0.75)', simple_value=mean_ep_joint_pow_sum)
         ])
         self.locals['writer'].add_summary(summary, self.num_timesteps)
 

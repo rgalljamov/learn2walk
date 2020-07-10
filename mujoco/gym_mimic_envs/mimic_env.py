@@ -45,6 +45,7 @@ class MimicEnv:
             log("MimicEnv.step() called before refs were initialized!")
             return False
 
+        self.joint_pow_sum_normed = self.get_joint_power_sum_normed()
         self.refs.next()
         return True
 
@@ -60,27 +61,28 @@ class MimicEnv:
             return np.concatenate([qpos, qvel]).flatten()
         return qpos, qvel
 
-    def get_qpos(self):
-        return np.copy(self.sim.data.qpos)
+    def _exclude_joints(self, qvals, exclude_com, exclude_not_actuated_joints):
+        if exclude_not_actuated_joints:
+            qvals = self._remove_by_indices(qvals, self._get_not_actuated_joint_indices())
+        elif exclude_com:
+            qvals = self._remove_by_indices(qvals, self._get_COM_indices())
+        return qvals
 
-    def get_qvel(self):
-        return np.copy(self.sim.data.qvel)
+    def get_qpos(self, exclude_com=False, exclude_not_actuated_joints=False):
+        qpos = np.copy(self.sim.data.qpos)
+        return self._exclude_joints(qpos, exclude_com, exclude_not_actuated_joints)
+
+    def get_qvel(self, exclude_com=False, exclude_not_actuated_joints=False):
+        qvel = np.copy(self.sim.data.qvel)
+        return self._exclude_joints(qvel, exclude_com, exclude_not_actuated_joints)
 
     def get_ref_qpos(self, exclude_com=False, exclude_not_actuated_joints=False):
         qpos = self.refs.get_qpos()
-        if exclude_not_actuated_joints:
-            qpos = self._remove_by_indices(qpos, self._get_not_actuated_joint_indices())
-        elif exclude_com:
-            qpos = self._remove_by_indices(qpos, self._get_COM_indices())
-        return qpos
+        return self._exclude_joints(exclude_com, exclude_not_actuated_joints, qpos)
 
     def get_ref_qvel(self, exclude_com=False, exclude_not_actuated_joints=False):
         qvel = self.refs.get_qvel()
-        if exclude_not_actuated_joints:
-            qvel = self._remove_by_indices(qvel, self._get_not_actuated_joint_indices())
-        elif exclude_com:
-            qvel = self._remove_by_indices(qvel, self._get_COM_indices())
-        return qvel
+        return self._exclude_joints(qvel, exclude_com, exclude_not_actuated_joints)
 
     def activate_evaluation(self):
         self._evaluation_on = True
@@ -91,7 +93,7 @@ class MimicEnv:
     def do_fly(self, fly=True):
         self._FLY = fly
 
-    def get_joint_torques(self, abs_mean=False):
+    def get_actuator_torques(self, abs_mean=False):
         tors = np.copy(self.sim.data.actuator_force)
         return np.mean(np.abs(tors)) if abs_mean else tors
 
@@ -200,6 +202,7 @@ class MimicEnv:
     def reset_model(self):
         '''WARNING: This method seems to be specific to MujocoEnv.
            Other gym environments just use reset().'''
+        self.joint_pow_sum_normed = 0
         qpos, qvel = self.get_random_init_state()
 
         # # tune hip pd gains
@@ -294,15 +297,30 @@ class MimicEnv:
         return com_rew
 
     def get_energy_reward(self):
-        torques = np.abs(self.get_joint_torques())
-        max_tors = self.get_force_ranges().max(axis=1)
-        tor_prct = torques/max_tors
-        mean_tor_prct = np.mean(tor_prct)
-        energy_rew = np.exp(-4*mean_tor_prct)
+        """
+        Reward based on percentage of max possible joint power.
+        """
+        pow_prct = self.joint_pow_sum_normed
+        energy_rew = 1 - pow_prct
         assert energy_rew <= 1, \
             f'Energy Reward should be between 0 and 1 but was {energy_rew}'
         return energy_rew
 
+    def get_joint_power_sum_normed(self):
+        torques = np.abs(self.get_actuator_torques())
+        max_tors = self.get_force_ranges().max(axis=1)
+        qvels = np.abs(self.get_qvel(exclude_not_actuated_joints=True))
+        max_vels = self._get_max_actuator_velocities()
+        assert torques.shape == max_tors.shape
+        assert qvels.shape == max_vels.shape
+        pows = np.multiply(torques, qvels)
+        max_pows = np.multiply(max_tors, max_vels)
+        sqrd_pows = np.square(pows)
+        sqrd_max_pows = np.square(max_pows)
+        sum_pows = np.sum(sqrd_pows)
+        sum_max_pows = np.sum(sqrd_max_pows)
+        pow_prct = sum_pows / sum_max_pows
+        return pow_prct
 
     def _remove_by_indices(self, list, indices):
         """
@@ -315,7 +333,7 @@ class MimicEnv:
         global _rsinitialized
         if not _rsinitialized:
             return -3.33
-        # todo: do we need the end-effector reward?
+
         w_pos, w_vel, w_com, w_pow = 0.6, 0.1, 0.2, 0.1
         pos_rew = self.get_pose_reward()
         vel_ref = self.get_vel_reward()
@@ -428,3 +446,10 @@ class MimicEnv:
         Example: return [0,1,2,6,7]
         """
         raise NotImplementedError
+
+    def _get_max_actuator_velocities(self):
+        """
+        Needed to calculate the max mechanical power for the energy efficiency reward.
+        :returns: A numpy array containing the maximum absolute velocity peaks
+                  of each actuated joint. E.g. np.array([6, 12, 12, 6, 12, 12])
+        """

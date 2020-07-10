@@ -150,3 +150,6 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
 
     def _get_not_actuated_joint_indices(self):
         return [0,1,2]
+
+    def _get_max_actuator_velocities(self):
+        return np.array([5, 10, 10, 5, 10, 10])

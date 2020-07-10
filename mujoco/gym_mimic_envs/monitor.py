@@ -54,6 +54,8 @@ class Monitor(gym.Wrapper):
         # monitor energy efficiency
         self.ep_torques_abs = []
         self.mean_abs_torque_smoothed = 0
+        self.ep_joint_pow_sum_normed = []
+        self.mean_ep_joint_pow_sum_normed_smoothed = 0
 
         # monitor sim and ref trajecs for comparison (sim/ref, kinem_indices, timesteps)
         self.trajecs_buffer = np.zeros((2, self.num_dofs, _trajec_buffer_length))
@@ -70,7 +72,8 @@ class Monitor(gym.Wrapper):
         self.reward = reward
         self.ep_len += 1
         self.rewards.append(reward)
-        self.ep_torques_abs.append(self.env.get_joint_torques(True))
+        self.ep_joint_pow_sum_normed.append(self.env.joint_pow_sum_normed)
+        self.ep_torques_abs.append(self.env.get_actuator_torques(True))
 
         if done:
             ep_rewards = self.rewards[-self.ep_len:]
@@ -91,6 +94,9 @@ class Monitor(gym.Wrapper):
                 smooth('mean_ep_tor', np.mean(self.ep_torques_abs), 0.1)
             self.ep_torques_abs = []
 
+            self.mean_ep_joint_pow_sum_normed_smoothed = \
+                smooth('joint_pow', np.mean(self.ep_joint_pow_sum_normed), 0.75)
+
         COMPARE_TRAJECS = True and not is_remote()
         if COMPARE_TRAJECS:
             # save sim and ref trajecs in a buffer for comparison
@@ -108,7 +114,7 @@ class Monitor(gym.Wrapper):
             self.action_buf[:, -1] = action
             # save joint toqrues
             self.torque_buf = np.roll(self.torque_buf, -1, axis=1)
-            self.torque_buf[:, -1] = self.get_joint_torques()
+            self.torque_buf[:, -1] = self.get_actuator_torques()
 
             # plot trajecs when the buffers are filled
             try: self.trajecs_recorded += 1
