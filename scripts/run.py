@@ -1,3 +1,7 @@
+"""
+Loads a specified model (by path or from config) and executes it.
+The policy can be used sarcastically and deterministically.
+"""
 import gym, time, mujoco_py
 # necessary to import custom gym environments
 import gym_mimic_envs
@@ -9,7 +13,7 @@ from scripts.common.utils import load_env
 DETERMINISTIC_ACTIONS = False
 FROM_PATH = True
 RENDER = True
-PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/pow_rew/deepmim/relu/300Nm/steep_rews/rew_et10/mim_walker2d/" \
+PATH = "/models/archive/pow_rew/deepmim/relu/300Nm/steep_rews/rew_et10/mim_walker2d/" \
        "16envs/ppo2/hyper_own/final/hl128128_ent0_lr1200to1_clp1_bs8_imrew6121_gamma990/572"
 if not PATH.endswith('/'): PATH += '/'
 checkpoint = 'ep_ret5800_19M' #'mean_rew60' # 999
@@ -22,7 +26,6 @@ if FROM_PATH:
     print('\nModel:\n', model_path + '\n')
 
     env = load_env(checkpoint, PATH)
-    # env = Monitor(env, True)
 
 else:
     env = gym.make('MimicWalker2d-v0')

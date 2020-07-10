@@ -27,7 +27,7 @@ def run_tensorboard():
 
 if __name__ == "__main__":
 
-    # create direction for the model
+    # create model directories
     if not os.path.exists(cfg.save_path):
         os.makedirs(cfg.save_path)
         os.makedirs(cfg.save_path + 'metrics')
@@ -35,34 +35,22 @@ if __name__ == "__main__":
         os.makedirs(cfg.save_path + 'models/params')
         os.makedirs(cfg.save_path + 'envs')
 
+    # setup environment
     env = utils.vec_env(cfg.env_id, norm_rew=True,
                         num_envs=cfg.n_envs)
 
+    # setup model/algorithm
     training_timesteps = int(cfg.mio_steps * 1e6)
     learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
-    network_args = {'net_arch': [{'vf': cfg.hid_layers, 'pi': cfg.hid_layers}]}
-    if cfg.is_mod(cfg.MOD_RELU):
-        network_args['act_fun'] = tf.nn.relu
-        utils.log('Using ReLU activation')
+    network_args = {'net_arch': [{'vf': cfg.hid_layers, 'pi': cfg.hid_layers}],
+                    'act_fun': tf.nn.relu}
 
-    if cfg.hyperparam == cfg.HYPER_OWN:
-        model = PPO2(MlpPolicy, env, verbose=1,
-                     n_steps=int(cfg.batch_size/cfg.n_envs),
-                     policy_kwargs=network_args,
-                     learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
-                     gamma=cfg.gamma, cliprange=cfg.cliprange,
-                     tensorboard_log=cfg.save_path + 'tb_logs/')
-    elif cfg.hyperparam == cfg.HYPER_PENG:
-        model = PPO2(MlpPolicy, env,
-                     n_steps=4096, nminibatches=16, lam=0.95, verbose=1,
-                     gamma=0.95, learning_rate=5e-5, cliprange=0.2,
-                     tensorboard_log=cfg.save_path + 'tb_logs/')
-    elif cfg.hyperparam == cfg.HYPER_ZOO:
-        model = PPO2(MlpPolicy, env,
-                     n_steps=1024, nminibatches=64, lam=0.95, verbose=1,
-                     gamma=0.90, learning_rate=0.00025, cliprange=0.1,
-                     noptepochs=10, ent_coef=0, cliprange_vf=-1,
-                     tensorboard_log=cfg.save_path + 'tb_logs/')
+    model = PPO2(MlpPolicy, env, verbose=1,
+                 n_steps=int(cfg.batch_size/cfg.n_envs),
+                 policy_kwargs=network_args,
+                 learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
+                 gamma=cfg.gamma, cliprange=cfg.cliprange,
+                 tensorboard_log=cfg.save_path + 'tb_logs/')
 
     # automatically launch tensorboard
     run_tensorboard()
@@ -80,5 +68,4 @@ if __name__ == "__main__":
     env.close()
 
     # evaluate last saved model
-    # todo: evaluate multiple models, if previous models were better
     eval.eval_model()
