@@ -40,12 +40,15 @@ if __name__ == "__main__":
 
     training_timesteps = int(cfg.mio_steps * 1e6)
     learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
+    network_args = {'net_arch': [{'vf': cfg.hid_layers, 'pi': cfg.hid_layers}]}
+    if cfg.is_mod(cfg.MOD_RELU):
+        network_args['act_fun'] = tf.nn.relu
+        utils.log('Using ReLU activation')
 
-    if cfg.hyperparam == cfg.HYPER_DEFAULT:
-        utils.log('Training with default params from Stable Baselines')
+    if cfg.hyperparam == cfg.HYPER_OWN:
         model = PPO2(MlpPolicy, env, verbose=1,
                      n_steps=int(cfg.batch_size/cfg.n_envs),
-                     policy_kwargs={'net_arch':[{'vf':cfg.hid_layers, 'pi':cfg.hid_layers}]},
+                     policy_kwargs=network_args,
                      learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
                      gamma=cfg.gamma, cliprange=cfg.cliprange,
                      tensorboard_log=cfg.save_path + 'tb_logs/')

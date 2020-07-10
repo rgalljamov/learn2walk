@@ -15,16 +15,16 @@ plt = utils.import_pyplot()
 RENDER = False and not utils.is_remote()
 NO_ET = True
 PLOT_RESULTS = False
-DETERMINISTIC_ACTIONS = False
+DETERMINISTIC_ACTIONS = True
 
 FROM_PATH = True
-PATH = "/home/rustam/code/remote/models/deepmim/500Nm/steep_rews/mim_walker2d/" \
-       "8envs/ppo2/hyper_dflt/10mio/ent-250_lr500to1_clp1_bs8_imrew613_pun100_gamma999/648"
+PATH = "/home/rustam/code/remote/models/baseline/deepmim/relu/300Nm/steep_rews/rew_et10/mim_walker2d/16envs/ppo2/hyper_own/16mio/" \
+       "hl128128_ent0_lr1500to500_epdur4_bs8_imrew6121_gamma990_prevbest_lr3_ent0/150"
 if not PATH.endswith('/'): PATH += '/'
 
 # which model should be evaluated
 run_id = 78
-checkpoint = 'ep_ret1500' # 999
+checkpoint =  'mean_rew60_4M' # 'mean_rew60_12M' # 'ep_ret5500' # 999
 
 # evaluate for n episodes
 n_eps = 25

@@ -6,9 +6,9 @@ from scripts.common import config as cfg, utils
 from stable_baselines.common.callbacks import BaseCallback
 
 # save the model everytime when ep_return surpassed a threshold
-EP_RETURN_THRES = 500 if not cfg.do_run() \
+EP_RETURN_THRES = 250 if not cfg.do_run() \
     else (1000 if cfg.is_mod(cfg.MOD_FLY) else 5000)
-MEAN_REW_THRES = 0.1 if not cfg.do_run() else 2.5
+MEAN_REW_THRES = 0.05 if not cfg.do_run() else 2.5
 
 class TrainingMonitor(BaseCallback):
     def __init__(self, verbose=0):
@@ -52,19 +52,24 @@ class TrainingMonitor(BaseCallback):
 
     def save_model_if_good(self, mean_rew, ep_ret):
 
-        ep_ret_thres = int(EP_RETURN_THRES * (self.times_surpassed_ep_return_threshold + 1))
+        def get_mio_timesteps():
+            return int(self.num_timesteps/1e6)
+
+        ep_ret_thres = 250 + int(EP_RETURN_THRES * (self.times_surpassed_ep_return_threshold + 1))
         if ep_ret > ep_ret_thres:
-            utils.save_model(self.model, cfg.save_path, 'ep_ret' + str(ep_ret_thres))
+            utils.save_model(self.model, cfg.save_path,
+                             'ep_ret' + str(ep_ret_thres) + f'_{get_mio_timesteps()}M')
             self.times_surpassed_ep_return_threshold += 1
             print(f'Saving model after surpassing EPISODE RETURN of {ep_ret_thres}.')
+            print('Model Path: ', cfg.save_path)
 
         mean_rew_thres = 0.4 + MEAN_REW_THRES * (self.times_surpassed_mean_reward_threshold + 1)
         if mean_rew > (mean_rew_thres):
-            utils.save_model(self.model, cfg.save_path, 'mean_rew' + str(int(100*mean_rew_thres)))
+            utils.save_model(self.model, cfg.save_path,
+                             'mean_rew' + str(int(100*mean_rew_thres)) + f'_{get_mio_timesteps()}M')
             self.times_surpassed_mean_reward_threshold += 1
             print(f'Saving model after surpassing MEAN REWARD of {mean_rew_thres}.')
-
-
+            print('Model Path: ', cfg.save_path)
 
 
 def _save_rews_n_rets(locals):

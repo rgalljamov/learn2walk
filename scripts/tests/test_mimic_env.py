@@ -9,10 +9,10 @@ from scripts.common.utils import load_env
 DETERMINISTIC_ACTIONS = False
 FROM_PATH = True
 RENDER = True
-PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/deepmim/500Nm/fly/" \
-       "mim_walker2d/8envs/ppo2/hyper_dflt/4mio/hl6464_ent0_lr1000to5_clp1_bs8_imrew613_gamma950/993-evaled"
+PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/pow_rew/deepmim/relu/300Nm/steep_rews/rew_et10/mim_walker2d/" \
+       "16envs/ppo2/hyper_own/final/hl128128_ent0_lr1200to1_clp1_bs8_imrew6121_gamma990/572"
 if not PATH.endswith('/'): PATH += '/'
-checkpoint = 'ep_ret4000' #'mean_rew60' # 999
+checkpoint = 'ep_ret5800_19M' #'mean_rew60' # 999
 
 if FROM_PATH:
     # load model
@@ -35,7 +35,7 @@ if not isinstance(env, Monitor):
     env = env.venv.envs[0]
 
 obs = env.reset()
-env.do_fly()
+# env.do_fly()
 env.activate_evaluation()
 
 

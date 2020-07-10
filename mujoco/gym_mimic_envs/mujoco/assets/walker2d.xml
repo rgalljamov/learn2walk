@@ -6,7 +6,7 @@
   <default>
     <joint armature="0.01" limited="true" />
     <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100"/>
-    <position ctrllimited="true" forcelimited="true" forcerange="-500 500" gear="1"/>
+    <position ctrllimited="true" forcelimited="true" forcerange="-300 300" gear="1"/>
     <geom conaffinity="0" condim="3" contype="1" density="1000" friction=".7 .1 .1" rgba="0.8 0.6 .4 1"/>
   </default>
   <option integrator="RK4" timestep="0.001"/>

@@ -5,7 +5,7 @@ from gym.envs.mujoco import mujoco_env
 from gym_mimic_envs.mimic_env import MimicEnv
 from scripts.common.utils import is_remote
 from scripts.common import ref_trajecs as refs
-from scripts.common.config import do_run
+from scripts.common.config import do_run, ep_dur_max
 from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 
@@ -74,6 +74,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             qvel_set[[0,1,2,]] = [0, 0, 0]
             self.set_joint_kinematics_in_sim(qpos_set, qvel_set)
 
+
         self.do_simulation(a, self.frame_skip)
 
         qpos_after = self.sim.data.qpos
@@ -107,16 +108,17 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         elif USE_ET:
             done = self.has_exceeded_allowed_deviations()
         elif USE_REW_ET:
-            done = self.do_terminate_early(reward, height, ang, rew_threshold=0.25)
+            done = self.do_terminate_early(reward, height, ang, rew_threshold=0.1)
         else:
             done = not (height > 0.8 and height < 2.0 and
                         ang > -1.0 and ang < 1.0)
-            done = done or ep_dur > 4000
+            done = done or ep_dur > ep_dur_max
         if DEBUG and done: print('Done')
 
         # punish episode termination
         if done:
-            reward = -100 if not do_run() else 0
+            # but don't punish if episode just reached max length
+            reward = -100 if (not do_run() and ep_dur < ep_dur_max) else 0
             ep_dur = 0
 
         do_render = True and not is_remote()
