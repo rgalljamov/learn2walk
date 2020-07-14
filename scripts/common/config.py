@@ -43,6 +43,12 @@ MOD_REFS_RAMP = 'refs_ramp'
 
 modification = mod([MOD_ORIG])
 
+# wandb
+wb_project_name = 'final_first_test'
+wb_run_name = 'get_size MB, gif 16fps, check-size'
+wb_run_notes = ''
+
+
 # choose environment
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
 env_names = ['mim2d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
@@ -79,6 +85,12 @@ hyp_path = (f'{own_hypers + info}/' if len(own_hypers + info) > 0 else '')
 save_path_norun= abs_project_path + 'models/wandb/' + _mod_path + hyp_path
 save_path = save_path_norun + f'{run_id}/'
 
+
+# wandb
+def get_wb_run_name():
+    return wb_run_name + hyp_path + ' ' + run_id
+if len(wb_project_name) == 0:
+    wb_project_name = _mod_path.replace('/', '_')[:-1]
 
 # names of saved model before and after training
 init_checkpoint = s(0)

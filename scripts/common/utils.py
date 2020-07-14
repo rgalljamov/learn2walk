@@ -1,4 +1,4 @@
-import gym, os
+import gym, os, wandb
 import numpy as np
 import seaborn as sns
 from os import path, getcwd
@@ -142,6 +142,12 @@ def save_model(model, path, checkpoint):
     # save Running mean of observations and reward
     env_path = path + f'envs/env_{checkpoint}'
     model.get_env().save(env_path)
+    # save model and env to wandb
+    wandb.save(model_path+'.zip')
+    wandb.save(env_path)
+
+
+
 
 
 def save_pi_weights(model, name):
