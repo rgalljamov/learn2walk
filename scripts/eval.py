@@ -1,4 +1,5 @@
 import os.path
+import glob, wandb
 import numpy as np
 from scripts.common import utils
 from scripts.common import config as cfg
@@ -18,16 +19,15 @@ PLOT_RESULTS = False
 DETERMINISTIC_ACTIONS = True
 
 FROM_PATH = True
-PATH = "/home/rustam/code/remote/models/baseline/deepmim/relu/300Nm/steep_rews/rew_et10/mim_walker2d/16envs/ppo2/hyper_own/16mio/" \
-       "hl128128_ent0_lr1500to500_epdur4_bs8_imrew6121_gamma990_prevbest_lr3_ent0/150"
+PATH = "/home/rustam/code/remote/models/test/deepmim/orig/mim_walker2d/16envs/ppo2/16mio/412-evaled"
 if not PATH.endswith('/'): PATH += '/'
 
 # which model should be evaluated
 run_id = 78
-checkpoint =  'mean_rew60_4M' # 'mean_rew60_12M' # 'ep_ret5500' # 999
+checkpoint =  'mean_rew55_3M' # 'mean_rew60_12M' # 'ep_ret5500' # 999
 
 # evaluate for n episodes
-n_eps = 25
+n_eps = 5
 # how many actions to record in each episode
 rec_n_steps = 1000
 
@@ -44,7 +44,7 @@ def eval_model(from_config=True):
 
     # get model location from the config file
     if from_config:
-        run_id = cfg.run
+        run_id = cfg.run_id
         checkpoint = cfg.final_checkpoint
 
     # change save_path to specified model
@@ -196,8 +196,7 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
             ep_name = relevant_eps_names[ep_index]
 
             # create an environment that captures performance on video
-            video_env = VecVideoRecorder(env, save_path + 'videos_' +
-                                         ('determin' if DETERMINISTIC_ACTIONS else 'stochastic'),
+            video_env = VecVideoRecorder(env, video_path,
                                          record_video_trigger=lambda x: x > 0,
                                          video_length=video_n_steps,
                                          name_prefix=f'{ep_name}_{int(ep_ret)}_')
@@ -214,8 +213,6 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
                 # only reset when agent has fallen
                 if has_fallen(video_env):
                     video_env.reset()
-
-
 
             video_env.close()
             utils.log(f"Saved performance video after {step} steps.")
@@ -238,7 +235,16 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
     env.close()
 
     # rename folder to mark it as evaluated
-    os.rename(save_path[:-1], save_path[:-1] + '-evaled')
+    path_evaled = save_path[:-1] + '-evaled'
+    os.rename(save_path[:-1], path_evaled)
+
+    # upload videos to wandb
+    mp4_paths_all = glob.glob(path_evaled+f'/videos_{pi_string}/*.mp4')
+    # filter out broken videos, filesize < 1MB
+    mp4_paths = [path for path in mp4_paths_all if os.path.getsize(path)>1024**2]
+    utils.log('MP4 Paths:', mp4_paths)
+    wandb.log({"video": wandb.Video(mp4_paths[0], fps=16, format='gif')})
+    # wandb.log({"video": wandb.Video(mp4_paths[1], fps=4, format='mp4')})
 
 def has_fallen(video_env):
     com_z_pos = video_env.env.venv.envs[0].env.data.qpos[1]
