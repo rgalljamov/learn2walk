@@ -1,4 +1,5 @@
 import os.path
+import wandb
 from scripts import eval
 from scripts.common import config as cfg, utils
 from scripts.common.schedules import LinearSchedule
@@ -23,6 +24,36 @@ def run_tensorboard():
         target=lambda: os.system(tb_path + '--logdir="' + cfg.save_path + 'tb_logs/"'),
         daemon=True)
     tb_thread.start()
+
+
+def init_wandb(model):
+    batch_size = model.n_steps * model.n_envs
+    params = {
+        "mod": cfg.modification,
+        "lr0": cfg.lr_start,
+        "lr1": cfg.lr_final,
+        "batch_size": batch_size,
+        "mini_batch": int(batch_size / model.nminibatches),
+        "mio_steps": cfg.mio_steps,
+        "ent_coef": model.ent_coef,
+        "ep_dur": cfg.ep_dur_max,
+        "imit_rew": '6121',
+        "env": cfg.env_name,
+        "gam": model.gamma,
+        "lam": model.lam,
+        "n_envs": model.n_envs,
+        "seed": model.seed,
+        "policy": model.policy,
+        "n_steps": model.n_steps,
+        "vf_coef": model.vf_coef,
+        "max_grad_norm": model.max_grad_norm,
+        "nminibatches": model.nminibatches,
+        "noptepochs": model.noptepochs,
+        "cliprange": model.cliprange,
+        "cliprange_vf": model.cliprange_vf,
+        "n_cpu_tf_sess": model.n_cpu_tf_sess}
+    wandb.init(config=params, sync_tensorboard=True, name=cfg.get_wb_run_name(),
+               project=cfg.wb_project_name, notes=cfg.wb_run_notes)
 
 
 if __name__ == "__main__":
@@ -52,8 +83,11 @@ if __name__ == "__main__":
                  gamma=cfg.gamma, cliprange=cfg.cliprange,
                  tensorboard_log=cfg.save_path + 'tb_logs/')
 
+    # init wandb
+    init_wandb(model)
+
     # automatically launch tensorboard
-    run_tensorboard()
+    # run_tensorboard()
 
     # save model and weights before training
     utils.save_model(model, cfg.save_path, cfg.init_checkpoint)

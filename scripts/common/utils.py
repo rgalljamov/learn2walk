@@ -1,4 +1,4 @@
-import gym, os
+import gym, os, wandb
 import numpy as np
 import seaborn as sns
 from os import path, getcwd
@@ -136,11 +136,18 @@ def plot_weight_matrix(weight_matrix, show=True, max_abs_value=1, center_cmap=Tr
 
 def save_model(model, path, checkpoint):
     """ saves the model, the corresponding environment means and pi weights"""
-    model_path = path + 'models/model_' + str(checkpoint)
+    model_path = path + f'models/model_{checkpoint}'
     model.save(save_path=model_path)
     save_pi_weights(model, checkpoint)
     # save Running mean of observations and reward
-    model.get_env().save(path + f'envs/env_{checkpoint}')
+    env_path = path + f'envs/env_{checkpoint}'
+    model.get_env().save(env_path)
+    # save model and env to wandb
+    wandb.save(model_path+'.zip')
+    wandb.save(env_path)
+
+
+
 
 
 def save_pi_weights(model, name):
