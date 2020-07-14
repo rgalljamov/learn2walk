@@ -29,7 +29,7 @@ def do_run():
     return AP_RUN in approach
 
 # choose approach
-AP_DEEPMIMIC = 'deepmim'
+AP_DEEPMIMIC = 'dmm'
 AP_RUN = 'run'
 approach = AP_DEEPMIMIC
 
@@ -45,7 +45,7 @@ modification = mod([MOD_ORIG])
 
 # choose environment
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
-env_names = ['mim_walker2d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
+env_names = ['mim2d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
 env_index = 0
 env_id = envs[env_index]
 env_name = env_names[env_index]
@@ -66,18 +66,19 @@ ep_dur_max = int(_ep_dur_in_k * 1e3)
 
 own_hypers = ''
 info = ''
-run = s(np.random.random_integers(0,1000))
+run_id = s(np.random.random_integers(0, 1000))
 
 info_baseline_hyp_tune = f'hl{s(hid_layers)}_ent{int(ent_coef * 1000)}_lr{lr_start}to{lr_final}_epdur{_ep_dur_in_k}_' \
        f'bs{int(batch_size/1000)}_imrew6121_gam{int(gamma*1e3)}'
 
 # construct the paths
 abs_project_path = dirname(dirname(dirname(__file__))) + '/'
-save_path_norun= abs_project_path + \
-                 f'models/{approach}/{modification}/{env_name}/{n_envs}envs/' \
-                 f'{algo}/{mio_steps}mio/' \
-                 + (f'{own_hypers + info}/' if len(own_hypers+info)>0 else '')
-save_path = save_path_norun + f'{run}/'
+_mod_path = f'{approach}/{modification}/{env_name}/{n_envs}envs/' \
+            f'{algo}/{mio_steps}mio/'
+hyp_path = (f'{own_hypers + info}/' if len(own_hypers + info) > 0 else '')
+save_path_norun= abs_project_path + 'models/wandb/' + _mod_path + hyp_path
+save_path = save_path_norun + f'{run_id}/'
+
 
 # names of saved model before and after training
 init_checkpoint = s(0)

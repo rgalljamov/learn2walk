@@ -22,3 +22,9 @@ class LinearSchedule(Schedule):
         fraction_passed = 1 - fraction_timesteps_left
         val = self.start + fraction_passed * self.slope
         return val
+
+    def __str__(self):
+        return f'LinearSchedule: {self.start} -> {self.end}'
+
+    def __repr__(self):
+        return f'LinearSchedule: {self.start} -> {self.end}'
