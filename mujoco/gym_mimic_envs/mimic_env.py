@@ -336,10 +336,14 @@ class MimicEnv:
 
         w_pos, w_vel, w_com, w_pow = 0.6, 0.1, 0.2, 0.1
         pos_rew = self.get_pose_reward()
-        vel_ref = self.get_vel_reward()
+        vel_rew = self.get_vel_reward()
         com_rew = self.get_com_reward()
         energy_rew = self.get_energy_reward()
-        imit_rew = w_pos * pos_rew + w_vel * vel_ref + w_com * com_rew + w_pow * energy_rew
+        if cfg.is_mod(cfg.MOD_REW_MULT):
+            imit_rew = np.sqrt(pos_rew) * np.sqrt(com_rew) # * vel_rew**w_vel
+        else:
+            imit_rew = w_pos * pos_rew + w_vel * vel_rew + w_com * com_rew + w_pow * energy_rew
+
         return imit_rew
 
     def do_terminate_early(self, rew, com_height, trunk_ang_saggit,

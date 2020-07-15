@@ -41,12 +41,14 @@ MOD_PHASE_VAR = 'phase_var'
 MOD_REFS_CONST = 'refs_const'
 MOD_REFS_RAMP = 'refs_ramp'
 
-modification = mod([MOD_ORIG])
+MOD_REW_MULT = 'rew_mult'
+modification = mod([MOD_REW_MULT])
 
 # wandb
-wb_project_name = 'final_first_test'
-wb_run_name = 'get_size MB, gif 16fps, check-size'
-wb_run_notes = ''
+wb_project_name = 'multiply_reward'
+wb_run_name = 'sqrt(r1)*sqrt(r2), only pos and com - 8M, adjusted lr sched'
+wb_run_notes = 'w_pos, w_vel, w_com, w_pow = 0.6, 0.1, 0.2, 0.1\n' \
+               'imit_rew = pos_rew**w_pos * vel_rew**w_vel * w_com**w_com * w_pow**w_pow'
 
 
 # choose environment
@@ -58,12 +60,12 @@ env_name = env_names[env_index]
 
 # choose hyperparams
 algo = 'ppo2'
-mio_steps = 16
+mio_steps = 8
 n_envs = 16 if utils.is_remote() else 1
 batch_size = 8192 if utils.is_remote() else 1024
 hid_layers = [128, 128]
 lr_start = 1500
-lr_final = 1
+lr_final = 750
 cliprange = 0.15
 ent_coef = -0.001
 gamma = 0.99
