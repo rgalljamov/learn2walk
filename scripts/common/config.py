@@ -43,6 +43,9 @@ MOD_REFS_RAMP = 'refs_ramp'
 
 MOD_REW_MULT = 'rew_mult'
 modification = mod([MOD_REW_MULT])
+# allow the policy to output angles in the maximum range
+# but punish actions that are too far away from current angle
+MOD_PUNISH_UNREAL_TARGET_ANGS = 'pun_unreal_angs'
 
 # wandb
 wb_project_name = 'multiply_reward'
@@ -84,13 +87,13 @@ abs_project_path = dirname(dirname(dirname(__file__))) + '/'
 _mod_path = f'{approach}/{modification}/{env_name}/{n_envs}envs/' \
             f'{algo}/{mio_steps}mio/'
 hyp_path = (f'{own_hypers + info}/' if len(own_hypers + info) > 0 else '')
-save_path_norun= abs_project_path + 'models/wandb/' + _mod_path + hyp_path
+save_path_norun= abs_project_path + 'models/' + _mod_path + hyp_path
 save_path = save_path_norun + f'{run_id}/'
 
 
 # wandb
 def get_wb_run_name():
-    return wb_run_name + hyp_path + ' ' + run_id
+    return wb_run_name + hyp_path + ' - ' + run_id
 if len(wb_project_name) == 0:
     wb_project_name = _mod_path.replace('/', '_')[:-1]
 
