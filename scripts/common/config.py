@@ -50,6 +50,7 @@ MOD_PHASE_VAR = 'phase_var'
 MOD_REFS_CONST = 'refs_const'
 MOD_REFS_RAMP = 'refs_ramp'
 
+MOD_CUSTOM_NETS = 'cstm_pi'
 MOD_REW_MULT = 'rew_mult'
 modification = mod([MOD_REW_MULT])
 # allow the policy to output angles in the maximum range
@@ -63,14 +64,14 @@ MOD_NORM_ACTS = 'norm_acts'
 MOD_ZERO_OUT = 'zero_out' # - not tried yet
 MOD_BOUND_ACTS = 'tanh_acts' # - not tried yet
 # modification = mod([MOD_DELTAS, MOD_PI_OUT_DELTAS, MOD_STATE_HISTORY_20])
-modification = mod([MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
+modification = mod([MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
 check_mod_compatibility()
 
 # wandb
 DEBUG = False
 wb_project_name = 'angle_deltas'
-wb_run_name = 'norm action deltas 2x 2nd' # no phase 3rd - pi_out_delta 2x'
-wb_run_notes = 'policy clips actions to the interval [-1,1],  SCALE_MAX_VELS = 2'
+wb_run_name = 'cstm_pi orig - norm action deltas 2x'
+wb_run_notes = 'Testing custom AC-FF-policy, policy clips actions to the interval [-1,1],  SCALE_MAX_VELS = 2'
 
 # choose environment
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
@@ -84,7 +85,7 @@ algo = 'ppo2'
 mio_steps = 8
 n_envs = 16 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
-hid_layers = [128, 128]
+hid_layer_sizes = [128, 128]
 lr_start = 1500
 lr_final = 750
 cliprange = 0.15
@@ -97,7 +98,7 @@ own_hypers = ''
 info = ''
 run_id = s(np.random.random_integers(0, 1000))
 
-info_baseline_hyp_tune = f'hl{s(hid_layers)}_ent{int(ent_coef * 1000)}_lr{lr_start}to{lr_final}_epdur{_ep_dur_in_k}_' \
+info_baseline_hyp_tune = f'hl{s(hid_layer_sizes)}_ent{int(ent_coef * 1000)}_lr{lr_start}to{lr_final}_epdur{_ep_dur_in_k}_' \
        f'bs{int(batch_size/1000)}_imrew6121_gam{int(gamma*1e3)}'
 
 # construct the paths

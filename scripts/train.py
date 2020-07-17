@@ -4,6 +4,7 @@ from scripts import eval
 from scripts.common import config as cfg, utils
 from scripts.common.schedules import LinearSchedule
 from scripts.common.callback import TrainingMonitor
+from scripts.common.policies import CustomPolicy
 
 # to decrease the amount of deprecation warnings
 import tensorflow as tf
@@ -73,11 +74,11 @@ if __name__ == "__main__":
     # setup model/algorithm
     training_timesteps = int(cfg.mio_steps * 1e6)
     learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
-    network_args = {'net_arch': [{'vf': cfg.hid_layers, 'pi': cfg.hid_layers}],
-                    'act_fun': tf.nn.relu}
+    network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
+                    'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_NETS) else {}
 
-    model = PPO2(MlpPolicy, env, verbose=1,
-                 n_steps=int(cfg.batch_size/cfg.n_envs),
+    model = PPO2(CustomPolicy if cfg.is_mod(cfg.MOD_CUSTOM_NETS) else MlpPolicy,
+                 env, verbose=1, n_steps=int(cfg.batch_size/cfg.n_envs),
                  policy_kwargs=network_args,
                  learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
                  gamma=cfg.gamma, cliprange=cfg.cliprange,

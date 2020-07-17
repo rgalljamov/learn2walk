@@ -162,7 +162,7 @@ def save_pi_weights(model, name):
     biases = []
     attens = []
 
-    log('Model Parameters:', model.params)
+    # log('Model Parameters:', model.params)
 
     for param in model.params:
         if 'pi' in param.name:
