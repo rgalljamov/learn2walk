@@ -28,8 +28,11 @@ def check_mod_compatibility():
     this function throws an exception and provides explanations.
     """
     if is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
-        raise NotImplementedError("Normalized actions (ctrlrange [-1,1] for all joints) " \
-                                  "currently only work when policy outputs delta angles.")
+        raise TypeError("Normalized actions (ctrlrange [-1,1] for all joints) " \
+                        "currently only work when policy outputs delta angles.")
+    if is_mod(MOD_TANH_ACTS) and not is_mod(MOD_CUSTOM_NETS):
+        raise TypeError("Using bounded/tanh actions is only possible in combination"
+                        "with MOD_CUSTOM_NETS.")
 
 def is_mod(mod_str):
     return mod_str in modification
@@ -62,16 +65,17 @@ MOD_PI_OUT_DELTAS = 'pi_deltas'
 MOD_NORM_ACTS = 'norm_acts'
 # init weights in the policy output layer to zero (action=qpos+pi_out)
 MOD_ZERO_OUT = 'zero_out' # - not tried yet
-MOD_BOUND_ACTS = 'tanh_acts' # - not tried yet
-# modification = mod([MOD_DELTAS, MOD_PI_OUT_DELTAS, MOD_STATE_HISTORY_20])
-modification = mod([MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
+# use a tanh activation function at the output layer
+MOD_TANH_ACTS = 'tanh_acts' # - not tried yet
+modification = mod([MOD_CUSTOM_NETS, MOD_TANH_ACTS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
 check_mod_compatibility()
 
 # wandb
 DEBUG = False
 wb_project_name = 'angle_deltas'
-wb_run_name = 'cstm_pi orig - norm action deltas 2x'
-wb_run_notes = 'Testing custom AC-FF-policy, policy clips actions to the interval [-1,1],  SCALE_MAX_VELS = 2'
+wb_run_name = 'cstm_pi cstm_gauss orig - norm action deltas 2x'
+wb_run_notes = 'Continue Testing. Have now added a custom policy distribution. Want to test it before doing additional changes.' \
+               'Testing custom AC-FF-policy, policy clips actions to the interval [-1,1],  SCALE_MAX_VELS = 2'
 
 # choose environment
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']

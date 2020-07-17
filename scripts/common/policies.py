@@ -1,4 +1,5 @@
 from stable_baselines.common.policies import ActorCriticPolicy, register_policy
+from scripts.common.distributions import BoundedDiagGaussianDistributionType
 from stable_baselines.a2c.utils import linear, ortho_init
 from scripts.common.utils import log
 from scripts.common import config as cfg
@@ -11,6 +12,10 @@ class CustomPolicy(ActorCriticPolicy):
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, **kwargs):
         super(CustomPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse, **kwargs)
         log("Using CustomPolicy.")
+
+        if cfg.is_mod(cfg.MOD_TANH_ACTS):
+            self._pdtype = BoundedDiagGaussianDistributionType(ac_space.shape[0])
+            log("Using Bounded Gaussian Distribution")
 
         with tf.variable_scope("model", reuse=reuse):
             obs = self.processed_obs
