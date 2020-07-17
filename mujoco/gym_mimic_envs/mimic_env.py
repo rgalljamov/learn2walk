@@ -184,6 +184,21 @@ class MimicEnv:
         self.close()
         raise SystemExit('Environment intentionally closed after playing back trajectories.')
 
+    def set_action_space_deltas(self):
+        if cfg.is_mod(cfg.MOD_NORM_ACTS):
+            ones = np.ones_like(self.action_space.high)
+            self.action_space.high = ones
+            self.action_space.low = -1*ones
+            return
+        # get max allowed deviations in actuated joints
+        max_vels = self._get_max_actuator_velocities()
+        max_qpos_deltas = max_vels/self.control_freq
+        self.action_space.high = SCALE_MAX_VELS * max_qpos_deltas
+        self.action_space.low = SCALE_MAX_VELS * -max_qpos_deltas
+        if cfg.DEBUG:
+            log(f'Changed action space to scaled ({SCALE_MAX_VELS}x) deltas:'
+                f'\nhigh: {self.action_space.high}, low: {self.action_space.low}')
+
     def set_joint_kinematics_in_sim(self, qpos=None, qvel=None):
         old_state = self.sim.get_state()
         if qpos is None:

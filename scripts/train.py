@@ -67,8 +67,8 @@ if __name__ == "__main__":
         os.makedirs(cfg.save_path + 'envs')
 
     # setup environment
-    env = utils.vec_env(cfg.env_id, norm_rew=True,
-                        num_envs=cfg.n_envs)
+    env = utils.vec_env(cfg.env_id, norm_rew=True, num_envs=cfg.n_envs,
+                        deltas=cfg.is_mod(cfg.MOD_PI_OUT_DELTAS))
 
     # setup model/algorithm
     training_timesteps = int(cfg.mio_steps * 1e6)
@@ -84,13 +84,14 @@ if __name__ == "__main__":
                  tensorboard_log=cfg.save_path + 'tb_logs/')
 
     # init wandb
-    init_wandb(model)
+    if not cfg.DEBUG: init_wandb(model)
 
     # automatically launch tensorboard
     # run_tensorboard()
 
     # save model and weights before training
-    utils.save_model(model, cfg.save_path, cfg.init_checkpoint)
+    if not cfg.DEBUG:
+        utils.save_model(model, cfg.save_path, cfg.init_checkpoint)
 
     # train model
     model.learn(total_timesteps=training_timesteps, callback=TrainingMonitor())

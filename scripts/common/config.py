@@ -22,6 +22,15 @@ def mod(mods:list):
     modification = modification[:-1]
     return modification
 
+def check_mod_compatibility():
+    """
+    Some modes cannot be used together. In such cases,
+    this function throws an exception and provides explanations.
+    """
+    if is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
+        raise NotImplementedError("Normalized actions (ctrlrange [-1,1] for all joints) " \
+                                  "currently only work when policy outputs delta angles.")
+
 def is_mod(mod_str):
     return mod_str in modification
 
@@ -46,13 +55,22 @@ modification = mod([MOD_REW_MULT])
 # allow the policy to output angles in the maximum range
 # but punish actions that are too far away from current angle
 MOD_PUNISH_UNREAL_TARGET_ANGS = 'pun_unreal_angs'
+# let the policy output deltas to current angle
+MOD_PI_OUT_DELTAS = 'pi_deltas'
+# normalize actions: programmatically set action space to be [-1,1]
+MOD_NORM_ACTS = 'norm_acts'
+# init weights in the policy output layer to zero (action=qpos+pi_out)
+MOD_ZERO_OUT = 'zero_out' # - not tried yet
+MOD_BOUND_ACTS = 'tanh_acts' # - not tried yet
+# modification = mod([MOD_DELTAS, MOD_PI_OUT_DELTAS, MOD_STATE_HISTORY_20])
+modification = mod([MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
+check_mod_compatibility()
 
 # wandb
-wb_project_name = 'multiply_reward'
-wb_run_name = 'sqrt(r1)*sqrt(r2), only pos and com - 8M, adjusted lr sched'
-wb_run_notes = 'w_pos, w_vel, w_com, w_pow = 0.6, 0.1, 0.2, 0.1\n' \
-               'imit_rew = pos_rew**w_pos * vel_rew**w_vel * w_com**w_com * w_pow**w_pow'
-
+DEBUG = False
+wb_project_name = 'angle_deltas'
+wb_run_name = 'norm action deltas 2x 2nd' # no phase 3rd - pi_out_delta 2x'
+wb_run_notes = 'policy clips actions to the interval [-1,1],  SCALE_MAX_VELS = 2'
 
 # choose environment
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
@@ -64,7 +82,7 @@ env_name = env_names[env_index]
 # choose hyperparams
 algo = 'ppo2'
 mio_steps = 8
-n_envs = 16 if utils.is_remote() else 1
+n_envs = 16 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
 hid_layers = [128, 128]
 lr_start = 1500

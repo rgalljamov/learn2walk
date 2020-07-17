@@ -51,7 +51,7 @@ class TrainingMonitor(BaseCallback):
 
 
     def save_model_if_good(self, mean_rew, ep_ret):
-
+        if cfg.DEBUG: return
         def get_mio_timesteps():
             return int(self.num_timesteps/1e6)
 

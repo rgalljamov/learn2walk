@@ -75,6 +75,19 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         # save qpos of actuated joints for reward calculation
         qpos_act_before_step = self.get_qpos(True, True)
 
+        # policy outputs qpos deltas
+        if cfg.is_mod(cfg.MOD_PI_OUT_DELTAS):
+            if cfg.is_mod(cfg.MOD_NORM_ACTS):
+                # rescale actions to actual bounds
+                # get max allowed deviations in actuated joints
+                max_vels = self._get_max_actuator_velocities()
+                # double max deltas for better perturbation recovery
+                # to keep balance the agent might require to output
+                # angles that are not reachable to saturate the motors
+                max_qpos_deltas = 2 * max_vels / self.control_freq
+                a *= max_qpos_deltas
+
+            a = qpos_act_before_step + a
         # execute simulation with desired action for multiple steps
         self.do_simulation(a, self._frame_skip)
 
