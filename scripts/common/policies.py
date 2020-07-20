@@ -13,7 +13,7 @@ class CustomPolicy(ActorCriticPolicy):
         super(CustomPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse, **kwargs)
         log("Using CustomPolicy.")
 
-        if cfg.is_mod(cfg.MOD_TANH_ACTS):
+        if cfg.is_mod(cfg.MOD_BOUND_MEAN) or cfg.is_mod(cfg.MOD_SAC_ACTS):
             self._pdtype = BoundedDiagGaussianDistributionType(ac_space.shape[0])
             log("Using Bounded Gaussian Distribution")
 

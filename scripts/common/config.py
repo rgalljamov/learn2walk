@@ -22,7 +22,7 @@ def mod(mods:list):
     modification = modification[:-1]
     return modification
 
-def check_mod_compatibility():
+def assert_mod_compatibility():
     """
     Some modes cannot be used together. In such cases,
     this function throws an exception and provides explanations.
@@ -30,9 +30,9 @@ def check_mod_compatibility():
     if is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
         raise TypeError("Normalized actions (ctrlrange [-1,1] for all joints) " \
                         "currently only work when policy outputs delta angles.")
-    if is_mod(MOD_TANH_ACTS) and not is_mod(MOD_CUSTOM_NETS):
-        raise TypeError("Using bounded/tanh actions is only possible in combination"
-                        "with MOD_CUSTOM_NETS.")
+    if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_NETS):
+        raise TypeError("Using sac and tanh actions is only possible in combination"
+                        "with the custom policy: MOD_CUSTOM_NETS.")
 
 def is_mod(mod_str):
     return mod_str in modification
@@ -66,16 +66,20 @@ MOD_NORM_ACTS = 'norm_acts'
 # init weights in the policy output layer to zero (action=qpos+pi_out)
 MOD_ZERO_OUT = 'zero_out' # - not tried yet
 # use a tanh activation function at the output layer
-MOD_TANH_ACTS = 'tanh_acts' # - not tried yet
-modification = mod([MOD_CUSTOM_NETS, MOD_TANH_ACTS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
-check_mod_compatibility()
+MOD_BOUND_MEAN = 'tanh_mean'
+# bound actions as done in SAC: apply a tanh to sampled actions
+# and consider that squashing in the prob distribution, e.g. logpi calculation
+MOD_SAC_ACTS = 'sac_acts'
+
+modification = mod([MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
+assert_mod_compatibility()
 
 # wandb
 DEBUG = False
-wb_project_name = 'angle_deltas'
-wb_run_name = 'cstm_pi cstm_gauss orig - norm action deltas 2x'
-wb_run_notes = 'Continue Testing. Have now added a custom policy distribution. Want to test it before doing additional changes.' \
-               'Testing custom AC-FF-policy, policy clips actions to the interval [-1,1],  SCALE_MAX_VELS = 2'
+MAX_DEBUG_STEPS = int(2e4) # stop training therafter
+wb_project_name = 'debug_sac' #'angle_deltas'
+wb_run_name = 'undo sac acts - FORCE SYNC REMOTE'
+wb_run_notes = 'Custom Policy with Custom Gaussian Distribution but WITHOUT CHANGES to original one'
 
 # choose environment
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
@@ -86,12 +90,12 @@ env_name = env_names[env_index]
 
 # choose hyperparams
 algo = 'ppo2'
-mio_steps = 8
+mio_steps = 6
 n_envs = 16 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
 hid_layer_sizes = [128, 128]
 lr_start = 1500
-lr_final = 750
+lr_final = 937.5 # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 cliprange = 0.15
 ent_coef = -0.001
 gamma = 0.99
@@ -112,7 +116,8 @@ _mod_path = f'{approach}/{modification}/{env_name}/{n_envs}envs/' \
 hyp_path = (f'{own_hypers + info}/' if len(own_hypers + info) > 0 else '')
 save_path_norun= abs_project_path + 'models/' + _mod_path + hyp_path
 save_path = save_path_norun + f'{run_id}/'
-
+if DEBUG: print('Debugging model: ', save_path)
+print('Modification:', modification)
 
 # wandb
 def get_wb_run_name():
