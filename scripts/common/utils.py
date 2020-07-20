@@ -59,11 +59,14 @@ def config_pyplot(fullscreen=False, font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TI
 
     return plt
 
-def vec_env(env_name, num_envs=4, seed=33, norm_rew=True, load_path=None):
+def vec_env(env_name, num_envs=4, seed=33, norm_rew=True,
+            load_path=None, deltas=False):
     '''creates environments, vectorizes them and sets different seeds
     :param norm_rew: reward should only be normalized during training
     :param load_path: if set, the VecNormalize environment will
                       load the running means from this path.
+    :param deltas: if True, set the action space of the environment
+                   to max joint deltas inctead of joint angles
     :returns: VecNormalize (wrapped Subproc- or Dummy-VecEnv) '''
 
     from gym_mimic_envs.mimic_env import MimicEnv
@@ -76,6 +79,8 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True, load_path=None):
                 # wrap a MimicEnv in the EnvMonitor
                 # has to be done before converting into a VecEnv!
                 env = EnvMonitor(env)
+                if deltas:
+                    env.set_action_space_deltas()
             env.seed(seed+rank*100)
             return env
         return make_env
@@ -157,7 +162,7 @@ def save_pi_weights(model, name):
     biases = []
     attens = []
 
-    log('Model Parameters:', model.params)
+    # log('Model Parameters:', model.params)
 
     for param in model.params:
         if 'pi' in param.name:

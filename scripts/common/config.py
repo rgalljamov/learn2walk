@@ -22,6 +22,18 @@ def mod(mods:list):
     modification = modification[:-1]
     return modification
 
+def assert_mod_compatibility():
+    """
+    Some modes cannot be used together. In such cases,
+    this function throws an exception and provides explanations.
+    """
+    if is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
+        raise TypeError("Normalized actions (ctrlrange [-1,1] for all joints) " \
+                        "currently only work when policy outputs delta angles.")
+    if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_NETS):
+        raise TypeError("Using sac and tanh actions is only possible in combination"
+                        "with the custom policy: MOD_CUSTOM_NETS.")
+
 def is_mod(mod_str):
     return mod_str in modification
 
@@ -41,15 +53,33 @@ MOD_PHASE_VAR = 'phase_var'
 MOD_REFS_CONST = 'refs_const'
 MOD_REFS_RAMP = 'refs_ramp'
 
+MOD_CUSTOM_NETS = 'cstm_pi'
 MOD_REW_MULT = 'rew_mult'
 modification = mod([MOD_REW_MULT])
+# allow the policy to output angles in the maximum range
+# but punish actions that are too far away from current angle
+MOD_PUNISH_UNREAL_TARGET_ANGS = 'pun_unreal_angs'
+# let the policy output deltas to current angle
+MOD_PI_OUT_DELTAS = 'pi_deltas'
+# normalize actions: programmatically set action space to be [-1,1]
+MOD_NORM_ACTS = 'norm_acts'
+# init weights in the policy output layer to zero (action=qpos+pi_out)
+MOD_ZERO_OUT = 'zero_out' # - not tried yet
+# use a tanh activation function at the output layer
+MOD_BOUND_MEAN = 'tanh_mean'
+# bound actions as done in SAC: apply a tanh to sampled actions
+# and consider that squashing in the prob distribution, e.g. logpi calculation
+MOD_SAC_ACTS = 'sac_acts'
+
+modification = mod([MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
+assert_mod_compatibility()
 
 # wandb
-wb_project_name = 'multiply_reward'
-wb_run_name = 'sqrt(r1)*sqrt(r2), only pos and com - 8M, adjusted lr sched'
-wb_run_notes = 'w_pos, w_vel, w_com, w_pow = 0.6, 0.1, 0.2, 0.1\n' \
-               'imit_rew = pos_rew**w_pos * vel_rew**w_vel * w_com**w_com * w_pow**w_pow'
-
+DEBUG = False
+MAX_DEBUG_STEPS = int(2e4) # stop training therafter
+wb_project_name = 'debug_sac' #'angle_deltas'
+wb_run_name = 'undo sac acts - FORCE SYNC REMOTE'
+wb_run_notes = 'Custom Policy with Custom Gaussian Distribution but WITHOUT CHANGES to original one'
 
 # choose environment
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
@@ -60,12 +90,12 @@ env_name = env_names[env_index]
 
 # choose hyperparams
 algo = 'ppo2'
-mio_steps = 8
-n_envs = 16 if utils.is_remote() else 1
+mio_steps = 6
+n_envs = 16 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
-hid_layers = [128, 128]
+hid_layer_sizes = [128, 128]
 lr_start = 1500
-lr_final = 750
+lr_final = 937.5 # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 cliprange = 0.15
 ent_coef = -0.001
 gamma = 0.99
@@ -76,7 +106,7 @@ own_hypers = ''
 info = ''
 run_id = s(np.random.random_integers(0, 1000))
 
-info_baseline_hyp_tune = f'hl{s(hid_layers)}_ent{int(ent_coef * 1000)}_lr{lr_start}to{lr_final}_epdur{_ep_dur_in_k}_' \
+info_baseline_hyp_tune = f'hl{s(hid_layer_sizes)}_ent{int(ent_coef * 1000)}_lr{lr_start}to{lr_final}_epdur{_ep_dur_in_k}_' \
        f'bs{int(batch_size/1000)}_imrew6121_gam{int(gamma*1e3)}'
 
 # construct the paths
@@ -84,13 +114,14 @@ abs_project_path = dirname(dirname(dirname(__file__))) + '/'
 _mod_path = f'{approach}/{modification}/{env_name}/{n_envs}envs/' \
             f'{algo}/{mio_steps}mio/'
 hyp_path = (f'{own_hypers + info}/' if len(own_hypers + info) > 0 else '')
-save_path_norun= abs_project_path + 'models/wandb/' + _mod_path + hyp_path
+save_path_norun= abs_project_path + 'models/' + _mod_path + hyp_path
 save_path = save_path_norun + f'{run_id}/'
-
+if DEBUG: print('Debugging model: ', save_path)
+print('Modification:', modification)
 
 # wandb
 def get_wb_run_name():
-    return wb_run_name + hyp_path + ' ' + run_id
+    return wb_run_name + hyp_path + ' - ' + run_id
 if len(wb_project_name) == 0:
     wb_project_name = _mod_path.replace('/', '_')[:-1]
 
