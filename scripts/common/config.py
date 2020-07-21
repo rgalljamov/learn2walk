@@ -1,6 +1,7 @@
 import numpy as np
-from os.path import dirname, abspath
+from os.path import dirname
 from scripts.common import utils
+
 
 def s(input):
     """ improves conversion of digits to strings """
@@ -74,12 +75,14 @@ MOD_SAC_ACTS = 'sac_acts'
 modification = mod([MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
 assert_mod_compatibility()
 
-# wandb
-DEBUG = False
-MAX_DEBUG_STEPS = int(2e4) # stop training therafter
-wb_project_name = 'debug_sac' #'angle_deltas'
-wb_run_name = 'undo sac acts - FORCE SYNC REMOTE'
-wb_run_notes = 'Custom Policy with Custom Gaussian Distribution but WITHOUT CHANGES to original one'
+# --------------------------------------------------------------
+# Weights and Biases
+# --------------------------------------------------------------
+DEBUG = True
+MAX_DEBUG_STEPS = int(2e4) # stop training thereafter
+wb_project_name = 'behavior_clone'
+wb_run_name = 'init obs_rms from prev runs 3rd'
+wb_run_notes = 'const speed trajecs 400Hz'
 
 # choose environment
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
@@ -90,14 +93,14 @@ env_name = env_names[env_index]
 
 # choose hyperparams
 algo = 'ppo2'
-mio_steps = 6
+mio_steps = 4
 n_envs = 16 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
 hid_layer_sizes = [128, 128]
 lr_start = 1500
-lr_final = 937.5 # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
+lr_final = 1125 # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 cliprange = 0.15
-ent_coef = -0.001
+ent_coef = 0 # -0.001
 gamma = 0.99
 _ep_dur_in_k = 4
 ep_dur_max = int(_ep_dur_in_k * 1e3)
@@ -116,6 +119,8 @@ _mod_path = f'{approach}/{modification}/{env_name}/{n_envs}envs/' \
 hyp_path = (f'{own_hypers + info}/' if len(own_hypers + info) > 0 else '')
 save_path_norun= abs_project_path + 'models/' + _mod_path + hyp_path
 save_path = save_path_norun + f'{run_id}/'
+init_obs_rms_path = abs_project_path + 'scripts/behavior_cloning/models/rms/env_999'
+
 if DEBUG: print('Debugging model: ', save_path)
 print('Modification:', modification)
 
