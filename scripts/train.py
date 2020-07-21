@@ -1,3 +1,7 @@
+# suppress the annoying FutureWarnings at startup
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+
 import os.path
 import wandb
 from scripts import eval
