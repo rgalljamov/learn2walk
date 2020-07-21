@@ -11,6 +11,12 @@ dir_path = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
 # file_path = 'assets/ref_trajecs/Trajecs_Ramp_Slow_400Hz_EulerTrunkAdded.mat'
 file_path = 'assets/ref_trajecs/Trajecs_Constant_Speed_400Hz.mat'
 # file_path = 'assets/ref_trajecs/original/Traj_Ramp_Slow_final.mat'
+file_path = 'assets/ref_trajecs/original/Traj_Ramp_Slow_1000Hz.mat'
+
+SAMPLE_FREQ = 1000
+assert str(SAMPLE_FREQ) in file_path, 'Have you set the right sample frequency!?'
+
+
 
 data = spio.loadmat(dir_path+file_path, squeeze_me=True)
 
@@ -41,16 +47,17 @@ def get_com_vel_all_steps():
         com_vels.extend(vels)
     return com_vels, mean_vels
 
-
-com_pos_all = get_com_pos_all_steps()
-plt.plot(com_pos_all)
-plt.show()
-#
-com_vels, mean_vels = get_com_vel_all_steps()
-plt.plot(com_vels)
-plt.plot(mean_vels)
-plt.show()
-# exit(33)
+PLOT_COM_STATS = False
+if PLOT_COM_STATS:
+    com_pos_all = get_com_pos_all_steps()
+    plt.plot(com_pos_all)
+    plt.show()
+    #
+    com_vels, mean_vels = get_com_vel_all_steps()
+    plt.plot(com_vels)
+    plt.plot(mean_vels)
+    plt.show()
+    # exit(33)
 
 test_refs = False
 if test_refs:
@@ -95,7 +102,8 @@ if file_path == 'assets/ref_trajecs/Trajecs_Constant_Speed_400Hz.mat':
 plt.rcParams['figure.figsize'] = (19.2, 10.8)
 
 for i in range(dofs):
-    subplt = plt.subplot(8,5,i+1)
+    try: subplt = plt.subplot(8,5,i+1, sharex=subplt)
+    except: subplt = plt.subplot(8,5,i+1)
     curve = step[i, :]
     if i < 15 or i > 28:
         line_blue = plt.plot(curve)
@@ -107,12 +115,12 @@ for i in range(dofs):
     # plot the derivatives to easier find corresponding velocities
     if i < 15:
         velplt = subplt.twinx()
-        line_orange = velplt.plot(np.gradient(curve, 1/400), 'darkorange')
+        line_orange = velplt.plot(np.gradient(curve, 1 / SAMPLE_FREQ), 'darkorange')
         velplt.tick_params(axis='y', labelcolor='darkorange')
 
     # remove x labels from first rows
-    if i < 32:
-        plt.xticks([])
+    # if i < 32:
+    #     plt.xticks([])
 
 # collect different lines to place the legend in a separate subplot
 lines = [line_blue[0], line_orange[0], line_red[0]]

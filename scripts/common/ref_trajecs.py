@@ -16,6 +16,7 @@ from scripts.common.utils import is_remote, config_pyplot, smooth_exponential
 PATH_CONSTANT_SPEED = 'assets/ref_trajecs/Trajecs_Constant_Speed_400Hz.mat'
 PATH_SPEED_RAMP = 'assets/ref_trajecs/Trajecs_Ramp_Slow_400Hz_EulerTrunkAdded.mat'
 PATH_TRAJEC_RANGES = 'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
+PATH_RAMP_1KHZ = 'assets/ref_trajecs/original/Traj_Ramp_Slow_1000Hz.mat'
 
 REMOTE = is_remote()
 
@@ -107,6 +108,8 @@ class ReferenceTrajectories:
         self.dist = 0
         # episode duration
         self.ep_dur = 0
+        # flag to indicate the last step in the refs was reached
+        self.has_reached_last_step = False
 
     def next(self, increment=2):
         """
@@ -118,6 +121,14 @@ class ReferenceTrajectories:
         self._pos += increment
         self.ep_dur += 1
 
+    def reset(self):
+        """ Set all indices and counters to zero."""
+        self._i_step = 0
+        self._pos = 0
+        self.dist = 0
+        self.ep_dur = 0
+        self.has_reached_last_step = False
+
     def get_qpos(self):
         return self._get_by_indices(self.qpos_is)
 
@@ -125,7 +136,7 @@ class ReferenceTrajectories:
         return self._get_by_indices(self.qvel_is)
 
     def get_phase_variable(self):
-        trajec_duration = len(self._step[self._i_step])
+        trajec_duration = len(self._step[0])
         phase = self._pos / trajec_duration
         assert phase <= 1, f'Phase Variable should be between 0 and 1 but was {phase}'
         return phase
@@ -206,13 +217,14 @@ class ReferenceTrajectories:
         ''' Random State Initialization:
             @returns: qpos and qvel of a random step at a random position'''
         self._step = self._get_random_step()
-        self._pos = np.random.randint(0, len(self._step[self._i_step]) - 1)
+        self._pos = np.random.randint(0, len(self._step[0]) - 1)
         # reset episode duration and so far traveled distance
         self.ep_dur = 0
         self.dist = 0
         return self.get_qpos(), self.get_qvel()
 
     def get_com_kinematics_full(self):
+        """:returns com kinematics for the current steps."""
         com_pos = self._step[:3, :]
         com_vel = self._step[15:18, :]
         return com_pos, com_vel
@@ -271,11 +283,14 @@ class ReferenceTrajectories:
 
         # increase the step index, reset if last step was reached
         if self._i_step >= len(self.data)-1:
+            self.has_reached_last_step = True
             self._i_step = 0
         else:
             self._i_step += 1
         # update the so far traveled distance
         self.dist = self._step[COM_POSX, -1]
+        # check how many points on the previous steps were left
+        skipped_pos = self._pos - len(self._step[COM_POSX,:])
         # choose the next step
         # copy to add the com x position only of the current local step variable
         step = np.copy(self.data[self._i_step])
@@ -284,8 +299,10 @@ class ReferenceTrajectories:
             f"but started with {step[COM_POSX, 0]}"
         # add the so far traveled distance to the x pos of the COM
         step[COM_POSX,:] += self.dist
-        # reset the position on the ref trajec to zero
-        self._pos = 0
+        # reset the position on the ref trajectory
+        # consider if positions on previous step trajectories were skipped
+        # due to increment in self.next()!
+        self._pos = skipped_pos
         return step
 
     def _add_trunk_euler_rotations(self):
@@ -351,6 +368,7 @@ class ReferenceTrajectories:
             plt.title('Changes in the walking speed of individual steps over time')
             plt.legend([r'Original Mean Velocities', r'Exponentially Smoothed ($\alpha$=0.2)'])
             plt.show()
+            # exit(33)
 
         return speeds_filtered
 
