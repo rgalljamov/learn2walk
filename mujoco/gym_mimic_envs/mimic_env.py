@@ -33,6 +33,9 @@ class MimicEnv:
         # keep the body in the air for testing purposes
         self._FLY = False or cfg.is_mod(cfg.MOD_FLY)
         self._evaluation_on = False
+        if cfg.MOD_MAX_TORQUE:
+            self.model.actuator_forcerange[:,:] = \
+                self.model.actuator_forcerange * cfg.MAX_TORQUE/300
 
 
     def step(self):
@@ -336,6 +339,7 @@ class MimicEnv:
     def get_joint_power_sum_normed(self):
         torques = np.abs(self.get_actuator_torques())
         max_tors = self.get_force_ranges().max(axis=1)
+        # log(f'Max Torques: {max_tors}')
         qvels = np.abs(self.get_qvel(exclude_not_actuated_joints=True))
         max_vels = self._get_max_actuator_velocities()
         assert torques.shape == max_tors.shape

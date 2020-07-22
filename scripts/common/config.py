@@ -72,6 +72,9 @@ MOD_BOUND_MEAN = 'tanh_mean'
 MOD_SAC_ACTS = 'sac_acts'
 # load pretrained policy (behavior cloning)
 MOD_PRETRAIN_PI = 'pretrain_pi'
+# checking if learning is possible with weaker motors
+MOD_MAX_TORQUE = 'max_torque'
+MAX_TORQUE = 300
 
 modification = mod([MOD_CUSTOM_NETS,
                     MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
@@ -87,6 +90,12 @@ wb_project_name = 'behavior_clone'
 wb_run_name = 'load pi and obs_rms 2nd'
 wb_run_notes = 'Load pretrained weights for the policy ONLY HIDDEN LAYERS! ' \
                'const speed trajecs 400Hz | initializing obs_rms from previous run'
+
+# wb_project_name = 'max_torque'
+# wb_run_name = f'{MAX_TORQUE}Nm'
+# wb_run_notes = 'Trying out different max torque ranges to ' \
+#                'figure out if robots can still learn to walk with weaker motors' \
+#                'const speed trajecs 400Hz | initializing obs_rms from previous run'
 
 # choose environment
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
