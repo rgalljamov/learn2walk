@@ -1,12 +1,55 @@
 import tensorflow as tf
 from scripts.common import config as cfg
 from scripts.common.utils import log
+from scripts.behavior_cloning.models import load_weights
+
 from stable_baselines.common.tf_layers import linear
 from stable_baselines.common.distributions import \
     DiagGaussianProbabilityDistribution, DiagGaussianProbabilityDistributionType
 
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20
+
+class CustomDiagGaussianDistribution(DiagGaussianProbabilityDistribution):
+    """ Used f.ex. to load pretrained weights for the output layer of the policy."""
+    def __init__(self, flat):
+        super(CustomDiagGaussianDistribution, self).__init__(flat)
+
+
+class CustomDiagGaussianDistributionType(DiagGaussianProbabilityDistributionType):
+    def __init__(self, size):
+        self.size = size
+
+    def probability_distribution_class(self):
+        return CustomDiagGaussianDistribution
+
+    def proba_distribution_from_latent(self, pi_latent_vector, vf_latent_vector, init_scale=1.0, init_bias=0.0):
+        if cfg.is_mod(cfg.MOD_PRETRAIN_PI):
+            # init the output layer of the policy with the weights of the pretrained policy
+            w_hid1, b_hid1, w_hid2, b_hid2, w_out, b_out = load_weights()
+            # check dimensions
+            assert w_out.shape[0] == pi_latent_vector.shape[1]
+            assert w_out.shape[1] == self.size
+            # construct the linear output layer for mean prediction
+            with tf.variable_scope('pi'):
+                mean_weight = tf.get_variable(f"w_mean", initializer=w_out)
+                mean_bias = tf.get_variable(f"b_mean", initializer=b_out)
+                output = tf.matmul(pi_latent_vector, mean_weight) + mean_bias
+            mean = output
+        else:
+            mean = linear(pi_latent_vector, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
+        if cfg.is_mod(cfg.MOD_BOUND_MEAN):
+            with tf.variable_scope('pi'):
+                mean = tf.tanh(mean)  # squashing mean only
+        logstd_initializer = tf.constant_initializer(-2) \
+            if cfg.is_mod(cfg.MOD_PRETRAIN_PI) else tf.zeros_initializer()
+        logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=logstd_initializer)
+        # inspired by sac
+        logstd = tf.clip_by_value(logstd, LOG_STD_MIN, LOG_STD_MAX)
+        pdparam = tf.concat([mean, mean * 0.0 + logstd], axis=1)
+        q_values = linear(vf_latent_vector, 'q', self.size, init_scale=init_scale, init_bias=init_bias)
+        return self.proba_distribution_from_flat(pdparam), mean, q_values
+
 
 class BoundedDiagGaussianDistribution(DiagGaussianProbabilityDistribution):
     def __init__(self, flat):
@@ -40,6 +83,7 @@ class BoundedDiagGaussianDistribution(DiagGaussianProbabilityDistribution):
     # def kl(self, other):
     #     """Also KL is not used during training, only monitoring."""
     #     return 3.33e-3
+
 
 class BoundedDiagGaussianDistributionType(DiagGaussianProbabilityDistributionType):
     def __init__(self, size):
