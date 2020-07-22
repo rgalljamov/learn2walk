@@ -16,7 +16,7 @@ def get_obs_rms(do_log=False):
     env = vec_env(cfg.env_id, norm_rew=True, num_envs=cfg.n_envs,
                   deltas=cfg.is_mod(cfg.MOD_PI_OUT_DELTAS), load_path=model_path)
 
-    if do_log: log('Successfully pretrained OBS_RMS:',
+    if do_log: log('Successfully loaded pretrained OBS_RMS:',
                    [f'object:\t {env.obs_rms}',
                     f'mean:\t {env.obs_rms.mean}',
                     f'var:\t {env.obs_rms.var}'])

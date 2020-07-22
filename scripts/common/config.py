@@ -2,7 +2,6 @@ import numpy as np
 from os.path import dirname
 from scripts.common import utils
 
-
 def s(input):
     """ improves conversion of digits to strings """
     as_string = str(input)
@@ -71,18 +70,23 @@ MOD_BOUND_MEAN = 'tanh_mean'
 # bound actions as done in SAC: apply a tanh to sampled actions
 # and consider that squashing in the prob distribution, e.g. logpi calculation
 MOD_SAC_ACTS = 'sac_acts'
+# load pretrained policy (behavior cloning)
+MOD_PRETRAIN_PI = 'pretrain_pi'
 
-modification = mod([MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
+modification = mod([MOD_CUSTOM_NETS,
+                    MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
 assert_mod_compatibility()
 
 # --------------------------------------------------------------
 # Weights and Biases
 # --------------------------------------------------------------
-DEBUG = True
-MAX_DEBUG_STEPS = int(2e4) # stop training thereafter
+DEBUG = False
+MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
+
 wb_project_name = 'behavior_clone'
-wb_run_name = 'init obs_rms from prev runs 3rd'
-wb_run_notes = 'const speed trajecs 400Hz'
+wb_run_name = 'load pi and obs_rms 2nd'
+wb_run_notes = 'Load pretrained weights for the policy ONLY HIDDEN LAYERS! ' \
+               'const speed trajecs 400Hz | initializing obs_rms from previous run'
 
 # choose environment
 envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']

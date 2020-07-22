@@ -45,10 +45,10 @@ if SHUFFLE and False:
 
 def build_model(state_dim, act_dim):
     model = keras.Sequential()
-    model.add(keras.Input(shape=(state_dim,)))
-    for hid_size in cfg.hid_layer_sizes:
-        model.add(layers.Dense(hid_size, activation='relu'))
-    model.add(layers.Dense(act_dim, activation='linear'))
+    model.add(keras.Input(shape=(state_dim,), name='input'))
+    for i, hid_size in enumerate(cfg.hid_layer_sizes):
+        model.add(layers.Dense(hid_size, activation='relu', name=f'hid{i+1}'))
+    model.add(layers.Dense(act_dim, activation='linear', name='output'))
     model.summary()
     return model
 
@@ -59,7 +59,7 @@ model = build_model(x_train.shape[1], y_train.shape[1])
 model.compile(
     optimizer=keras.optimizers.Adam(),
     # Loss function to minimize
-    loss=keras.losses.MeanAbsoluteError(),
+    loss='mean_absolute_error',
     # List of metrics to monitor
     metrics=[keras.metrics.MeanSquaredError(),
              keras.metrics.MeanSquaredLogarithmicError(),
@@ -67,7 +67,7 @@ model.compile(
              keras.metrics.MeanAbsolutePercentageError()],
 )
 
-EPOCHS = 50
+EPOCHS = 20
 # construct save paths
 model_path = dirname(dirname(dirname(__file__))) \
              + '/scripts/behavior_cloning/models/'
@@ -90,7 +90,7 @@ print('MAE:\nTrain: %.5f, Test: %.5f\n' % (train_metrics[0], test_metrics[0]))
 # plot loss during training
 losses = ['loss',  'mean_squared_error', 'mean_squared_logarithmic_error',
           'mean_absolute_error', 'mean_absolute_percentage_error']
-for i,loss_str in enumerate(losses):
+for i, loss_str in enumerate(losses):
     plt.subplot(2, len(losses)//2+1, i+1)
     plt.title(str.capitalize(loss_str))
     plt.plot(history.history[loss_str], label='train')

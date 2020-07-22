@@ -9,7 +9,9 @@ Script to handle reference trajectories.
 
 import numpy as np
 import scipy.io as spio
-from scripts.common.utils import is_remote, config_pyplot, smooth_exponential
+from scripts.common import utils
+from scripts.common.config import is_mod, MOD_REFS_RAMP
+from scripts.common.utils import log, is_remote, config_pyplot, smooth_exponential
 
 
 # relative paths to trajectories
@@ -26,7 +28,10 @@ assets_path = '/home/rustam/code/remote/' if REMOTE \
 PATH_TRAJEC_RANGES = assets_path + \
                      'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
 
-PATH_REF_TRAJECS = assets_path + PATH_CONSTANT_SPEED
+PATH_REF_TRAJECS = assets_path + \
+                   (PATH_SPEED_RAMP if is_mod(MOD_REFS_RAMP) else PATH_CONSTANT_SPEED)
+
+log('Trajecs Path:\n' + PATH_REF_TRAJECS)
 
 # is the trajectory with the constant speed chosen?
 _is_constant_speed = PATH_CONSTANT_SPEED in PATH_REF_TRAJECS
@@ -207,7 +212,7 @@ class ReferenceTrajectories:
         on the current step trajectory.
         """
         # when we reached the trajectory's end of the current step
-        if self._pos >= len(self._step[self._i_step]):
+        if self._pos >= len(self._step[0]):
             # choose the next step
             self._step = self._get_next_step()
         joint_kinematics = self._step[indices, self._pos]

@@ -168,6 +168,9 @@ def save_pi_weights(model, name):
     biases = []
     attens = []
 
+    # todo: check why it does not work for pretrained models!
+    return
+
     # log('Model Parameters:', model.params)
 
     for param in model.params:
