@@ -4,15 +4,11 @@ from scripts.common import utils
 
 def s(input):
     """ improves conversion of digits to strings """
-    as_string = str(input)
-    if str.isnumeric(as_string):
-        return as_string.replace('.','')
-    elif isinstance(input, list):
+    if isinstance(input, list):
         str_list = [str(item) for item in input]
         res = ''.join(str_list)
         return res
-    else:
-        raise TypeError('s() only converts numeric values and lists.')
+    return str(input)
 
 def mod(mods:list):
     modification = ''
@@ -85,10 +81,12 @@ assert_mod_compatibility()
 # ----------------------------------------------------------------------------------
 DEBUG = False
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
-
+logstd = 0
 wb_project_name = 'behavior_clone'
-wb_run_name = 'load FULL pi, obs_rms 200, logstd -2'
-wb_run_notes = 'Load pretrained weights for the policy! THIS TIME ALSO THE OUTPUT LAYER!' \
+wb_run_name = f'load FULL pi, obs_rms 200, logstd {s(logstd)}, ent-002'
+wb_run_notes = 'Call wandb_init from cfg. fixed scope and weight loading: load weights without model! - Wrongly built the model with pretrained weights so far. Fixed it. |' \
+               f'Set logstd to {s(logstd)} but add entropy bonus to increase exploration!' \
+               'Load pretrained weights for the policy! THIS TIME ALSO THE OUTPUT LAYER!' \
                'const speed trajecs 400Hz | initializing obs_rms from previous run'
 # ----------------------------------------------------------------------------------
 
@@ -108,7 +106,7 @@ hid_layer_sizes = [128, 128]
 lr_start = 1500
 lr_final = 1125 # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 cliprange = 0.15
-ent_coef = 0 # -0.001
+ent_coef = -0.002
 gamma = 0.99
 _ep_dur_in_k = 4
 ep_dur_max = int(_ep_dur_in_k * 1e3)
@@ -122,7 +120,8 @@ info_baseline_hyp_tune = f'hl{s(hid_layer_sizes)}_ent{int(ent_coef * 1000)}_lr{l
 
 # construct the paths
 abs_project_path = dirname(dirname(dirname(__file__))) + '/'
-_mod_path = f'{approach}/{modification}/{env_name}/{n_envs}envs/' \
+_mod_path = ('debug/' if DEBUG else '') + \
+            f'{approach}/{modification}/{env_name}/{n_envs}envs/' \
             f'{algo}/{mio_steps}mio/'
 hyp_path = (f'{own_hypers + info}/' if len(own_hypers + info) > 0 else '')
 save_path_norun= abs_project_path + 'models/' + _mod_path + hyp_path

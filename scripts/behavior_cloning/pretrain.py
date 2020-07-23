@@ -87,8 +87,9 @@ if __name__ == '__main__':
     model_name = 'deltas_norm_obs_MAE' + f'_ep{EPOCHS}'
 
     # create callback to save best model
+    best_model_path = model_path + f'best/{model_name}'
     save_best_callback = keras.callbacks.ModelCheckpoint(
-        model_path+f'best/{model_name}', save_best_only=True,
+        best_model_path, save_best_only=True,
         monitor='val_loss', mode='min')
 
     # train model
@@ -103,6 +104,13 @@ if __name__ == '__main__':
     # plot loss during training
     losses = ['loss',  'mean_squared_error', 'mean_squared_logarithmic_error',
               'mean_absolute_error', 'mean_absolute_percentage_error']
+
+    # save weights of best model
+    best_model = keras.models.load_model(best_model_path)
+    best_model_weights_path = best_model_path.replace('best', 'weights')
+    best_model.save_weights(best_model_weights_path+'.h5')
+    print('Saved weights of best model in:\n', best_model_weights_path)
+
     for i, loss_str in enumerate(losses):
         plt.subplot(2, len(losses)//2+1, i+1)
         plt.title(str.capitalize(loss_str))

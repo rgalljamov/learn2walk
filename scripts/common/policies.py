@@ -64,14 +64,13 @@ class CustomPolicy(ActorCriticPolicy):
 
         input_dim = input.get_shape()[1].value
         # load weights
-        w_hid1, b_hid1, w_hid2, b_hid2, w_out, b_out = load_weights()
+        # [w_hid1, w_hid2, w_out], [b_hid1, b_hid2, b_out]
+        ws, bs = load_weights()
         # check dimensions
-        assert input_dim == w_hid1.shape[0]
-        hid_layer_sizes = [b_hid1.size, b_hid2.size]
+        assert input_dim == ws[0].shape[0]
+        hid_layer_sizes = [bs[0].size, bs[1].size]
         assert cfg.hid_layer_sizes == hid_layer_sizes
         # organize weights and biases in lists
-        ws = [w_hid1, w_hid2]
-        bs = [b_hid1, b_hid2]
 
         # construct the hidden layers with relu activation
         for i, n_hidden in enumerate(hid_layer_sizes):

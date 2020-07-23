@@ -3,11 +3,24 @@ from tensorflow import keras
 from scripts.common import utils
 from scripts.common import config as cfg
 from matplotlib import pyplot as plt
+from stable_baselines import PPO2
 from scripts.behavior_cloning.pretrain import get_normed_obs_and_delta_actions
 
 def load_weights():
+    import h5py
+    weights_file = h5py.File(cfg.abs_project_path+'/scripts/behavior_cloning/'
+                  'models/weights/deltas_norm_obs_MAE_ep200.h5', 'r')
+    keys = list(weights_file.keys())
+    assert keys == ['hid1', 'hid2', 'output']
+    # output of weights_file['hid1']['hid1_1'].keys():
+    b_key, w_key = ['bias:0', 'kernel:0']
+    ws = [weights_file[key][key+'_1'][w_key].value for key in keys]
+    bs = [weights_file[key][key+'_1'][b_key].value for key in keys]
+    return ws, bs
+
     model = load_model()
     w_hid1, b_hid1, w_hid2, b_hid2, w_out, b_out = model.get_weights()
+    model = None
     return w_hid1, b_hid1, w_hid2, b_hid2, w_out, b_out
 
 def load_model():
@@ -54,10 +67,25 @@ def test_model():
     plt.legend()
     plt.show()
 
+def compare_bc_model_with_ppo_init_model():
+    """Compare the pretrained model with the ppo2 model that was saved before training."""
+    PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
+           "cstm_pi/pretrain_pi/pi_deltas/norm_acts/mim2d/16envs/ppo2/4mio/401"
+    if not PATH.endswith('/'): PATH += '/'
+    checkpoint = 0
+
+    # load model
+    model_path = PATH + f'models/model_{checkpoint}.zip'
+    ppo_model = PPO2.load(load_path=model_path)
+    bc_model = load_model()
+
+    stop = True
+
 
 if __name__ == '__main__':
-    test_model()
-
+    # test_model()
+    load_weights()
+    compare_bc_model_with_ppo_init_model()
 
 
 

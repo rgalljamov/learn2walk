@@ -26,7 +26,9 @@ class CustomDiagGaussianDistributionType(DiagGaussianProbabilityDistributionType
     def proba_distribution_from_latent(self, pi_latent_vector, vf_latent_vector, init_scale=1.0, init_bias=0.0):
         if cfg.is_mod(cfg.MOD_PRETRAIN_PI):
             # init the output layer of the policy with the weights of the pretrained policy
-            w_hid1, b_hid1, w_hid2, b_hid2, w_out, b_out = load_weights()
+            # [w_hid1, w_hid2, w_out], [b_hid1, b_hid2, b_out]
+            ws, bs = load_weights()
+            w_out, b_out = ws[-1], bs[-1]
             # check dimensions
             assert w_out.shape[0] == pi_latent_vector.shape[1]
             assert w_out.shape[1] == self.size
@@ -41,7 +43,7 @@ class CustomDiagGaussianDistributionType(DiagGaussianProbabilityDistributionType
         if cfg.is_mod(cfg.MOD_BOUND_MEAN):
             with tf.variable_scope('pi'):
                 mean = tf.tanh(mean)  # squashing mean only
-        logstd_initializer = tf.constant_initializer(-2) \
+        logstd_initializer = tf.constant_initializer(cfg.logstd) \
             if cfg.is_mod(cfg.MOD_PRETRAIN_PI) else tf.zeros_initializer()
         logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=logstd_initializer)
         # inspired by sac
