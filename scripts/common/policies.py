@@ -61,26 +61,27 @@ class CustomPolicy(ActorCriticPolicy):
         :param input: (tf tensor) The input tensor for the fully connected layer
         :param scope: (str) The TensorFlow variable scope
         """
-        with tf.variable_scope(scope):
-            input_dim = input.get_shape()[1].value
-            # load weights
-            w_hid1, b_hid1, w_hid2, b_hid2, w_out, b_out = load_weights()
-            # check dimensions
-            assert input_dim == w_hid1.shape[0]
-            hid_layer_sizes = [b_hid1.size, b_hid2.size]
-            assert cfg.hid_layer_sizes == hid_layer_sizes
-            # organize weights and biases in lists
-            ws = [w_hid1, w_hid2]
-            bs = [b_hid1, b_hid2]
 
-            # construct the hidden layers with relu activation
-            for i, n_hidden in enumerate(hid_layer_sizes):
-                weight = tf.get_variable(f"w{i+1}", initializer=ws[i])
-                bias = tf.get_variable(f"b{i+1}",initializer=bs[i])
+        input_dim = input.get_shape()[1].value
+        # load weights
+        w_hid1, b_hid1, w_hid2, b_hid2, w_out, b_out = load_weights()
+        # check dimensions
+        assert input_dim == w_hid1.shape[0]
+        hid_layer_sizes = [b_hid1.size, b_hid2.size]
+        assert cfg.hid_layer_sizes == hid_layer_sizes
+        # organize weights and biases in lists
+        ws = [w_hid1, w_hid2]
+        bs = [b_hid1, b_hid2]
+
+        # construct the hidden layers with relu activation
+        for i, n_hidden in enumerate(hid_layer_sizes):
+            with tf.variable_scope(f'{scope}{i}'):
+                weight = tf.get_variable("w", initializer=ws[i])
+                bias = tf.get_variable("b",initializer=bs[i])
                 output = act_func(tf.matmul(input, weight) + bias)
                 input = output
 
-            return output
+        return output
 
     # ----------------------------------------------
     # Obligatory method definitions from stable-baselines (proba_step, step, value)
