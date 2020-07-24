@@ -10,13 +10,13 @@ from gym_mimic_envs.mimic_env import MimicEnv
 from stable_baselines import PPO2
 from scripts.common.utils import load_env
 
-DETERMINISTIC_ACTIONS = False
+DETERMINISTIC_ACTIONS = True
 FROM_PATH = True
 RENDER = True
-PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
-       "cstm_pi/pi_deltas/norm_acts/mim2d/16envs/ppo2/8mio/980-evaled"
+PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/cstm_pi/" \
+       "pretrain_pi/pi_deltas/norm_acts/mim2d/16envs/ppo2/4mio/18"
 if not PATH.endswith('/'): PATH += '/'
-checkpoint = 999 # 'ep_ret2500_6M' #'mean_rew60'
+checkpoint = 0 # 'ep_ret2500_6M' #'mean_rew60'
 
 if FROM_PATH:
     # load model

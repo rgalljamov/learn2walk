@@ -67,24 +67,38 @@ def test_model():
     plt.legend()
     plt.show()
 
+def get_ppo2_weights(model_path):
+    weights = []
+    biases = []
+
+    model = PPO2.load(load_path=model_path)
+
+    for param in model.params:
+        if 'pi' in param.name:
+            if 'w:0' in param.name:
+                weights.append(model.sess.run(param))
+            elif 'b:0' in param.name:
+                biases.append(model.sess.run(param))
+    return weights, biases
+
 def compare_bc_model_with_ppo_init_model():
     """Compare the pretrained model with the ppo2 model that was saved before training."""
-    PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
-           "cstm_pi/pretrain_pi/pi_deltas/norm_acts/mim2d/16envs/ppo2/4mio/401"
+    PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/cstm_pi/" \
+           "pretrain_pi/pi_deltas/norm_acts/mim2d/16envs/ppo2/4mio/18"
     if not PATH.endswith('/'): PATH += '/'
     checkpoint = 0
 
     # load model
     model_path = PATH + f'models/model_{checkpoint}.zip'
-    ppo_model = PPO2.load(load_path=model_path)
-    bc_model = load_model()
+    ppo_ws, ppo_bs = get_ppo2_weights(model_path)
+    ws, bs = load_weights()
 
-    stop = True
+    debug = True
 
 
 if __name__ == '__main__':
     # test_model()
-    load_weights()
+    # load_weights()
     compare_bc_model_with_ppo_init_model()
 
 
