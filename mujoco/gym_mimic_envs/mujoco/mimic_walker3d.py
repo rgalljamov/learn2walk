@@ -2,7 +2,7 @@ import numpy as np
 from gym import utils
 from gym.envs.mujoco import mujoco_env
 from gym_mimic_envs.mimic_env import MimicEnv
-from scripts.common import ref_trajecs as refs
+from scripts.mocap import ref_trajecs as refs
 
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
 pause_viewer_at_first_step = True

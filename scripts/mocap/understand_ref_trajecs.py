@@ -2,12 +2,13 @@ import numpy as np
 import scipy.io as spio
 import seaborn as sns
 from scripts.common import utils
+from scripts.common.config import abs_project_path
 
 plt = utils.config_pyplot(font_size=12, tick_size=12, legend_fontsize=13)
 # plt.rcParams.update({'figure.autolayout': False})
 
 # load matlab data, containing trajectories of 250 steps
-dir_path = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
+dir_path = abs_project_path
 # file_path = 'assets/ref_trajecs/Trajecs_Ramp_Slow_400Hz_EulerTrunkAdded.mat'
 file_path = 'assets/ref_trajecs/Trajecs_Constant_Speed_400Hz.mat'
 # file_path = 'assets/ref_trajecs/original/Traj_Ramp_Slow_final.mat'
@@ -61,7 +62,7 @@ if PLOT_COM_STATS:
 
 test_refs = False
 if test_refs:
-    from scripts.common.ref_trajecs import ReferenceTrajectories as RT
+    from scripts.mocap.ref_trajecs import ReferenceTrajectories as RT
 
     rt = RT(range(15), range(15,29))
     rt._step = rt.data[0]

@@ -3,10 +3,9 @@ Interface for environments using reference trajectories.
 '''
 import gym, mujoco_py
 import numpy as np
-import seaborn as sns
 from scripts.common import config as cfg
 from scripts.common.utils import log
-from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
+from scripts.mocap.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 # double max deltas for better perturbation recovery. To keep balance,
 # the agent might require to output angles that are not reachable and saturate the motors.

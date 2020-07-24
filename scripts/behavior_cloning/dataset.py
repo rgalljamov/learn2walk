@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-from scripts.common import ref_trajecs as rt
+from scripts.mocap import ref_trajecs as rt
 
 # qpos and qvel indices for quick access to the reference trajectories
 qpos_indices = [rt.COM_POSX, rt.COM_POSZ, rt.TRUNK_ROT_Y,

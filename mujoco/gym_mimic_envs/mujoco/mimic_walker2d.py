@@ -4,9 +4,9 @@ from os.path import join, dirname
 from gym.envs.mujoco import mujoco_env
 from gym_mimic_envs.mimic_env import MimicEnv
 from scripts.common.utils import is_remote
-from scripts.common import ref_trajecs as refs
+from scripts.mocap import ref_trajecs as refs
 import scripts.common.config as cfg
-from scripts.common.ref_trajecs import ReferenceTrajectories
+from scripts.mocap.ref_trajecs import ReferenceTrajectories
 
 
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
