@@ -1,42 +1,15 @@
-import numpy as np
-import tensorflow as tf
 from os.path import dirname
 from tensorflow import keras
 from tensorflow.keras import layers
 from matplotlib import pyplot as plt
 
 from sklearn.model_selection import train_test_split
-from scripts.behavior_cloning.obs_rms import get_obs_rms
-from scripts.behavior_cloning.dataset import get_data, get_delta_angs
+from scripts.behavior_cloning.dataset import get_normed_obs_and_delta_actions
 
 from scripts.common import config as cfg
 
 SHUFFLE = True
 
-def get_normed_obs_and_delta_actions():
-    """
-    Loads the SL data extracted from the reference trajectories,
-    calculates the action deltas and normalize the observations.
-    """
-    # get data
-    x_data, y_data = get_data()
-    # test_data(x_data, y_data)
-    y_data = get_delta_angs(x_data, y_data)
-    x_mean, x_var = get_obs_rms(True)
-    # normalize x_data by mean and var
-    x_data_normed = (x_data - x_mean) / np.sqrt(x_var + 1e-4)
-    # print('shape x_data: ', x_data.shape)
-    # print('shape x_data normed: ', x_data_normed.shape)
-    # print('x_data: ',x_data[:5,10:13])
-    # print('x_data normed: ',x_data_normed[:5,10:13])
-    # plot the normalized and unnormalized data
-    # plt.plot(x_data[:500, 5])
-    # plt.plot(x_data_normed[:500, 5])
-    # plt.show()
-    # exit(33)
-    assert (np.abs((x_data- x_data_normed))>0.0000001).all(), \
-        'Observation Normalization had no effect!'
-    return x_data_normed, y_data
 
 def build_model(state_dim, act_dim):
     model = keras.Sequential()

@@ -4,7 +4,8 @@ from scripts.common import utils
 from scripts.common import config as cfg
 from matplotlib import pyplot as plt
 from stable_baselines import PPO2
-from scripts.behavior_cloning.pretrain import get_normed_obs_and_delta_actions
+from scripts.behavior_cloning.dataset import get_normed_obs_and_delta_actions
+
 
 def load_weights():
     import h5py
