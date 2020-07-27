@@ -7,7 +7,7 @@ def is_remote():
     # automatically detect running PC
     return 'remote' in path.abspath(getcwd())
 
-from scripts.common.config import save_path, env_id
+from scripts.common.config import abs_project_path, save_path, env_id
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 # import gym_mimic_envs
 
@@ -59,11 +59,14 @@ def config_pyplot(fullscreen=False, font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TI
 
     return plt
 
-def vec_env(env_name, num_envs=4, seed=33, norm_rew=True, load_path=None):
+def vec_env(env_name, num_envs=4, seed=33, norm_rew=True,
+            load_path=None, deltas=False):
     '''creates environments, vectorizes them and sets different seeds
     :param norm_rew: reward should only be normalized during training
     :param load_path: if set, the VecNormalize environment will
                       load the running means from this path.
+    :param deltas: if True, set the action space of the environment
+                   to max joint deltas inctead of joint angles
     :returns: VecNormalize (wrapped Subproc- or Dummy-VecEnv) '''
 
     from gym_mimic_envs.mimic_env import MimicEnv
@@ -76,6 +79,8 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True, load_path=None):
                 # wrap a MimicEnv in the EnvMonitor
                 # has to be done before converting into a VecEnv!
                 env = EnvMonitor(env)
+                if deltas:
+                    env.set_action_space_deltas()
             env.seed(seed+rank*100)
             return env
         return make_env
@@ -90,7 +95,17 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True, load_path=None):
     if load_path is not None:
         vec_normed = VecNormalize.load(load_path, vec_env)
     else:
-        vec_normed = VecNormalize(vec_env, norm_obs=True, norm_reward=norm_rew)
+        try:
+            # load the obs_rms from a previously trained model
+            init_obs_rms_path = abs_project_path + \
+                                'scripts/behavior_cloning/models/rms/env_999'
+            vec_normed = VecNormalize.load(init_obs_rms_path, vec_env)
+            log('Successfully loaded OBS_RMS from a previous model:',
+                [f'file:\t {init_obs_rms_path}',
+                 f'mean:\t {vec_normed.obs_rms.mean}',
+                 f'var:\t {vec_normed.obs_rms.var}'])
+        except:
+            vec_normed = VecNormalize(vec_env, norm_obs=True, norm_reward=norm_rew)
 
     return vec_normed
 
@@ -116,7 +131,6 @@ def log(text, input_list=None):
     print("\n---------------------------------------\n"
           + text +
           "\n---------------------------------------\n")
-
 
 
 def plot_weight_matrix(weight_matrix, show=True, max_abs_value=1, center_cmap=True):
@@ -147,9 +161,6 @@ def save_model(model, path, checkpoint):
     wandb.save(env_path)
 
 
-
-
-
 def save_pi_weights(model, name):
     """Saves all weights of the policy network
      @:param name: Info to append to the file's name"""
@@ -157,7 +168,10 @@ def save_pi_weights(model, name):
     biases = []
     attens = []
 
-    log('Model Parameters:', model.params)
+    # todo: check why it does not work for pretrained models!
+    return
+
+    # log('Model Parameters:', model.params)
 
     for param in model.params:
         if 'pi' in param.name:

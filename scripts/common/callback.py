@@ -21,6 +21,9 @@ class TrainingMonitor(BaseCallback):
         self.env = self.training_env
 
     def _on_step(self) -> bool:
+        if cfg.DEBUG and self.num_timesteps > cfg.MAX_DEBUG_STEPS:
+            raise SystemExit(f"Planned Exit after {cfg.MAX_DEBUG_STEPS} due to Debugging mode!")
+
         ep_len = self.get_mean('ep_len_smoothed')
         ep_ret = self.get_mean('ep_ret_smoothed')
         mean_rew = self.get_mean('mean_reward_smoothed')
@@ -51,7 +54,7 @@ class TrainingMonitor(BaseCallback):
 
 
     def save_model_if_good(self, mean_rew, ep_ret):
-
+        if cfg.DEBUG: return
         def get_mio_timesteps():
             return int(self.num_timesteps/1e6)
 
