@@ -9,8 +9,9 @@ from scripts.behavior_cloning.dataset import get_normed_obs_and_delta_actions
 
 def load_weights():
     import h5py
-    weights_file = h5py.File(cfg.abs_project_path+'/scripts/behavior_cloning/'
-                  'models/weights/deltas_norm_obs_MAE_ep200.h5', 'r')
+    weights_file = h5py.File(cfg.abs_project_path
+                             +'scripts/behavior_cloning/models/'
+                              'weights/MAE_ramp_ortho_l2_ep50.h5', 'r')
     keys = list(weights_file.keys())
     assert keys == ['hid1', 'hid2', 'output']
     # output of weights_file['hid1']['hid1_1'].keys():

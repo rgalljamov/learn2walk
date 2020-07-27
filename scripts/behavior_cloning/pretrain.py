@@ -14,9 +14,14 @@ SHUFFLE = True
 def build_model(state_dim, act_dim):
     model = keras.Sequential()
     model.add(keras.Input(shape=(state_dim,), name='input'))
+    l2_coeff = 0.0005
     for i, hid_size in enumerate(cfg.hid_layer_sizes):
-        model.add(layers.Dense(hid_size, activation='relu', name=f'hid{i+1}'))
-    model.add(layers.Dense(act_dim, activation='linear', name='output'))
+        model.add(layers.Dense(hid_size, activation='relu', name=f'hid{i+1}',
+                               kernel_initializer=keras.initializers.Orthogonal(gain=0.01),
+                               kernel_regularizer=keras.regularizers.l2(l=l2_coeff)))
+    model.add(layers.Dense(act_dim, activation='linear', name='output',
+                           kernel_initializer=keras.initializers.Orthogonal(gain=0.01),
+                           kernel_regularizer=keras.regularizers.l2(l=l2_coeff)))
     model.summary()
     return model
 
@@ -53,11 +58,11 @@ if __name__ == '__main__':
                  keras.metrics.MeanAbsolutePercentageError()],
     )
 
-    EPOCHS = 200
+    EPOCHS = 50
     # construct save paths
     model_path = dirname(dirname(dirname(__file__))) \
                  + '/scripts/behavior_cloning/models/'
-    model_name = 'deltas_norm_obs_MAE' + f'_ep{EPOCHS}'
+    model_name = 'MAE_ramp_ortho_l2' + f'_ep{EPOCHS}'
 
     # create callback to save best model
     best_model_path = model_path + f'best/{model_name}'

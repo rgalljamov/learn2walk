@@ -72,7 +72,7 @@ MOD_PRETRAIN_PI = 'pretrain_pi'
 MOD_MAX_TORQUE = 'max_torque'
 MAX_TORQUE = 300
 
-modification = mod([MOD_CUSTOM_NETS, MOD_PRETRAIN_PI,
+modification = mod([MOD_REFS_RAMP, MOD_CUSTOM_NETS, MOD_PRETRAIN_PI,
                     MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
 assert_mod_compatibility()
 
@@ -82,12 +82,13 @@ assert_mod_compatibility()
 DEBUG = False
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 logstd = 0
-wb_project_name = 'behavior_clone'
-wb_run_name = f'load FULL pi, obs_rms 200, logstd {s(logstd)}, ent-002'
-wb_run_notes = 'Call wandb_init from cfg. fixed scope and weight loading: load weights without model! - Wrongly built the model with pretrained weights so far. Fixed it. |' \
-               f'Set logstd to {s(logstd)} but add entropy bonus to increase exploration!' \
-               'Load pretrained weights for the policy! THIS TIME ALSO THE OUTPUT LAYER!' \
-               'const speed trajecs 400Hz | initializing obs_rms from previous run'
+ent_coef = 0 # 0.002 # -0.002
+cliprange = 0.15
+wb_project_name = 'bcln_ramp'
+wb_run_name = f'BC ORTHO L2 PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
+wb_run_notes = 'Also added L2 Reg to pretraining | Init output layer of VF to all zeros | orthogonal init of SL policy | RAMP speed trajecs 400Hz | ' \
+               f'Set logstd to {s(logstd)} | ' \
+               'initializing obs_rms from previous run'
 # ----------------------------------------------------------------------------------
 
 # choose environment
@@ -104,8 +105,6 @@ n_envs = 16 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
 hid_layer_sizes = [128, 128]
 lr_start = 1500
-cliprange = 0.15
-ent_coef = -0.002
 lr_final = int((lr_start*(1-mio_steps/16))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 gamma = 0.99
 _ep_dur_in_k = 4
