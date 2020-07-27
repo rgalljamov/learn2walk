@@ -68,11 +68,13 @@ MOD_BOUND_MEAN = 'tanh_mean'
 MOD_SAC_ACTS = 'sac_acts'
 # load pretrained policy (behavior cloning)
 MOD_PRETRAIN_PI = 'pretrain_pi'
+# init the weights in the output layer of the value function to all zeros
+MOD_VF_ZERO = 'vf_zero'
 # checking if learning is possible with weaker motors too
 MOD_MAX_TORQUE = 'max_torque'
 MAX_TORQUE = 300
 
-modification = mod([MOD_REFS_RAMP, MOD_CUSTOM_NETS, MOD_PRETRAIN_PI,
+modification = mod([MOD_REFS_RAMP, MOD_CUSTOM_NETS, MOD_PRETRAIN_PI, MOD_VF_ZERO,
                     MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
 assert_mod_compatibility()
 
@@ -81,11 +83,11 @@ assert_mod_compatibility()
 # ----------------------------------------------------------------------------------
 DEBUG = False
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
-logstd = 0
+logstd = -2
 ent_coef = 0 # 0.002 # -0.002
 cliprange = 0.15
 wb_project_name = 'bcln_ramp'
-wb_run_name = f'BC ORTHO L2 PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
+wb_run_name = f'VF=0, BC ORTHO L2 PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
 wb_run_notes = 'Also added L2 Reg to pretraining | Init output layer of VF to all zeros | orthogonal init of SL policy | RAMP speed trajecs 400Hz | ' \
                f'Set logstd to {s(logstd)} | ' \
                'initializing obs_rms from previous run'

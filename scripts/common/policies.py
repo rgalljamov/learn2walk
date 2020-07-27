@@ -38,7 +38,7 @@ class CustomPolicy(ActorCriticPolicy):
             self._proba_distribution, self._policy, self.q_value = \
                 self.pdtype.proba_distribution_from_latent(pi_h, vf_h, init_scale=0.01)
             # build the output layer of the value function
-            vf_out = self.fc('vf_out', vf_h, 1)
+            vf_out = self.fc('vf_out', vf_h, 1, zero=cfg.is_mod(cfg.MOD_VF_ZERO))
             self._value_fn = vf_out
             # required to set up additional attributes
             self._setup_init()
@@ -50,9 +50,12 @@ class CustomPolicy(ActorCriticPolicy):
             hid = act_func(self.fc(f'{name}{i}', hid, size))
         return hid
 
-    def fc(self, name, input, size):
-        """Builds a single fully connected layer. Initial values taken from stable-baselines."""
-        return linear(input, name, size, init_scale=np.sqrt(2), init_bias=0)
+    def fc(self, name, input, size, zero=False):
+        """
+        Builds a single fully connected layer. Initial values taken from stable-baselines.
+        :param zero: if True,
+        """
+        return linear(input, name, size, init_scale=0 if zero else np.sqrt(2), init_bias=0)
 
     def load_pretrained_policy_hid_layers(self, scope, input, act_func=tf.nn.relu):
         """
