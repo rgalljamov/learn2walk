@@ -1,4 +1,4 @@
-from scripts.behavior_cloning.dataset import get_refs, get_refs_stats
+# from scripts.behavior_cloning.dataset import get_refs, get_refs_stats
 from scripts.common.utils import vec_env, log
 from scripts.common import config as cfg
 
@@ -23,6 +23,8 @@ def get_obs_rms(do_log=False):
 
     return env.obs_rms.mean, env.obs_rms.var
 
+
+""" NOT USING OBS_STDS FROM REFERENCE TRAJECTORIES BUT FROM A PREVIOUS RUN. 
 if __name__ == '__main__':
     # build VecNormalize wrapped Environment
     env = vec_env(cfg.env_id, norm_rew=True, num_envs=cfg.n_envs,
@@ -63,3 +65,5 @@ if __name__ == '__main__':
     model_name = 'obs_rms_init_const_speed'
     save_path = model_path + model_name
     if OVERWRITE_OBS_RMS: env.save(save_path)
+    
+"""
