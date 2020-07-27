@@ -108,6 +108,8 @@ class ReferenceTrajectories:
         self._adapt_trajecs_to_other_body(adaptations)
         # calculated and added trunk euler rotations
         # self._add_trunk_euler_rotations()
+        # some steps are done with left, some with right foot
+        self.left_leg_indices = self._determine_left_steps_indices()
         # current step
         self._step = self._get_random_step()
         # position on the reference trajectory of the current step
@@ -194,6 +196,18 @@ class ReferenceTrajectories:
             # todo: ask Guoping if we also need to adjust velocity
             for i_step in range(len(self.data)):
                 self.data[i_step][index,:] *= scalar
+
+
+    def _determine_left_steps_indices(self):
+        """
+        The dataset contains steps with right and left legs.
+        The side of the swing leg is the side of the step.
+        The swing leg has a higher knee angle velocity compared to the stance leg.
+        :return: the indices of steps taken with the left leg.
+        """
+        indices = [i for (i, step) in enumerate(self.data)
+                   if np.max(step[KNEE_ANGVEL_L]) > np.max(step[KNEE_ANGVEL_R])]
+        return indices
 
 
     def _get_by_indices(self, indices):
