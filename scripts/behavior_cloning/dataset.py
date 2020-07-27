@@ -54,15 +54,17 @@ def get_com_vel_all_steps():
     return mean_vels
 
 
-def get_refs():
-    refs = rt.ReferenceTrajectories(qpos_indices, qvel_indices, {})
+def get_refs(refs=None):
+    if refs is None:
+        refs = rt.ReferenceTrajectories(qpos_indices, qvel_indices, {})
     return refs
 
 
 def get_data(refs:rt.ReferenceTrajectories=None, debug=False):
     """
     :returns:   data_x (n_points, state_dim)
-                data_y(n_points, act_dim)"""
+                data_y (n_points, act_dim)
+    """
     if refs is None:
         refs = rt.ReferenceTrajectories(qpos_indices, qvel_indices, {})
         debug = False
@@ -206,9 +208,8 @@ if __name__ == '__main__':
     # 38 dims, 262 timesteps per step approximately
     dofs, timesteps = refs._step.shape
 
-    means, stds = get_refs_stats(refs, False, True)
-    print(means.shape, stds.shape)
-    exit(22)
+    means, vars, stds = get_refs_stats(refs, False, True)
+    print('Means and STDs shape:', (means.shape, stds.shape))
     x_data, y_data = get_data(refs, DEBUG)
     y_delta = get_delta_angs(x_data, y_data)
     test_data(x_data, y_data)

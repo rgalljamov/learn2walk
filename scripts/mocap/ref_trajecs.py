@@ -31,6 +31,9 @@ PATH_TRAJEC_RANGES = assets_path + \
 PATH_REF_TRAJECS = assets_path + \
                    (PATH_SPEED_RAMP if is_mod(MOD_REFS_RAMP) else PATH_CONSTANT_SPEED)
 
+SAMPLE_FREQ = 400
+assert str(SAMPLE_FREQ) in PATH_REF_TRAJECS, 'Have you set the right sample frequency!?'
+
 log('Trajecs Path:\n' + PATH_REF_TRAJECS)
 
 # is the trajectory with the constant speed chosen?
@@ -115,6 +118,7 @@ class ReferenceTrajectories:
         self.ep_dur = 0
         # flag to indicate the last step in the refs was reached
         self.has_reached_last_step = False
+
 
     def next(self, increment=2):
         """

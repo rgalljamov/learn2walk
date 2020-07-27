@@ -75,7 +75,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             qpos_set = np.copy(qpos_before)
             qvel_set = np.copy(qvel_before)
             # fix COM position, trunk rotation and corresponding velocities
-            qpos_set[[0,1,2]] = [0, 1.5, 0]
+            qpos_set[[0,1,2]] = [0, 1.1, 0]
             qvel_set[[0,1,2,]] = [0, 0, 0]
             self.set_joint_kinematics_in_sim(qpos_set, qvel_set)
 

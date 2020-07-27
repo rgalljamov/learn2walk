@@ -13,10 +13,10 @@ from scripts.common.utils import load_env
 DETERMINISTIC_ACTIONS = True
 FROM_PATH = True
 RENDER = True
-PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/cstm_pi/" \
-       "pretrain_pi/pi_deltas/norm_acts/mim2d/16envs/ppo2/4mio/18"
+PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/refs_ramp/cstm_pi/" \
+       "pretrain_pi/pi_deltas/norm_acts/mim2d/16envs/ppo2/8mio/993"
 if not PATH.endswith('/'): PATH += '/'
-checkpoint = 0 # 'ep_ret2500_6M' #'mean_rew60'
+checkpoint = 0 # 'ep_ret2000_7M' #'mean_rew60'
 
 if FROM_PATH:
     # load model

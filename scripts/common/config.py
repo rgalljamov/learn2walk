@@ -8,7 +8,7 @@ def s(input):
         str_list = [str(item) for item in input]
         res = ''.join(str_list)
         return res
-    return str(input)
+    return str(input).replace('.','')
 
 def mod(mods:list):
     modification = ''
@@ -104,9 +104,9 @@ n_envs = 16 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
 hid_layer_sizes = [128, 128]
 lr_start = 1500
-lr_final = 1125 # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 cliprange = 0.15
 ent_coef = -0.002
+lr_final = int((lr_start*(1-mio_steps/16))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 gamma = 0.99
 _ep_dur_in_k = 4
 ep_dur_max = int(_ep_dur_in_k * 1e3)
