@@ -4,9 +4,9 @@ from os.path import join, dirname
 from gym.envs.mujoco import mujoco_env
 from gym_mimic_envs.mimic_env import MimicEnv
 from scripts.common.utils import is_remote
-from scripts.common import ref_trajecs as refs
+from scripts.mocap import ref_trajecs as refs
 import scripts.common.config as cfg
-from scripts.common.ref_trajecs import ReferenceTrajectories as RefTrajecs
+from scripts.mocap.ref_trajecs import ReferenceTrajectories
 
 
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
@@ -38,7 +38,14 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
                                       join(dirname(__file__), "assets", 'walker2d.xml'), 4)
         utils.EzPickle.__init__(self)
         # init the mimic environment, automatically loads and inits ref trajectories
-        MimicEnv.__init__(self, RefTrajecs(qpos_indices, qvel_indices, ref_trajec_adapts))
+        MimicEnv.__init__(self,
+                          ReferenceTrajectories(qpos_indices, qvel_indices, ref_trajec_adapts))
+
+    @staticmethod
+    def get_refs(reset=False):
+        refs = ReferenceTrajectories(qpos_indices, qvel_indices, ref_trajec_adapts)
+        if reset: refs.reset()
+        return refs
 
     def step(self, a):
         # pause sim on startup to be able to change rendering speed, camera perspective etc.
@@ -68,7 +75,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             qpos_set = np.copy(qpos_before)
             qvel_set = np.copy(qvel_before)
             # fix COM position, trunk rotation and corresponding velocities
-            qpos_set[[0,1,2]] = [0, 1.5, 0]
+            qpos_set[[0,1,2]] = [0, 1.1, 0]
             qvel_set[[0,1,2,]] = [0, 0, 0]
             self.set_joint_kinematics_in_sim(qpos_set, qvel_set)
 

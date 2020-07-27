@@ -1,3 +1,7 @@
+# suppress the annoying FutureWarnings at startup
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+
 import os.path
 import wandb
 from scripts import eval
@@ -30,6 +34,7 @@ def run_tensorboard():
 def init_wandb(model):
     batch_size = model.n_steps * model.n_envs
     params = {
+        "path": cfg.save_path,
         "mod": cfg.modification,
         "lr0": cfg.lr_start,
         "lr1": cfg.lr_final,

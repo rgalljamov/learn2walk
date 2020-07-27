@@ -9,13 +9,16 @@ Script to handle reference trajectories.
 
 import numpy as np
 import scipy.io as spio
-from scripts.common.utils import is_remote, config_pyplot, smooth_exponential
+from scripts.common import utils
+from scripts.common.config import is_mod, MOD_REFS_RAMP
+from scripts.common.utils import log, is_remote, config_pyplot, smooth_exponential
 
 
 # relative paths to trajectories
 PATH_CONSTANT_SPEED = 'assets/ref_trajecs/Trajecs_Constant_Speed_400Hz.mat'
 PATH_SPEED_RAMP = 'assets/ref_trajecs/Trajecs_Ramp_Slow_400Hz_EulerTrunkAdded.mat'
 PATH_TRAJEC_RANGES = 'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
+PATH_RAMP_1KHZ = 'assets/ref_trajecs/original/Traj_Ramp_Slow_1000Hz.mat'
 
 REMOTE = is_remote()
 
@@ -25,7 +28,13 @@ assets_path = '/home/rustam/code/remote/' if REMOTE \
 PATH_TRAJEC_RANGES = assets_path + \
                      'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
 
-PATH_REF_TRAJECS = assets_path + PATH_CONSTANT_SPEED
+PATH_REF_TRAJECS = assets_path + \
+                   (PATH_SPEED_RAMP if is_mod(MOD_REFS_RAMP) else PATH_CONSTANT_SPEED)
+
+SAMPLE_FREQ = 400
+assert str(SAMPLE_FREQ) in PATH_REF_TRAJECS, 'Have you set the right sample frequency!?'
+
+log('Trajecs Path:\n' + PATH_REF_TRAJECS)
 
 # is the trajectory with the constant speed chosen?
 _is_constant_speed = PATH_CONSTANT_SPEED in PATH_REF_TRAJECS
@@ -99,6 +108,8 @@ class ReferenceTrajectories:
         self._adapt_trajecs_to_other_body(adaptations)
         # calculated and added trunk euler rotations
         # self._add_trunk_euler_rotations()
+        # some steps are done with left, some with right foot
+        self.left_leg_indices = self._determine_left_steps_indices()
         # current step
         self._step = self._get_random_step()
         # position on the reference trajectory of the current step
@@ -107,6 +118,9 @@ class ReferenceTrajectories:
         self.dist = 0
         # episode duration
         self.ep_dur = 0
+        # flag to indicate the last step in the refs was reached
+        self.has_reached_last_step = False
+
 
     def next(self, increment=2):
         """
@@ -118,6 +132,14 @@ class ReferenceTrajectories:
         self._pos += increment
         self.ep_dur += 1
 
+    def reset(self):
+        """ Set all indices and counters to zero."""
+        self._i_step = 0
+        self._pos = 0
+        self.dist = 0
+        self.ep_dur = 0
+        self.has_reached_last_step = False
+
     def get_qpos(self):
         return self._get_by_indices(self.qpos_is)
 
@@ -125,7 +147,7 @@ class ReferenceTrajectories:
         return self._get_by_indices(self.qvel_is)
 
     def get_phase_variable(self):
-        trajec_duration = len(self._step[self._i_step])
+        trajec_duration = len(self._step[0])
         phase = self._pos / trajec_duration
         assert phase <= 1, f'Phase Variable should be between 0 and 1 but was {phase}'
         return phase
@@ -176,6 +198,18 @@ class ReferenceTrajectories:
                 self.data[i_step][index,:] *= scalar
 
 
+    def _determine_left_steps_indices(self):
+        """
+        The dataset contains steps with right and left legs.
+        The side of the swing leg is the side of the step.
+        The swing leg has a higher knee angle velocity compared to the stance leg.
+        :return: the indices of steps taken with the left leg.
+        """
+        indices = [i for (i, step) in enumerate(self.data)
+                   if np.max(step[KNEE_ANGVEL_L]) > np.max(step[KNEE_ANGVEL_R])]
+        return indices
+
+
     def _get_by_indices(self, indices):
         """
         This is the main internal method to get specified reference trajectories.
@@ -196,7 +230,7 @@ class ReferenceTrajectories:
         on the current step trajectory.
         """
         # when we reached the trajectory's end of the current step
-        if self._pos >= len(self._step[self._i_step]):
+        if self._pos >= len(self._step[0]):
             # choose the next step
             self._step = self._get_next_step()
         joint_kinematics = self._step[indices, self._pos]
@@ -206,13 +240,14 @@ class ReferenceTrajectories:
         ''' Random State Initialization:
             @returns: qpos and qvel of a random step at a random position'''
         self._step = self._get_random_step()
-        self._pos = np.random.randint(0, len(self._step[self._i_step]) - 1)
+        self._pos = np.random.randint(0, len(self._step[0]) - 1)
         # reset episode duration and so far traveled distance
         self.ep_dur = 0
         self.dist = 0
         return self.get_qpos(), self.get_qvel()
 
     def get_com_kinematics_full(self):
+        """:returns com kinematics for the current steps."""
         com_pos = self._step[:3, :]
         com_vel = self._step[15:18, :]
         return com_pos, com_vel
@@ -271,11 +306,14 @@ class ReferenceTrajectories:
 
         # increase the step index, reset if last step was reached
         if self._i_step >= len(self.data)-1:
+            self.has_reached_last_step = True
             self._i_step = 0
         else:
             self._i_step += 1
         # update the so far traveled distance
         self.dist = self._step[COM_POSX, -1]
+        # check how many points on the previous steps were left
+        skipped_pos = self._pos - len(self._step[COM_POSX,:])
         # choose the next step
         # copy to add the com x position only of the current local step variable
         step = np.copy(self.data[self._i_step])
@@ -284,8 +322,10 @@ class ReferenceTrajectories:
             f"but started with {step[COM_POSX, 0]}"
         # add the so far traveled distance to the x pos of the COM
         step[COM_POSX,:] += self.dist
-        # reset the position on the ref trajec to zero
-        self._pos = 0
+        # reset the position on the ref trajectory
+        # consider if positions on previous step trajectories were skipped
+        # due to increment in self.next()!
+        self._pos = skipped_pos
         return step
 
     def _add_trunk_euler_rotations(self):
@@ -351,6 +391,7 @@ class ReferenceTrajectories:
             plt.title('Changes in the walking speed of individual steps over time')
             plt.legend([r'Original Mean Velocities', r'Exponentially Smoothed ($\alpha$=0.2)'])
             plt.show()
+            # exit(33)
 
         return speeds_filtered
 
