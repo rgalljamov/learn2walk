@@ -20,3 +20,5 @@ wandb/
 scripts/behavior_cloning/__pycache__/
 
 scripts/mocap/__pycache__/
+
+*.pyc
