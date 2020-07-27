@@ -73,8 +73,10 @@ MOD_VF_ZERO = 'vf_zero'
 # checking if learning is possible with weaker motors too
 MOD_MAX_TORQUE = 'max_torque'
 MAX_TORQUE = 300
+# Reduce dimensionality of the state with a pretrained encoder
+MOD_ENC_DIM_RED = 'dim_red'
 
-modification = mod([MOD_REFS_RAMP, MOD_CUSTOM_NETS,
+modification = mod([MOD_REFS_RAMP, MOD_CUSTOM_NETS, MOD_ENC_DIM_RED,
                     MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
 assert_mod_compatibility()
 
@@ -86,10 +88,12 @@ MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 logstd = 0
 ent_coef = 0 # 0.002 # -0.002
 cliprange = 0.15
-wb_project_name = 'bcln_ramp'
-wb_run_name = f'UNDO BC Changes'
+wb_project_name = 'dim_reduct'
+wb_run_name = f'matmul 1024x8_lrscdl'
 # wb_run_name = f'VF=0, BC ORTHO L2 PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
-wb_run_notes = 'Short test before merging BC branch into master | ' \
+wb_run_notes = 'Use constant speed trajectories, but ramp encoder | ' \
+               'Just multiply the inputs with the weight matrices ' \
+               'of the pretrained encoder | ' \
                'initializing obs_rms from previous run'
 # ----------------------------------------------------------------------------------
 
