@@ -7,7 +7,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 from scripts.common.utils import import_pyplot
 from sklearn.model_selection import train_test_split
-from scripts.behavior_cloning.dataset import get_normed_obs_and_delta_actions
+from scripts.behavior_cloning.dataset import get_obs_and_delta_actions
 
 from scripts.common import config as cfg
 plt = import_pyplot()
@@ -67,7 +67,7 @@ def build_autoencoder(state_dim):
     return model
 
 if __name__ == '__main__':
-    x_data, y_data = get_normed_obs_and_delta_actions()
+    x_data, y_data = get_obs_and_delta_actions()
     # The autoencoder should reconstruct the input
     y_data = x_data
 

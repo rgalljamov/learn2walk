@@ -4,13 +4,13 @@ from scripts.common import utils
 from scripts.common import config as cfg
 from matplotlib import pyplot as plt
 from stable_baselines import PPO2
-from scripts.behavior_cloning.dataset import get_normed_obs_and_delta_actions
+from scripts.behavior_cloning.dataset import get_obs_and_delta_actions
 
 def load_weights():
     import h5py
     weights_file = h5py.File(cfg.abs_project_path
                              +'scripts/behavior_cloning/models/'
-                              'weights/MAE_ramp_ortho_l2_ep50.h5', 'r')
+                              'weights/MAE_ramp_ortho_l2_actnorm_ep200.h5', 'r')
     keys = list(weights_file.keys())
     assert keys == ['hid1', 'hid2', 'output']
     # output of weights_file['hid1']['hid1_1'].keys():
@@ -53,7 +53,7 @@ def test_model():
     """
     # get data used for training
     # x_data contains normalized observations, y_data contains deltas
-    x_data, y_data = get_normed_obs_and_delta_actions()
+    x_data, y_data = get_obs_and_delta_actions()
     x_data, y_data = x_data[:2000], y_data[:2000]
 
     plt.subplot(131)
