@@ -30,6 +30,14 @@ def assert_mod_compatibility():
         raise TypeError("Using sac and tanh actions is only possible in combination"
                         "with the custom policy: MOD_CUSTOM_NETS.")
 
+def get_torque_ranges(hip, knee, ankle):
+    torque_ranges = np.ones((6,2))
+    peaks = np.array([hip, knee, ankle] * 2)
+    torque_ranges[:,0] = -peaks
+    torque_ranges[:,1] = peaks
+    print('Torque ranges (hip, knee, ankle): ', (hip, knee, ankle))
+    return torque_ranges
+
 def is_mod(mod_str):
     return mod_str in modification
 
@@ -66,18 +74,20 @@ MOD_BOUND_MEAN = 'tanh_mean'
 # bound actions as done in SAC: apply a tanh to sampled actions
 # and consider that squashing in the prob distribution, e.g. logpi calculation
 MOD_SAC_ACTS = 'sac_acts'
+# use running statistics from previous runs
+MOD_LOAD_OBS_RMS = 'obs_rms'
 # load pretrained policy (behavior cloning)
 MOD_PRETRAIN_PI = 'pretrain_pi'
 # init the weights in the output layer of the value function to all zeros
 MOD_VF_ZERO = 'vf_zero'
 # checking if learning is possible with weaker motors too
 MOD_MAX_TORQUE = 'max_torque'
-MAX_TORQUE = 300
+TORQUE_RANGES = get_torque_ranges(200, 200, 2)
 # Reduce dimensionality of the state with a pretrained encoder
 MOD_ENC_DIM_RED = 'dim_red'
 
-modification = mod([MOD_REFS_RAMP, MOD_CUSTOM_NETS, MOD_ENC_DIM_RED,
-                    MOD_PI_OUT_DELTAS, MOD_NORM_ACTS])
+modification = mod([MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
+                    MOD_LOAD_OBS_RMS])
 assert_mod_compatibility()
 
 # ----------------------------------------------------------------------------------
@@ -88,13 +98,13 @@ MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 logstd = 0
 ent_coef = 0 # 0.002 # -0.002
 cliprange = 0.15
-wb_project_name = 'dim_reduct'
-wb_run_name = f'matmul 1024x8_lrscdl'
-# wb_run_name = f'VF=0, BC ORTHO L2 PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
-wb_run_notes = 'Use constant speed trajectories, but ramp encoder | ' \
-               'Just multiply the inputs with the weight matrices ' \
-               'of the pretrained encoder | ' \
-               'initializing obs_rms from previous run'
+rew_weights = '6121'
+wb_project_name = 'intermediate' #TODO: Try strict ET based on trajectory distributions
+# TODO: Test also if we need joint pow reward
+wb_run_name = f'200,200,2Nm - rew{rew_weights}'
+# wb_run_name = f'BC PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
+wb_run_notes = 'Actions are normalized angle deltas.' \
+               # 'initializing obs_rms from previous run'
 # ----------------------------------------------------------------------------------
 
 # choose environment
@@ -121,7 +131,7 @@ info = ''
 run_id = s(np.random.random_integers(0, 1000))
 
 info_baseline_hyp_tune = f'hl{s(hid_layer_sizes)}_ent{int(ent_coef * 1000)}_lr{lr_start}to{lr_final}_epdur{_ep_dur_in_k}_' \
-       f'bs{int(batch_size/1000)}_imrew6121_gam{int(gamma*1e3)}'
+       f'bs{int(batch_size/1000)}_imrew{rew_weights}_gam{int(gamma*1e3)}'
 
 # construct the paths
 abs_project_path = dirname(dirname(dirname(__file__))) + '/'
@@ -138,7 +148,7 @@ print('Modification:', modification)
 
 # wandb
 def get_wb_run_name():
-    return wb_run_name + hyp_path + ' - ' + run_id
+    return wb_run_name + hyp_path # + ' - ' + run_id
 if len(wb_project_name) == 0:
     wb_project_name = _mod_path.replace('/', '_')[:-1]
 

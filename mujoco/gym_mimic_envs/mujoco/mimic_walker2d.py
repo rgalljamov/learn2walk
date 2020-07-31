@@ -91,6 +91,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
                 # double max deltas for better perturbation recovery
                 # to keep balance the agent might require to output
                 # angles that are not reachable to saturate the motors
+                # todo-Note: when you change normalization here, also change for BCLN
                 max_qpos_deltas = 2 * max_vels / self.control_freq
                 a *= max_qpos_deltas
 

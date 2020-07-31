@@ -1,6 +1,7 @@
-# suppress the annoying FutureWarnings at startup
+# suppress the annoying TF Warnings at startup
 import warnings
 warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 import os.path
 import wandb
@@ -43,7 +44,7 @@ def init_wandb(model):
         "mio_steps": cfg.mio_steps,
         "ent_coef": model.ent_coef,
         "ep_dur": cfg.ep_dur_max,
-        "imit_rew": '6121',
+        "imit_rew": cfg.rew_weights,
         "env": cfg.env_name,
         "gam": model.gamma,
         "lam": model.lam,

@@ -33,8 +33,7 @@ class MimicEnv:
         self._FLY = False or cfg.is_mod(cfg.MOD_FLY)
         self._evaluation_on = False
         if cfg.MOD_MAX_TORQUE:
-            self.model.actuator_forcerange[:,:] = \
-                self.model.actuator_forcerange * cfg.MAX_TORQUE/300
+            self.model.actuator_forcerange[:,:] = cfg.TORQUE_RANGES
 
 
     def step(self):
@@ -90,7 +89,7 @@ class MimicEnv:
 
     def get_ref_qpos(self, exclude_com=False, exclude_not_actuated_joints=False):
         qpos = self.refs.get_qpos()
-        return self._exclude_joints(exclude_com, exclude_not_actuated_joints, qpos)
+        return self._exclude_joints(qpos, exclude_com, exclude_not_actuated_joints)
 
     def get_ref_qvel(self, exclude_com=False, exclude_not_actuated_joints=False):
         qvel = self.refs.get_qvel()
@@ -393,7 +392,10 @@ class MimicEnv:
         if not _rsinitialized:
             return -3.33
 
-        w_pos, w_vel, w_com, w_pow = 0.6, 0.1, 0.2, 0.1
+        # get rew weights from rew_weights_string
+        weights = [float(digit)/10 for digit in cfg.rew_weights]
+
+        w_pos, w_vel, w_com, w_pow = weights
         pos_rew = self.get_pose_reward()
         vel_rew = self.get_vel_reward()
         com_rew = self.get_com_reward()
