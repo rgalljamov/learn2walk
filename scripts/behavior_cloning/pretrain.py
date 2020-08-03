@@ -4,12 +4,14 @@ from tensorflow.keras import layers
 from matplotlib import pyplot as plt
 
 from sklearn.model_selection import train_test_split
-from scripts.behavior_cloning.dataset import get_normed_obs_and_delta_actions
+from scripts.behavior_cloning.dataset import get_obs_and_delta_actions
 
 from scripts.common import config as cfg
 
 SHUFFLE = True
-
+EPOCHS = 200
+LEARN_RATE0 = 0.01
+LEARN_RATE1 = 0.0005
 
 def build_model(state_dim, act_dim):
     model = keras.Sequential()
@@ -26,7 +28,7 @@ def build_model(state_dim, act_dim):
     return model
 
 if __name__ == '__main__':
-    x_data, y_data = get_normed_obs_and_delta_actions()
+    x_data, y_data = get_obs_and_delta_actions(norm_obs=True, norm_acts=True)
 
     # train, val, test split
     x_train, x_test, y_train, y_test = \
@@ -48,7 +50,7 @@ if __name__ == '__main__':
 
     # compile model
     model.compile(
-        optimizer=keras.optimizers.Adam(),
+        optimizer=keras.optimizers.Adam(learning_rate=LEARN_RATE0),
         # Loss function to minimize
         loss='mean_absolute_error',
         # List of metrics to monitor
@@ -58,11 +60,10 @@ if __name__ == '__main__':
                  keras.metrics.MeanAbsolutePercentageError()],
     )
 
-    EPOCHS = 50
     # construct save paths
     model_path = dirname(dirname(dirname(__file__))) \
                  + '/scripts/behavior_cloning/models/'
-    model_name = 'MAE_ramp_ortho_l2' + f'_ep{EPOCHS}'
+    model_name = 'MAE_ramp_ortho_l2_actnorm' + f'_ep{EPOCHS}'
 
     # create callback to save best model
     best_model_path = model_path + f'best/{model_name}'
@@ -70,10 +71,16 @@ if __name__ == '__main__':
         best_model_path, save_best_only=True,
         monitor='val_loss', mode='min')
 
+    # learning rate schedule (linear)
+    def linear_lr_schedule(epoch):
+        return LEARN_RATE0 + (LEARN_RATE1-LEARN_RATE0)/EPOCHS * epoch
+
+    lr_decay_callback = keras.callbacks.LearningRateScheduler(linear_lr_schedule)
+
     # train model
     history = model.fit(x_train, y_train, epochs=EPOCHS, verbose=1,
                         validation_data=(x_val, y_val),
-                        callbacks=[save_best_callback])
+                        callbacks=[save_best_callback, lr_decay_callback])
 
     # evaluate the model
     train_metrics = model.evaluate(x_train, y_train, verbose=0)

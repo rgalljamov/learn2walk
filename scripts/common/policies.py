@@ -2,7 +2,7 @@ from stable_baselines.common.policies import ActorCriticPolicy, register_policy
 from scripts.common.distributions import BoundedDiagGaussianDistributionType, \
     CustomDiagGaussianDistributionType
 from stable_baselines.a2c.utils import linear, ortho_init
-from scripts.behavior_cloning.models import load_weights
+from scripts.behavior_cloning.models import load_weights, load_encoder_weights
 from scripts.common.utils import log
 from scripts.common import config as cfg
 import tensorflow as tf
@@ -23,8 +23,21 @@ class CustomPolicy(ActorCriticPolicy):
             log("Using Bounded Gaussian Distribution")
 
         with tf.variable_scope("model", reuse=reuse):
-            obs = self.processed_obs
+            obs = self.processed_obs # shape (?,19)
             act_func_hid = tf.nn.relu
+
+            # reduce dim of observations
+            if cfg.is_mod(cfg.MOD_ENC_DIM_RED):
+                # load encoder matrices
+                ws, bs = load_encoder_weights()
+                # transform input (reduce dim)
+                for w, b in zip(ws,bs):
+                    obs = tf.matmul(obs, w)
+                    obs += b
+                assert obs.shape[1] == 8
+                log('Reducing obs dimension by multiplication '
+                    'with weight matrices from the encoder network.')
+
 
             # build the policy network's hidden layers
             if cfg.is_mod(cfg.MOD_PRETRAIN_PI):

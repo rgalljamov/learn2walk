@@ -147,9 +147,10 @@ class ReferenceTrajectories:
         return self._get_by_indices(self.qvel_is)
 
     def get_phase_variable(self):
-        trajec_duration = len(self._step[0])
+        trajec_duration = len(self._step[0])+1
         phase = self._pos / trajec_duration
-        assert phase <= 1, f'Phase Variable should be between 0 and 1 but was {phase}'
+        assert phase >= 0 and phase <= 1, \
+            f'Phase Variable should be between 0 and 1 but was {phase}'
         return phase
 
     def get_ref_kinmeatics(self):
@@ -209,6 +210,9 @@ class ReferenceTrajectories:
                    if np.max(step[KNEE_ANGVEL_L]) > np.max(step[KNEE_ANGVEL_R])]
         return indices
 
+
+    def is_step_left(self):
+        return self._i_step in self.left_leg_indices
 
     def _get_by_indices(self, indices):
         """

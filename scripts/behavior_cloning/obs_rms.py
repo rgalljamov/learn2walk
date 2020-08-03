@@ -1,4 +1,4 @@
-# from scripts.behavior_cloning.dataset import get_refs, get_refs_stats
+from scripts.behavior_cloning.dataset import get_refs, get_refs_stats
 from scripts.common.utils import vec_env, log
 from scripts.common import config as cfg
 
@@ -24,7 +24,7 @@ def get_obs_rms(do_log=False):
     return env.obs_rms.mean, env.obs_rms.var
 
 
-""" NOT USING OBS_STDS FROM REFERENCE TRAJECTORIES BUT FROM A PREVIOUS RUN. 
+# TODO: NOT USING OBS_STDS FROM REFERENCE TRAJECTORIES BUT FROM A PREVIOUS RUN.
 if __name__ == '__main__':
     # build VecNormalize wrapped Environment
     env = vec_env(cfg.env_id, norm_rew=True, num_envs=cfg.n_envs,
@@ -57,6 +57,25 @@ if __name__ == '__main__':
                          speed_mean + np.sqrt(speed_var), alpha=0.25)
         plt.show()
 
+    # compare
+    labels = get_refs().get_kinematics_labels()
+    refs_mean = ref_means
+    refs_var = ref_vars
+    run_mean = env.obs_rms.mean
+    run_var = env.obs_rms.var
+
+    deltas_mean = np.abs(run_mean - ref_means)
+    deltas_var = np.abs(run_var - ref_vars)
+
+    deltas_mean_prct = np.array((100 * deltas_mean/np.abs(refs_mean)), dtype=int)
+    deltas_var_prct = np.array(100 * deltas_var/np.abs(run_var), dtype=int)
+
+    for i, label in enumerate(labels):
+        print('\n', label)
+        print('delta_prct \t delta_mean \t run_mean \t ref_mean')
+        print('%d \t\t\t %.3f \t\t\t %.3f \t\t\t %.3f' % (deltas_mean_prct[i], deltas_mean[i], run_mean[i], refs_mean[i]))
+    if not OVERWRITE_OBS_RMS: SystemExit('Expectedly finished script W/O saving new refs!')
+
     env.obs_rms.mean = ref_means
     env.obs_rms.var = ref_vars
 
@@ -64,6 +83,4 @@ if __name__ == '__main__':
     model_path = dirname(dirname(dirname(__file__))) + '/scripts/behavior_cloning/models/rms/'
     model_name = 'obs_rms_init_const_speed'
     save_path = model_path + model_name
-    if OVERWRITE_OBS_RMS: env.save(save_path)
-    
-"""
+    env.save(save_path)
