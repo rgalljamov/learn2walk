@@ -86,15 +86,9 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         if cfg.is_mod(cfg.MOD_PI_OUT_DELTAS):
             if cfg.is_mod(cfg.MOD_NORM_ACTS):
                 # rescale actions to actual bounds
-                # get max allowed deviations in actuated joints
-                max_vels = self._get_max_actuator_velocities()
-                # double max deltas for better perturbation recovery
-                # to keep balance the agent might require to output
-                # angles that are not reachable to saturate the motors
-                max_qpos_deltas = 2 * max_vels / self.control_freq
-                a *= max_qpos_deltas
-
+                a *= self.get_max_qpos_deltas()
             a = qpos_act_before_step + a
+
         # execute simulation with desired action for multiple steps
         self.do_simulation(a, self._frame_skip)
 
@@ -113,6 +107,9 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         qvel_findifs = (qpos_delta)/self.dt
         qvel_delta = qvel_after - qvel_findifs
 
+        # get state observation after simulation step
+        obs = self._get_obs()
+
         USE_DMM_REW = True and not cfg.do_run()
         if USE_DMM_REW:
             reward = self.get_imitation_reward(qpos_act_before_step, a)
@@ -122,14 +119,17 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             reward += alive_bonus
             reward -= 1e-3 * np.square(a).sum()
 
-        USE_ET = False
-        USE_REW_ET = True and not cfg.do_run()
+        USE_ET = False or cfg.is_mod(cfg.MOD_REF_STATS_ET)
+        USE_REW_ET = True and not cfg.do_run() and not USE_ET
         if self.is_evaluation_on():
             done = height < 0.5
         elif USE_ET:
-            done = self.has_exceeded_allowed_deviations()
+            if cfg.is_mod(cfg.MOD_REF_STATS_ET):
+                done = self.is_out_of_ref_distribution(obs)
+            else:
+                done = self.has_exceeded_allowed_deviations()
         elif USE_REW_ET:
-            done = self.do_terminate_early(reward, height, ang, rew_threshold=0.1)
+            done = self.do_terminate_early(reward, height, ang, rew_threshold=cfg.et_ref_thres)
         else:
             done = not (height > 0.8 and height < 2.0 and
                         ang > -1.0 and ang < 1.0)
@@ -152,8 +152,17 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             # do_render = False
         if do_render: self.render()
 
-        ob = self._get_obs()
-        return ob, reward, done, {}
+        return obs, reward, done, {}
+
+    def get_max_qpos_deltas(self):
+        """Returns the scalars needed to rescale the normalized actions from the agent."""
+        # get max allowed deviations in actuated joints
+        max_vels = self._get_max_actuator_velocities()
+        # double max deltas for better perturbation recovery
+        # to keep balance the agent might require to output
+        # angles that are not reachable to saturate the motors
+        max_qpos_deltas = 2 * max_vels / self.control_freq
+        return max_qpos_deltas
 
     def reset_model(self):
         return MimicEnv.reset_model(self)
@@ -175,4 +184,5 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         return [0,1,2]
 
     def _get_max_actuator_velocities(self):
+        """Maximum joint velocities approximated from the reference data."""
         return np.array([5, 10, 10, 5, 10, 10])

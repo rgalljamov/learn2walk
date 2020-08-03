@@ -4,14 +4,13 @@ from scripts.common import utils
 from scripts.common import config as cfg
 from matplotlib import pyplot as plt
 from stable_baselines import PPO2
-from scripts.behavior_cloning.dataset import get_normed_obs_and_delta_actions
-
+from scripts.behavior_cloning.dataset import get_obs_and_delta_actions
 
 def load_weights():
     import h5py
     weights_file = h5py.File(cfg.abs_project_path
                              +'scripts/behavior_cloning/models/'
-                              'weights/MAE_ramp_ortho_l2_ep50.h5', 'r')
+                              'weights/MAE_ramp_ortho_l2_actnorm_ep200.h5', 'r')
     keys = list(weights_file.keys())
     assert keys == ['hid1', 'hid2', 'output']
     # output of weights_file['hid1']['hid1_1'].keys():
@@ -31,6 +30,22 @@ def load_model():
     model = keras.models.load_model(model_path)
     return model
 
+
+def load_encoder_weights():
+    import h5py
+    weights_file = h5py.File(cfg.abs_project_path
+                             +'scripts/dim_reduction/models/weights/'
+                              '8D_ramp_hd1024_ep200_lr0001_lr10001_tst0425_trn0417.h5', 'r')
+    keys = list(weights_file.keys())
+    relevant_keys = ['enc_hid1', 'enc_hid2']
+    assert all([(key in keys) for key in relevant_keys])
+    # output of weights_file['hid1']['hid1_1'].keys():
+    b_key, w_key = ['bias:0', 'kernel:0']
+    ws = [weights_file[key][key+'_1'][w_key].value for key in relevant_keys]
+    bs = [weights_file[key][key+'_1'][b_key].value for key in relevant_keys]
+    return ws, bs
+
+
 def test_model():
     """
     Loads a model and compares it's predictions
@@ -38,7 +53,7 @@ def test_model():
     """
     # get data used for training
     # x_data contains normalized observations, y_data contains deltas
-    x_data, y_data = get_normed_obs_and_delta_actions()
+    x_data, y_data = get_obs_and_delta_actions()
     x_data, y_data = x_data[:2000], y_data[:2000]
 
     plt.subplot(131)
@@ -101,7 +116,7 @@ def compare_bc_model_with_ppo_init_model():
 if __name__ == '__main__':
     # test_model()
     # load_weights()
-    compare_bc_model_with_ppo_init_model()
-
+    # compare_bc_model_with_ppo_init_model()
+    load_encoder_weights()
 
 

@@ -1,8 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-from scripts.behavior_cloning.obs_rms import get_obs_rms
 from scripts.mocap import ref_trajecs as rt
+from gym_mimic_envs.mujoco.mimic_walker2d import MimicWalker2dEnv
 
 # qpos and qvel indices for quick access to the reference trajectories
 qpos_indices = [rt.COM_POSX, rt.COM_POSZ, rt.TRUNK_ROT_Y,
@@ -157,7 +157,7 @@ def get_dataset_for_zero_policy():
 
     :returns x_data_normed, y_data = np.zeros()
     """
-    x_data, y_data = get_normed_obs_and_delta_actions()
+    x_data, y_data = get_obs_and_delta_actions()
     x_data, y_data = augment_data_with_gaussian_noise(x_data, y_data)
     # set y_data to zero
     y_data *= 0
@@ -233,14 +233,57 @@ def get_actuated_joint_indices():
     print('Actuated joints indices: ', x_actuated_joint_indices)
     return x_actuated_joint_indices
 
+
 def get_delta_angs(x_data, y_data):
     act_joint_indices = get_actuated_joint_indices()
     y_delta = y_data - x_data[:, act_joint_indices]
     return y_delta
 
+
+def get_obs_and_delta_actions(norm_obs=True, norm_acts=False):
+    """
+    Loads the SL data extracted from the reference trajectories,
+    calculates the action deltas and normalize the observations.
+    """
+    # get data
+
+    x_data, y_data = get_data()
+    # test_data(x_data, y_data)
+    y_data = get_delta_angs(x_data, y_data)
+    if norm_obs:
+        from scripts.behavior_cloning.obs_rms import get_obs_rms
+        # normalize x_data by mean and var
+        x_mean, x_var = get_obs_rms(True)
+        x_data_normed = (x_data - x_mean) / np.sqrt(x_var + 1e-4)
+        assert (np.abs((x_data - x_data_normed)) > 0.0000001).all(), \
+            'Observation Normalization had no effect!'
+        x_data = x_data_normed
+
+    if norm_acts:
+        # normalize actions to be in the range [-1,1]
+        # divide by the normalized maximum angle changes during a single control step
+        mim_walker = MimicWalker2dEnv()
+        max_qpos_deltas = mim_walker.get_max_qpos_deltas()
+        y_data_normed = y_data / max_qpos_deltas
+        y_data = y_data_normed
+
+    # print('shape x_data: ', x_data.shape)
+    # print('shape x_data normed: ', x_data_normed.shape)
+    # print('x_data: ',x_data[:5,10:13])
+    # print('x_data normed: ',x_data_normed[:5,10:13])
+    # plot the normalized and unnormalized data
+    # plt.plot(x_data[:500, 5])
+    # plt.plot(x_data_normed[:500, 5])
+    # plt.show()
+    # exit(33)
+
+    return x_data, y_data
+
+
 if __name__ == '__main__':
     DEBUG = False
-
+    x_data_normed, y_data_normed = get_obs_and_delta_actions(True, True)
+    exit(33)
     refs = rt.ReferenceTrajectories(qpos_indices, qvel_indices, {})
     refs._step = refs.data[0]
     # 38 dims, 262 timesteps per step approximately
@@ -253,29 +296,3 @@ if __name__ == '__main__':
     test_data(x_data, y_data)
 
 
-def get_normed_obs_and_delta_actions():
-    """
-    Loads the SL data extracted from the reference trajectories,
-    calculates the action deltas and normalize the observations.
-    """
-    # get data
-    x_data, y_data = get_data()
-    # test_data(x_data, y_data)
-    y_data = get_delta_angs(x_data, y_data)
-    x_mean, x_var = get_obs_rms(True)
-    # normalize x_data by mean and var
-    x_data_normed = (x_data - x_mean) / np.sqrt(x_var + 1e-4)
-
-    # print('shape x_data: ', x_data.shape)
-    # print('shape x_data normed: ', x_data_normed.shape)
-    # print('x_data: ',x_data[:5,10:13])
-    # print('x_data normed: ',x_data_normed[:5,10:13])
-    # plot the normalized and unnormalized data
-    # plt.plot(x_data[:500, 5])
-    # plt.plot(x_data_normed[:500, 5])
-    # plt.show()
-    # exit(33)
-
-    assert (np.abs((x_data- x_data_normed))>0.0000001).all(), \
-        'Observation Normalization had no effect!'
-    return x_data_normed, y_data

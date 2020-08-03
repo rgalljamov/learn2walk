@@ -11,7 +11,7 @@ from stable_baselines import PPO2
 from scripts.common.utils import load_env
 
 DETERMINISTIC_ACTIONS = True
-FROM_PATH = True
+FROM_PATH = False
 RENDER = True
 PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/refs_ramp/cstm_pi/" \
        "pretrain_pi/pi_deltas/norm_acts/mim2d/16envs/ppo2/8mio/993"
@@ -39,7 +39,7 @@ if not isinstance(env, Monitor):
 
 obs = env.reset()
 # env.do_fly()
-env.activate_evaluation()
+# env.activate_evaluation()
 
 
 for i in range(10000):
