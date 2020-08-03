@@ -14,17 +14,18 @@ def get_refs(refs=None):
     return refs
 
 
-def get_joint_mocap_stats(plot=False, std_only=False):
+def get_joint_mocap_stats(refs=None, plot=False, std_only=False, save_path=None):
     """
     Calculates the means and stds of reference joint kinematics of the MimicWalker2D.
-    Statistics are computed for each leg separately.
+    Statistics are computed for each leg separately for the CONSTANT SPEED TRAJECS!
 
     :return: means_left, means_right, stds_left, stds_right
     Returns the mean trajectories of a left and right step with corresponding stds.
     """
-    refs = get_refs()
-    refs.reset()
+    if refs is None:
+        refs = get_refs()
 
+    refs.reset()
     data = refs.data # 30 x (19, n_step_points)
 
     # to be able to get mean and std of each trajectory,
@@ -49,6 +50,10 @@ def get_joint_mocap_stats(plot=False, std_only=False):
     means_right = np.mean(data_right, axis=0)
     stds_right = np.std(data_right, axis=0)
 
+    if save_path is not None:
+        np.savez(save_path, means_left=means_left, stds_left=stds_left,
+                 means_right=means_right, stds_right=stds_right)
+
     step_mean = means_right
     step_std = stds_right
 
@@ -64,7 +69,7 @@ def get_joint_mocap_stats(plot=False, std_only=False):
             except:
                 subplt = plt.subplot(5, 4, i_sbplt + 1)
             curve = step_mean[i_sbplt, :]
-            std = step_std[i_sbplt, :]
+            std = 2*step_std[i_sbplt, :]
             if i < 15 or i > 28:
                 line_blue = plt.plot(curve)
                 plt.fill_between(range(len(curve)), curve-std, curve+std, alpha=0.5)
@@ -94,7 +99,7 @@ def get_joint_mocap_stats(plot=False, std_only=False):
         # # fix title overlapping when tight_layout is true
         plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
         plt.subplots_adjust(wspace=0.55, hspace=0.5)
-        plt.suptitle('Reference Trajectory Statistics (mean and std)')
+        plt.suptitle('Reference Trajectory Statistics (mean $\pm$ 2std)')
         # plot the legend in a separate subplot
         with sns.axes_style("white", {"axes.edgecolor": 'white'}):
             legend_subplot = plt.subplot(5, 4, i_sbplt + 2)
@@ -112,6 +117,7 @@ def get_joint_mocap_stats(plot=False, std_only=False):
 
 
 if __name__ == '__main__':
-    means_left, means_right, stds_left, stds_right = get_joint_mocap_stats(plot=True)
+    means_left, means_right, stds_left, stds_right = \
+                    get_joint_mocap_stats() # /mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/assets/ref_trajecs/distributions
     mean_stds = np.mean(np.hstack([stds_left, stds_right]), axis=1)
     debug = False
