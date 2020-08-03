@@ -34,6 +34,8 @@ class MimicEnv:
         self._evaluation_on = False
         if cfg.MOD_MAX_TORQUE:
             self.model.actuator_forcerange[:,:] = cfg.TORQUE_RANGES
+        # for ET based on mocap distributions
+        self.left_step_distrib, self.right_step_distrib = None, None
 
 
     def step(self):
@@ -436,6 +438,40 @@ class MimicEnv:
         rew_too_low = rew < rew_threshold
         max_episode_dur_reached = self.refs.ep_dur >= cfg.ep_dur_max
         return com_max_dev_exceeded or trunk_ang_exceeded or rew_too_low or max_episode_dur_reached
+
+    def is_out_of_ref_distribution(self, state, scale_pos_std=2, scale_vel_std=10):
+        """
+        Early Termination based on reference trajectory distributions:
+           @returns: True if qpos and qvel are out of the reference trajectory distributions.
+           @params: indicate how many stds deviation are allowed before being out of distribution.
+        """
+        if not cfg.is_mod(cfg.MOD_REFS_RAMP):
+            # load trajectory distributions if not done already
+            if self.left_step_distrib is None:
+                npz = np.load(cfg.abs_project_path +
+                                   'assets/ref_trajecs/distributions/const_speed_400hz.npz')
+                self.left_step_distrib = [npz['means_left'], npz['stds_left']]
+                self.right_step_distrib = [npz['means_right'], npz['stds_right']]
+                self.step_len = min(self.left_step_distrib[0].shape[1], self.right_step_distrib[0].shape[1])
+
+            # left and right step distributions are different
+            step_dist = self.left_step_distrib if self.refs.is_step_left() else self.right_step_distrib
+
+            # get current mean on the mocap distribution, exlude com_x_pos
+            pos = min(self.refs._pos, self.step_len)
+            mean_state = step_dist[0][1:, pos]
+            # check distance of current state to the distribution mean
+            deviation = np.abs(mean_state - state[2:])
+            # terminate if distance is too big
+            std_state = 2*step_dist[1][1:, pos]
+            is_out = deviation > std_state
+            et = any((is_out))
+            return False
+
+
+        else: return NotImplementedError('Refs Distributions were so far only calculated '
+                                         'for the constant speed trajectories!')
+
 
     def has_exceeded_allowed_deviations(self, max_dev_pos=0.5, max_dev_vel=2):
         '''Early Termination based on trajectory deviations:

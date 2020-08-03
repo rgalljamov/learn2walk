@@ -47,7 +47,7 @@ def do_run():
 # choose approach
 AP_DEEPMIMIC = 'dmm'
 AP_RUN = 'run'
-approach = AP_DEEPMIMIC
+AP_BEHAV_CLONE = 'bcln'
 
 # choose modification
 MOD_FLY = 'fly'
@@ -82,12 +82,16 @@ MOD_PRETRAIN_PI = 'pretrain_pi'
 MOD_VF_ZERO = 'vf_zero'
 # checking if learning is possible with weaker motors too
 MOD_MAX_TORQUE = 'max_torque'
-TORQUE_RANGES = get_torque_ranges(200, 200, 2)
+TORQUE_RANGES = get_torque_ranges(300, 300, 300)
 # Reduce dimensionality of the state with a pretrained encoder
 MOD_ENC_DIM_RED = 'dim_red'
+# use mocap statistics for ET
+MOD_REF_STATS_ET = 'ref_et'
+et_ref_thres = 0.1
 
-modification = mod([MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
-                    MOD_LOAD_OBS_RMS])
+approach = AP_DEEPMIMIC
+modification = mod([MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS
+                    ])
 assert_mod_compatibility()
 
 # ----------------------------------------------------------------------------------
@@ -99,11 +103,13 @@ logstd = 0
 ent_coef = 0 # 0.002 # -0.002
 cliprange = 0.15
 rew_weights = '6121'
-wb_project_name = 'intermediate' #TODO: Try strict ET based on trajectory distributions
+wb_project_name = 'n_envs' #TODO: Try strict ET based on trajectory distributions
 # TODO: Test also if we need joint pow reward
-wb_run_name = f'200,200,2Nm - rew{rew_weights}'
+wb_run_name = f'8envs'
 # wb_run_name = f'BC PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
-wb_run_notes = 'Actions are normalized angle deltas.' \
+wb_run_notes = '' \
+               'Reward based ET. ' \
+               'Actions are normalized angle deltas.' \
                # 'initializing obs_rms from previous run'
 # ----------------------------------------------------------------------------------
 
@@ -117,7 +123,7 @@ env_name = env_names[env_index]
 # choose hyperparams
 algo = 'ppo2'
 mio_steps = 4
-n_envs = 16 if utils.is_remote() and not DEBUG else 1
+n_envs = 8 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
 hid_layer_sizes = [128, 128]
 lr_start = 1500
