@@ -58,13 +58,17 @@ class Monitor(gym.Wrapper):
         self.mean_ep_joint_pow_sum_normed_smoothed = 0
 
         # monitor sim and ref trajecs for comparison (sim/ref, kinem_indices, timesteps)
-        self.trajecs_buffer = np.zeros((2, self.num_dofs, _trajec_buffer_length))
+        # 3 and 4 in first dimension are for mean and std of ref trajec distribution
+        self.trajecs_buffer = np.zeros((4, self.num_dofs, _trajec_buffer_length))
         # monitor episode terminations
         self.dones_buf = np.zeros((_trajec_buffer_length,))
         # monitor the actions at actuated joints (PD target angles)
         self.action_buf = np.zeros((self.num_actions, _trajec_buffer_length))
         # monitor the joint torques
         self.torque_buf = np.zeros((self.num_actions, _trajec_buffer_length))
+
+        self.left_step_distrib, self.right_step_distrib = None, None
+
 
     def step(self, action):
         obs, reward, done, _ = self.env.step(action)
@@ -106,6 +110,27 @@ class Monitor(gym.Wrapper):
             self.trajecs_buffer = np.roll(self.trajecs_buffer, -1, axis=2)
             self.trajecs_buffer[0, :, -1] = sim_trajecs
             self.trajecs_buffer[1, :, -1] = ref_trajecs
+            PLOT_REF_DISTRIBUTION = True
+            if PLOT_REF_DISTRIBUTION:
+                # load trajectory distributions if not done already
+                if self.left_step_distrib is None:
+                    from scripts.common import config as cfg
+                    npz = np.load(cfg.abs_project_path +
+                                  'assets/ref_trajecs/distributions/const_speed_400hz.npz')
+                    self.left_step_distrib = [npz['means_left'], npz['stds_left']]
+                    self.right_step_distrib = [npz['means_right'], npz['stds_right']]
+                    self.step_len = min(self.left_step_distrib[0].shape[1], self.right_step_distrib[0].shape[1])
+
+                # left and right step distributions are different
+                step_dist = self.left_step_distrib if self.refs.is_step_left() else self.right_step_distrib
+
+                # get current mean on the mocap distribution, exlude com_x_pos
+                pos = min(self.refs._pos, self.step_len - 1)
+                mean_state = step_dist[0][:, pos]
+                # terminate if distance is too big
+                std_state = 3 * step_dist[1][:, pos]
+                self.trajecs_buffer[2, :, -1] = mean_state
+                self.trajecs_buffer[3, :, -1] = std_state
             # do the same with the dones
             self.dones_buf = np.roll(self.dones_buf, -1)
             self.dones_buf[-1] = done
@@ -158,14 +183,27 @@ class Monitor(gym.Wrapper):
             plt.title(self.kinem_labels[i_joint])
         lines.append(line[0])
 
-        # plot ref trajecs
+        # plot ref trajec distributions (mean + 2std)
+        PLOT_REF_DISTRIB = True
+        if PLOT_REF_DISTRIB:
+            trajecs = self.trajecs_buffer[2,:,:]
+            stds = self.trajecs_buffer[3,:,:]
+            for i_joint in range(num_joints):
+                trajec = trajecs[i_joint, :]
+                std = stds[i_joint, :]
+                line = axes[i_joint].plot(trajec)
+                axes[i_joint].fill_between(range(len(trajec)), trajec+std, trajec-std,
+                                           color='orange', alpha=0.5)
+            lines.append(line[0])
+            names.append('Reference Distribution\n(mean $\pm$ 2std) [rad]')
+
         PLOT_REFS = True
         if PLOT_REFS:
-            trajecs = self.trajecs_buffer[1,:,:]
-            # copy ankle joint trajectories todo: remove
-            # trajecs[5, :] = trajecs[8, :]
+            trajecs = self.trajecs_buffer[1, :, :]
             for i_joint in range(num_joints):
-                line = axes[i_joint].plot(trajecs[i_joint, :])
+                trajec = trajecs[i_joint, :]
+                line = axes[i_joint].plot(trajec, color='red')
+
             lines.append(line[0])
             names.append('Reference [rad]')
 
@@ -203,7 +241,7 @@ class Monitor(gym.Wrapper):
             legend_subplot = plt.subplot(rows, cols, num_joints + 2)
             legend_subplot.set_xticks([])
             legend_subplot.set_yticks([])
-            legend_subplot.legend(lines, names, bbox_to_anchor=(1.2, 0.8))
+            legend_subplot.legend(lines, names, bbox_to_anchor=(1.2, 1.075))
 
         # fix title overlapping when tight_layout is true
         plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])

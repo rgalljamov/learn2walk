@@ -35,7 +35,7 @@ def get_torque_ranges(hip, knee, ankle):
     peaks = np.array([hip, knee, ankle] * 2)
     torque_ranges[:,0] = -peaks
     torque_ranges[:,1] = peaks
-    print('Torque ranges (hip, knee, ankle): ', (hip, knee, ankle))
+    # print('Torque ranges (hip, knee, ankle): ', (hip, knee, ankle))
     return torque_ranges
 
 def is_mod(mod_str):
@@ -59,7 +59,6 @@ MOD_REFS_RAMP = 'refs_ramp'
 
 MOD_CUSTOM_NETS = 'cstm_pi'
 MOD_REW_MULT = 'rew_mult'
-modification = mod([MOD_REW_MULT])
 # allow the policy to output angles in the maximum range
 # but punish actions that are too far away from current angle
 MOD_PUNISH_UNREAL_TARGET_ANGS = 'pun_unreal_angs'
@@ -87,11 +86,12 @@ TORQUE_RANGES = get_torque_ranges(300, 300, 300)
 MOD_ENC_DIM_RED = 'dim_red'
 # use mocap statistics for ET
 MOD_REF_STATS_ET = 'ref_et'
-et_ref_thres = 0.1
+et_rew_thres = 0.1
 
 approach = AP_DEEPMIMIC
-modification = mod([MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS
-                    ])
+modification = mod([
+    MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
+    ])
 assert_mod_compatibility()
 
 # ----------------------------------------------------------------------------------
