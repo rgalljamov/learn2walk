@@ -16,7 +16,7 @@ import tensorflow as tf
 if type(tf.contrib) != type(tf): tf.contrib._warning = None
 tf.logging.set_verbosity(tf.logging.ERROR)
 
-from stable_baselines import PPO2
+from scripts.algos.custom_ppo2 import CustomPPO2
 from stable_baselines.common.policies import MlpPolicy
 
 
@@ -83,12 +83,12 @@ if __name__ == "__main__":
     network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
                     'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_NETS) else {}
 
-    model = PPO2(CustomPolicy if cfg.is_mod(cfg.MOD_CUSTOM_NETS) else MlpPolicy,
-                 env, verbose=1, n_steps=int(cfg.batch_size/cfg.n_envs),
-                 policy_kwargs=network_args,
-                 learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
-                 gamma=cfg.gamma, cliprange=cfg.cliprange,
-                 tensorboard_log=cfg.save_path + 'tb_logs/')
+    model = CustomPPO2(CustomPolicy if cfg.is_mod(cfg.MOD_CUSTOM_NETS) else MlpPolicy,
+                       env, verbose=1, n_steps=int(cfg.batch_size/cfg.n_envs),
+                       policy_kwargs=network_args,
+                       learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
+                       gamma=cfg.gamma, cliprange=cfg.cliprange,
+                       tensorboard_log=cfg.save_path + 'tb_logs/')
 
     # init wandb
     if not cfg.DEBUG: init_wandb(model)
