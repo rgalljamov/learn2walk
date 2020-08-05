@@ -3,6 +3,7 @@ import numpy as np
 
 from stable_baselines import PPO2
 from scripts.common.utils import log
+from scripts.common import config as cfg
 
 # imports required to copy the learn method
 from stable_baselines import logger
@@ -12,6 +13,39 @@ from stable_baselines.common.tf_util import total_episode_reward_logger
 from stable_baselines.common import explained_variance, SetVerbosity, TensorboardWriter
 
 
+def mirror_experiences(rollout):
+    obs, returns, masks, actions, values, neglogpacs, states, ep_infos, true_reward = rollout
+    assert obs.shape == (cfg.batch_size, 19)
+    assert actions.shape == (cfg.batch_size, 6)
+    assert states is None
+    assert len(ep_infos) == 0
+    # obs indices: 0: phase, 1: des_vel, 2: com_z, 3: trunk_rot,
+    #              4: hip_ang_r, 5: knee_ang_r, 6: ankle_ang_r,
+    #              7: hip_ang_l, 8: knee_ang_l, 9: ankle_ang_l,
+    #              10: com_x_vel, 11:com_z_vel, 12: trunk_ang_vel,
+    #              13: hip_vel_r, 14: knee_vel_r, 15: ankle_vel_r,
+    #              16: hip_vel_l, 17: knee_vel_l, 18: ankle_vel_l
+    mirred_obs_indices = [0, 1, 2, 3, 7, 8, 9, 4, 5, 6,
+                          10, 11, 12, 16, 17, 18, 13, 14, 15]
+    obs_mirred = obs[:, mirred_obs_indices]
+    acts_mirred = actions[:, [3, 4, 5, 0, 1, 2]]
+    obs = np.concatenate((obs, obs_mirred), axis=0)
+    actions = np.concatenate((actions, acts_mirred), axis=0)
+
+    # the other values should stay the same for the mirrored experiences
+    returns = np.concatenate((returns, returns))
+    masks = np.concatenate((masks, masks))
+    values = np.concatenate((values, values))
+    neglogpacs = np.concatenate((neglogpacs, neglogpacs))
+    true_reward = np.concatenate((true_reward, true_reward))
+
+    assert true_reward.shape[0] == cfg.batch_size*2
+    assert obs.shape == (cfg.batch_size*2, 19)
+
+    return obs, returns, masks, actions, values, \
+           neglogpacs, states, ep_infos, true_reward
+
+
 class CustomPPO2(PPO2):
     def __init__(self, policy, env, gamma=0.99, n_steps=128, ent_coef=0.01, learning_rate=2.5e-4, vf_coef=0.5,
                  max_grad_norm=0.5, lam=0.95, nminibatches=4, noptepochs=4, cliprange=0.2, cliprange_vf=None,
@@ -19,6 +53,8 @@ class CustomPPO2(PPO2):
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
 
         log('Using CustomPPO2:\nMirrors observations and actions to increase num of samples.')
+        self.mirror_experiences = cfg.is_mod(cfg.MOD_MIRROR_EXPS)
+
         super(CustomPPO2, self).__init__(policy, env, gamma, n_steps, ent_coef, learning_rate, vf_coef,
                                          max_grad_norm, lam, nminibatches, noptepochs, cliprange, cliprange_vf,
                                          verbose, tensorboard_log, _init_setup_model, policy_kwargs,
@@ -27,6 +63,13 @@ class CustomPPO2(PPO2):
     # ----------------------------------
     # OVERWRITTEN CLASSES
     # ----------------------------------
+
+    def setup_model(self):
+        """ Overwritten to double the batch size when experiences are mirrored. """
+        super(CustomPPO2, self).setup_model()
+        if self.mirror_experiences:
+            self.n_batch *= 2
+            self.nminibatches *= 2
 
     def learn(self, total_timesteps, callback=None, log_interval=1, tb_log_name="PPO2",
               reset_num_timesteps=True):
@@ -69,7 +112,12 @@ class CustomPPO2(PPO2):
                 # true_reward is the reward without discount
                 rollout = self.runner.run(callback)
                 # Unpack
-                obs, returns, masks, actions, values, neglogpacs, states, ep_infos, true_reward = rollout
+                if self.mirror_experiences:
+                    obs, returns, masks, actions, values, neglogpacs, \
+                    states, ep_infos, true_reward = mirror_experiences(rollout)
+                else:
+                    obs, returns, masks, actions, values, neglogpacs, \
+                    states, ep_infos, true_reward = rollout
 
                 callback.on_rollout_end()
 
@@ -117,10 +165,12 @@ class CustomPPO2(PPO2):
                 fps = int(self.n_batch / (t_now - t_start))
 
                 if writer is not None:
+                    if self.mirror_experiences: self.n_steps = int(self.n_steps * 2)
                     total_episode_reward_logger(self.episode_reward,
                                                 true_reward.reshape((self.n_envs, self.n_steps)),
                                                 masks.reshape((self.n_envs, self.n_steps)),
                                                 writer, self.num_timesteps)
+                    if self.mirror_experiences: self.n_steps = int(self.n_steps / 2)
 
                 if self.verbose >= 1 and (update % log_interval == 0 or update == 1):
                     explained_var = explained_variance(values, returns)
@@ -139,4 +189,3 @@ class CustomPPO2(PPO2):
 
             callback.on_training_end()
             return self
-        
