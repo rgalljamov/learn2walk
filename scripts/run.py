@@ -9,6 +9,7 @@ from gym_mimic_envs.monitor import Monitor
 from gym_mimic_envs.mimic_env import MimicEnv
 from stable_baselines import PPO2
 from scripts.common.utils import load_env
+from scripts.common import config as cfg
 
 DETERMINISTIC_ACTIONS = True
 FROM_PATH = False
@@ -41,7 +42,6 @@ obs = env.reset()
 # env.do_fly()
 # env.activate_evaluation()
 
-
 for i in range(10000):
 
     # obs, reward, done, _ = env.step(np.zeros_like(env.action_space.sample()))
@@ -52,8 +52,18 @@ for i in range(10000):
         action, hid_states = model.predict(obs, deterministic=DETERMINISTIC_ACTIONS)
         obs, reward, done, _ = vec_env.step(action)
     else:
-        # follow desired trajecs
+        # save qpos of actuated joints for reward calculation
+        actq_pos_before_step = env.get_qpos(True, True)
+
+        # follow desired trajecs with PD Position Controllers
         des_qpos = env.get_ref_qpos(exclude_not_actuated_joints=True)
+
+        if cfg.is_mod(cfg.MOD_PI_OUT_DELTAS):
+            des_qpos -= actq_pos_before_step
+            # rescale actions to [-1,1]
+            if cfg.is_mod(cfg.MOD_NORM_ACTS):
+                des_qpos /= env.get_max_qpos_deltas()
+
         obs, reward, done, _ = env.step(des_qpos)
 
     # only stop episode when agent has fallen

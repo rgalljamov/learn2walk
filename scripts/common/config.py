@@ -35,7 +35,7 @@ def get_torque_ranges(hip, knee, ankle):
     peaks = np.array([hip, knee, ankle] * 2)
     torque_ranges[:,0] = -peaks
     torque_ranges[:,1] = peaks
-    print('Torque ranges (hip, knee, ankle): ', (hip, knee, ankle))
+    # print('Torque ranges (hip, knee, ankle): ', (hip, knee, ankle))
     return torque_ranges
 
 def is_mod(mod_str):
@@ -59,7 +59,6 @@ MOD_REFS_RAMP = 'refs_ramp'
 
 MOD_CUSTOM_NETS = 'cstm_pi'
 MOD_REW_MULT = 'rew_mult'
-modification = mod([MOD_REW_MULT])
 # allow the policy to output angles in the maximum range
 # but punish actions that are too far away from current angle
 MOD_PUNISH_UNREAL_TARGET_ANGS = 'pun_unreal_angs'
@@ -87,11 +86,14 @@ TORQUE_RANGES = get_torque_ranges(300, 300, 300)
 MOD_ENC_DIM_RED = 'dim_red'
 # use mocap statistics for ET
 MOD_REF_STATS_ET = 'ref_et'
-et_ref_thres = 0.1
+et_rew_thres = 0.1
+# mirror experiences
+MOD_MIRROR_EXPS = 'mirr_exps'
 
 approach = AP_DEEPMIMIC
-modification = mod([MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS
-                    ])
+modification = mod([MOD_MIRROR_EXPS,
+    MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
+    ])
 assert_mod_compatibility()
 
 # ----------------------------------------------------------------------------------
@@ -103,12 +105,14 @@ logstd = 0
 ent_coef = 0 # 0.002 # -0.002
 cliprange = 0.15
 rew_weights = '6121'
-wb_project_name = 'n_envs' #TODO: Try strict ET based on trajectory distributions
+wb_project_name = 'mirr_exps'
 # TODO: Test also if we need joint pow reward
-wb_run_name = f'8envs'
+wb_run_name = f'4M - 8minibatches'
 # wb_run_name = f'BC PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
-wb_run_notes = '' \
-               'Reward based ET. ' \
+wb_run_notes = 'As experiences are mirrored, the training stops after half of training steps. ' \
+               'Have now set n_steps to 8M so that we collect 4M of experiences. ' \
+               'Mirroring every collected experience to reduce num of required samples. ' \
+               '' \
                'Actions are normalized angle deltas.' \
                # 'initializing obs_rms from previous run'
 # ----------------------------------------------------------------------------------
@@ -122,7 +126,7 @@ env_name = env_names[env_index]
 
 # choose hyperparams
 algo = 'ppo2'
-mio_steps = 4
+mio_steps = 4 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
 hid_layer_sizes = [128, 128]

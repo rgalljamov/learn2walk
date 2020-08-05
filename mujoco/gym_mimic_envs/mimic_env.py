@@ -265,9 +265,8 @@ class MimicEnv:
         self.data.ctrl[:] = self._remove_by_indices(qpos, self._get_not_actuated_joint_indices())
 
         self.set_state(qpos, qvel)
-        # check reward function, use current qpos as action
-        qpos_act = self.get_qpos(True, True)
-        rew = self.get_imitation_reward(qpos_act, qpos_act)
+        # check reward function
+        rew = self.get_imitation_reward()
         assert rew > 0.95 if not self._FLY else 0.5, \
             f"Reward should be around 1 after RSI, but was {rew}!"
         # assert not self.has_exceeded_allowed_deviations()
@@ -385,7 +384,7 @@ class MimicEnv:
         new_list = [item for i, item in enumerate(list) if i not in indices]
         return np.array(new_list)
 
-    def get_imitation_reward(self, qpos_act, action):
+    def get_imitation_reward(self, qpos_act=None, action=None):
         """
         :param qpos_act: qpos of actuated joints before step() exectuion.
         :param action: target angles for PD position controller
@@ -439,12 +438,14 @@ class MimicEnv:
         max_episode_dur_reached = self.refs.ep_dur >= cfg.ep_dur_max
         return com_max_dev_exceeded or trunk_ang_exceeded or rew_too_low or max_episode_dur_reached
 
+
     def is_out_of_ref_distribution(self, state, scale_pos_std=2, scale_vel_std=10):
         """
         Early Termination based on reference trajectory distributions:
            @returns: True if qpos and qvel are out of the reference trajectory distributions.
            @params: indicate how many stds deviation are allowed before being out of distribution.
         """
+
         if not cfg.is_mod(cfg.MOD_REFS_RAMP):
             # load trajectory distributions if not done already
             if self.left_step_distrib is None:
@@ -458,15 +459,17 @@ class MimicEnv:
             step_dist = self.left_step_distrib if self.refs.is_step_left() else self.right_step_distrib
 
             # get current mean on the mocap distribution, exlude com_x_pos
-            pos = min(self.refs._pos, self.step_len)
+            pos = min(self.refs._pos, self.step_len-1) # todo: think of a better handling of longer then usual steps
             mean_state = step_dist[0][1:, pos]
             # check distance of current state to the distribution mean
             deviation = np.abs(mean_state - state[2:])
             # terminate if distance is too big
             std_state = 2*step_dist[1][1:, pos]
             is_out = deviation > std_state
-            et = any((is_out))
-            return False
+            et = any((is_out[:9]))
+            # if et:
+            #     print(self.refs.ep_dur)
+            return et
 
 
         else: return NotImplementedError('Refs Distributions were so far only calculated '

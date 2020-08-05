@@ -54,8 +54,13 @@ def get_joint_mocap_stats(refs=None, plot=False, std_only=False, save_path=None)
         np.savez(save_path, means_left=means_left, stds_left=stds_left,
                  means_right=means_right, stds_right=stds_right)
 
-    step_mean = means_right
-    step_std = stds_right
+    flipped_means_right = np.ones_like(means_right)
+    flipped_means_right[:,:] = means_right[[0,1,2,6,7,8,3,4,5,9,10,11,15,16,17,12,13,14],:]
+    flipped_stds_right = np.ones_like(stds_right)
+    flipped_stds_right[:,:] = stds_right[[0,1,2,6,7,8,3,4,5,9,10,11,15,16,17,12,13,14],:]
+
+    step_mean = (means_left + flipped_means_right) / 2
+    step_std = (stds_left + flipped_stds_right) / 2
 
     # plot figure in full screen mode (scaled down aspect ratio of my screen)
     plt.rcParams['figure.figsize'] = (19.2, 10.8)
@@ -99,7 +104,7 @@ def get_joint_mocap_stats(refs=None, plot=False, std_only=False, save_path=None)
         # # fix title overlapping when tight_layout is true
         plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
         plt.subplots_adjust(wspace=0.55, hspace=0.5)
-        plt.suptitle('Reference Trajectory Statistics (mean $\pm$ 2std)')
+        plt.suptitle('Reference Trajectory Statistics (mean $\pm$ 2std, both legs, one mirrored)')
         # plot the legend in a separate subplot
         with sns.axes_style("white", {"axes.edgecolor": 'white'}):
             legend_subplot = plt.subplot(5, 4, i_sbplt + 2)
@@ -118,6 +123,6 @@ def get_joint_mocap_stats(refs=None, plot=False, std_only=False, save_path=None)
 
 if __name__ == '__main__':
     means_left, means_right, stds_left, stds_right = \
-                    get_joint_mocap_stats() # /mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/assets/ref_trajecs/distributions
+                    get_joint_mocap_stats(plot=True) # /mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/assets/ref_trajecs/distributions
     mean_stds = np.mean(np.hstack([stds_left, stds_right]), axis=1)
     debug = False
