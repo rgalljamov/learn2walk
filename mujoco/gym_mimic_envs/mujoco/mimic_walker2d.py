@@ -142,7 +142,6 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             reward = -100 if (not cfg.do_run() and ep_dur < cfg.ep_dur_max) else 0
             ep_dur = 0
 
-        do_render = True and not is_remote()
         if step_count % 240000 == 0:
             print("start rendering, step: ", step_count)
             # do_render = True
@@ -150,7 +149,6 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         elif step_count % 250000 == 0:
             print("stop rendering, step: ", step_count)
             # do_render = False
-        if do_render: self.render()
 
         return obs, reward, done, {}
 

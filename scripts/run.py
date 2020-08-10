@@ -12,8 +12,10 @@ from scripts.common.utils import load_env
 from scripts.common import config as cfg
 
 DETERMINISTIC_ACTIONS = True
-FROM_PATH = True
-RENDER = True
+FROM_PATH = False
+RENDER = False
+FLY = True
+cfg.rew_weights = "6400"
 PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
        "mirr_exps/cstm_pi/pi_deltas/norm_acts/mim2d/8envs/ppo2/8mio/118-evaled"
 if not PATH.endswith('/'): PATH += '/'
@@ -39,9 +41,8 @@ if not isinstance(env, Monitor):
     env = env.venv.envs[0]
 
 obs = env.reset()
-# env.do_fly()
-# env.activate_evaluation()
-
+if FLY: env.do_fly()
+env.activate_evaluation()
 for i in range(10000):
 
     # obs, reward, done, _ = env.step(np.zeros_like(env.action_space.sample()))
