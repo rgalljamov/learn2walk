@@ -74,7 +74,7 @@ def train():
                         deltas=cfg.is_mod(cfg.MOD_PI_OUT_DELTAS))
 
     # setup model/algorithm
-    training_timesteps = int(cfg.mio_steps * 1e6)
+    training_timesteps = int(cfg.mio_steps * 1e6) + 10
     learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
     network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
                     'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_NETS) else {}
