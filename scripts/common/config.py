@@ -1,3 +1,8 @@
+# suppress the annoying TF Warnings at startup
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
 import numpy as np
 from os.path import dirname
 from scripts.common import utils
@@ -126,12 +131,15 @@ env_name = env_names[env_index]
 
 # choose hyperparams
 algo = 'ppo2'
+# number of experiences to collect, not training steps.
+# In case of mirroring, during 4M training steps, we collect 8M samples.
 mio_steps = 4 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
+n_mini_batches = 16
 hid_layer_sizes = [128, 128]
-lr_start = 1500
-lr_final = int((lr_start*(1-mio_steps/16))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
+lr_start = 1325
+lr_final = 750 # int((lr_start*(1-mio_steps/16))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 gamma = 0.99
 _ep_dur_in_k = 4
 ep_dur_max = int(_ep_dur_in_k * 1e3)
@@ -153,7 +161,7 @@ save_path_norun= abs_project_path + 'models/' + _mod_path + hyp_path
 save_path = save_path_norun + f'{run_id}/'
 init_obs_rms_path = abs_project_path + 'scripts/behavior_cloning/models/rms/env_999'
 
-if DEBUG: print('Debugging model: ', save_path)
+print('Model: ', save_path)
 print('Modification:', modification)
 
 # wandb
@@ -165,6 +173,10 @@ if len(wb_project_name) == 0:
 # names of saved model before and after training
 init_checkpoint = s(0)
 final_checkpoint = s(999)
+
+if __name__ == '__main__':
+    from scripts.train import train
+    train()
 
 
 '''

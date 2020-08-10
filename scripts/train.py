@@ -1,8 +1,3 @@
-# suppress the annoying TF Warnings at startup
-import warnings
-warnings.filterwarnings('ignore', category=FutureWarning)
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-
 import os.path
 import wandb
 from scripts import eval
@@ -40,7 +35,8 @@ def init_wandb(model):
         "lr0": cfg.lr_start,
         "lr1": cfg.lr_final,
         "batch_size": batch_size,
-        "mini_batch": int(batch_size / model.nminibatches),
+        "n_mini_batches": model.nminibatches,
+        "mini_batch_size": int(batch_size / model.nminibatches),
         "mio_steps": cfg.mio_steps,
         "ent_coef": model.ent_coef,
         "ep_dur": cfg.ep_dur_max,
@@ -63,7 +59,7 @@ def init_wandb(model):
                project=cfg.wb_project_name, notes=cfg.wb_run_notes)
 
 
-if __name__ == "__main__":
+def train():
 
     # create model directories
     if not os.path.exists(cfg.save_path):
@@ -85,7 +81,7 @@ if __name__ == "__main__":
 
     model = CustomPPO2(CustomPolicy if cfg.is_mod(cfg.MOD_CUSTOM_NETS) else MlpPolicy,
                        env, verbose=1, n_steps=int(cfg.batch_size/cfg.n_envs),
-                       policy_kwargs=network_args,
+                       policy_kwargs=network_args, nminibatches=cfg.n_mini_batches,
                        learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
                        gamma=cfg.gamma, cliprange=cfg.cliprange,
                        tensorboard_log=cfg.save_path + 'tb_logs/')

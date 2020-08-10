@@ -69,7 +69,6 @@ class CustomPPO2(PPO2):
         super(CustomPPO2, self).setup_model()
         if self.mirror_experiences:
             self.n_batch *= 2
-            self.nminibatches *= 2
 
     def learn(self, total_timesteps, callback=None, log_interval=1, tb_log_name="PPO2",
               reset_num_timesteps=True):

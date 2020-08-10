@@ -12,12 +12,12 @@ from scripts.common.utils import load_env
 from scripts.common import config as cfg
 
 DETERMINISTIC_ACTIONS = True
-FROM_PATH = False
+FROM_PATH = True
 RENDER = True
-PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/refs_ramp/cstm_pi/" \
-       "pretrain_pi/pi_deltas/norm_acts/mim2d/16envs/ppo2/8mio/993"
+PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
+       "mirr_exps/cstm_pi/pi_deltas/norm_acts/mim2d/8envs/ppo2/8mio/118-evaled"
 if not PATH.endswith('/'): PATH += '/'
-checkpoint = 0 # 'ep_ret2000_7M' #'mean_rew60'
+checkpoint = 999 # 'ep_ret2000_7M' #'mean_rew60'
 
 if FROM_PATH:
     # load model
