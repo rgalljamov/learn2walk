@@ -250,7 +250,8 @@ class Monitor(gym.Wrapper):
         if PD_TUNING:
             dampings = self.env.model.dof_damping[3:].astype(int).tolist()
             kps = self.env.model.actuator_gainprm[:,0].astype(int).tolist()
-            plt.suptitle(f'PD Gains Tuning:    kp={kps}    kd={dampings}')
+            mean_rew = int(1000 * np.mean(self.rewards[-_trajec_buffer_length:]))
+            plt.suptitle(f'PD Gains Tuning:   rew={mean_rew}    kp={kps}    kd={dampings}')
         else:
             plt.suptitle('Simulation and Reference Joint Kinematics over Time '
                          '(Angles in [rad], Angular Velocities in [rad/s])')
@@ -270,6 +271,8 @@ class Monitor(gym.Wrapper):
 
         plt.title('Rewards & Returns')
 
+        if PD_TUNING: rew_plot.set_xlim([-5,250])
+
         plt.show()
-        # if not self.is_eval:
-        #     raise SystemExit('Planned exit after closing trajectory comparison plot.')
+        if self.env.is_evaluation_on() or PD_TUNING:
+            raise SystemExit('Planned exit after closing trajectory comparison plot.')
