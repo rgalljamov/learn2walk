@@ -15,7 +15,7 @@ from scripts.common import config as cfg
 RENDER = False
 
 # set config params
-cfg.modification = cfg.MOD_CUSTOM_NETS
+cfg.modification = cfg.MOD_CUSTOM_POLICY
 cfg.rew_weights = "4600"
 print(f'1000, 5 FSkip')
 print('Random Initialization')

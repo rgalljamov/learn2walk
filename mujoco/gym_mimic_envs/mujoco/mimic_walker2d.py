@@ -54,15 +54,15 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             self._get_viewer('human')._paused = True
             pause_viewer_at_first_step = False
 
-        global step_count, ep_dur
-        step_count += 1
-        ep_dur += 1
-
         DEBUG = False
         mimic_env_inited = MimicEnv.step(self)
         if not mimic_env_inited:
             ob = self._get_obs()
             return ob, -3.33, False, {}
+
+        global step_count, ep_dur
+        step_count += 1
+        ep_dur += 1
 
         qpos_before = np.copy(self.sim.data.qpos)
         qvel_before = np.copy(self.sim.data.qvel)

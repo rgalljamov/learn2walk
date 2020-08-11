@@ -270,6 +270,9 @@ class MimicEnv:
         assert rew > 0.95 if not self._FLY else 0.5, \
             f"Reward should be around 1 after RSI, but was {rew}!"
         # assert not self.has_exceeded_allowed_deviations()
+        # set the reference trajectories to the next state,
+        # otherwise the first step after initialization has always zero error
+        self.refs.next()
         return self._get_obs()
 
 

@@ -31,7 +31,7 @@ def assert_mod_compatibility():
     if is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
         raise TypeError("Normalized actions (ctrlrange [-1,1] for all joints) " \
                         "currently only work when policy outputs delta angles.")
-    if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_NETS):
+    if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_POLICY):
         raise TypeError("Using sac and tanh actions is only possible in combination"
                         "with the custom policy: MOD_CUSTOM_NETS.")
 
@@ -62,7 +62,7 @@ MOD_PHASE_VAR = 'phase_var'
 MOD_REFS_CONST = 'refs_const'
 MOD_REFS_RAMP = 'refs_ramp'
 
-MOD_CUSTOM_NETS = 'cstm_pi'
+MOD_CUSTOM_POLICY = 'cstm_pi'
 MOD_REW_MULT = 'rew_mult'
 # allow the policy to output angles in the maximum range
 # but punish actions that are too far away from current angle
