@@ -13,9 +13,9 @@ from scripts.common import config as cfg
 
 DETERMINISTIC_ACTIONS = True
 FROM_PATH = False
-RENDER = False
+RENDER = True
 FLY = True
-cfg.rew_weights = "6400"
+if FLY: cfg.rew_weights = "6400"
 PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
        "mirr_exps/cstm_pi/pi_deltas/norm_acts/mim2d/8envs/ppo2/8mio/118-evaled"
 if not PATH.endswith('/'): PATH += '/'

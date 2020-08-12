@@ -96,7 +96,7 @@ et_rew_thres = 0.1
 MOD_MIRROR_EXPS = 'mirr_exps'
 
 approach = AP_DEEPMIMIC
-modification = mod([MOD_MIRROR_EXPS,
+modification = mod([
     MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
     ])
 assert_mod_compatibility()
@@ -111,10 +111,10 @@ ent_coef = 0 # 0.002 # -0.002
 cliprange = 0.15
 wb_project_name = 'mirr_exps'
 # TODO: Test also if we need joint pow reward
-wb_run_name = f'4M - 8minibatches'
 rew_weights = '6130'
+wb_run_name = f'4M - 8minibatches'
 # wb_run_name = f'BC PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
-wb_run_notes = 'As experiences are mirrored, the training stops after half of training steps. ' \
+wb_run_notes = 'Just testing after changing branches. As experiences are mirrored, the training stops after half of training steps. ' \
                'Have now set n_steps to 8M so that we collect 4M of experiences. ' \
                'Mirroring every collected experience to reduce num of required samples. ' \
                '' \
