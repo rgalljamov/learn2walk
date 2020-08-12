@@ -31,7 +31,7 @@ def assert_mod_compatibility():
     if is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
         raise TypeError("Normalized actions (ctrlrange [-1,1] for all joints) " \
                         "currently only work when policy outputs delta angles.")
-    if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_NETS):
+    if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_POLICY):
         raise TypeError("Using sac and tanh actions is only possible in combination"
                         "with the custom policy: MOD_CUSTOM_NETS.")
 
@@ -62,7 +62,7 @@ MOD_PHASE_VAR = 'phase_var'
 MOD_REFS_CONST = 'refs_const'
 MOD_REFS_RAMP = 'refs_ramp'
 
-MOD_CUSTOM_NETS = 'cstm_pi'
+MOD_CUSTOM_POLICY = 'cstm_pi'
 MOD_REW_MULT = 'rew_mult'
 # allow the policy to output angles in the maximum range
 # but punish actions that are too far away from current angle
@@ -109,10 +109,10 @@ MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 logstd = 0
 ent_coef = 0 # 0.002 # -0.002
 cliprange = 0.15
-rew_weights = '6121'
 wb_project_name = 'mirr_exps'
 # TODO: Test also if we need joint pow reward
 wb_run_name = f'4M - 8minibatches'
+rew_weights = '6130'
 # wb_run_name = f'BC PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
 wb_run_notes = 'As experiences are mirrored, the training stops after half of training steps. ' \
                'Have now set n_steps to 8M so that we collect 4M of experiences. ' \
@@ -142,7 +142,7 @@ lr_start = 1325
 lr_final = 750 # int((lr_start*(1-mio_steps/16))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 gamma = 0.99
 _ep_dur_in_k = 4
-ep_dur_max = int(_ep_dur_in_k * 1e3)
+ep_dur_max = int(_ep_dur_in_k * 1e3) + 10
 
 own_hypers = ''
 info = ''

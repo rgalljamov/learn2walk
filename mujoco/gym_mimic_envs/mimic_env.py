@@ -270,6 +270,9 @@ class MimicEnv:
         assert rew > 0.95 if not self._FLY else 0.5, \
             f"Reward should be around 1 after RSI, but was {rew}!"
         # assert not self.has_exceeded_allowed_deviations()
+        # set the reference trajectories to the next state,
+        # otherwise the first step after initialization has always zero error
+        self.refs.next()
         return self._get_obs()
 
 
@@ -400,12 +403,11 @@ class MimicEnv:
         pos_rew = self.get_pose_reward()
         vel_rew = self.get_vel_reward()
         com_rew = self.get_com_reward()
-        energy_rew = self.get_energy_reward()
 
         if cfg.is_mod(cfg.MOD_REW_MULT):
             imit_rew = np.sqrt(pos_rew) * np.sqrt(com_rew) # * vel_rew**w_vel
         else:
-            imit_rew = w_pos * pos_rew + w_vel * vel_rew + w_com * com_rew + w_pow * energy_rew
+            imit_rew = w_pos * pos_rew + w_vel * vel_rew + w_com * com_rew
 
         if cfg.is_mod(cfg.MOD_PUNISH_UNREAL_TARGET_ANGS):
             # punish unrealistic joint target angles
