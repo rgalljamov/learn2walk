@@ -215,6 +215,12 @@ class MimicEnv:
         qpos, qvel = self.get_joint_kinematics()
         # remove COM x position as the action should be independent of it
         qpos = qpos[1:]
+        if False and cfg.is_mod(cfg.MOD_FLY):
+            # remove all obs with constant values due to the torso being fixed in the air
+            qpos = qpos[2:]
+            qvel = qvel[3:]
+            # only pos and vel of the 6 leg joints should remain
+            assert np.size(qpos) == 6 and np.size(qvel) == 6
         if _rsinitialized and not cfg.approach == cfg.AP_RUN:
             desired_walking_speed = self.refs.get_step_velocity()
             phase = self.refs.get_phase_variable()
@@ -465,10 +471,11 @@ class MimicEnv:
             mean_state = step_dist[0][1:, pos]
             # check distance of current state to the distribution mean
             deviation = np.abs(mean_state - state[2:])
-            # terminate if distance is too big
-            std_state = 2*step_dist[1][1:, pos]
+            # terminate if distance is too big, ignore com x pos
+            std_state = 3*step_dist[1][1:, pos]
             is_out = deviation > std_state
-            et = any((is_out[:9]))
+            et = ( any((is_out[2:8])) or any((is_out[11:17])) ) if cfg.is_mod(cfg.MOD_FLY) \
+                else any((is_out[:9]))
             # if et:
             #     print(self.refs.ep_dur)
             return et

@@ -139,7 +139,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         # punish episode termination
         if done:
             # but don't punish if episode just reached max length
-            reward = -100 if (not cfg.do_run() and ep_dur < cfg.ep_dur_max) else 0
+            reward = cfg.et_reward if ep_dur < cfg.ep_dur_max else 1
             ep_dur = 0
 
         if step_count % 240000 == 0:
