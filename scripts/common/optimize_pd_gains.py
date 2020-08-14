@@ -16,7 +16,7 @@ RENDER = False
 
 # set config params
 cfg.modification = cfg.MOD_CUSTOM_POLICY
-cfg.rew_weights = "4600"
+cfg.rew_weights = "2800"
 print(f'1000, 5 FSkip')
 print('Random Initialization')
 print('reward weights:', cfg.rew_weights)
@@ -34,12 +34,12 @@ env.do_fly()
 env.activate_evaluation()
 
 def objective(trial: optuna.Trial):
-    k_hip = trial.suggest_uniform('k_hip', 0, 4000)
+    k_hip = trial.suggest_uniform('k_hip', 0, 5000)
     k_knee = trial.suggest_uniform('k_knee', 0, 4000)
     k_ankle = trial.suggest_uniform('k_ankle', 0, 4000)
-    d_hip = trial.suggest_uniform('d_hip', 0, 8)
-    d_knee = trial.suggest_uniform('d_knee', 0, 6)
-    d_ankle = trial.suggest_uniform('d_ankle', 0, 3)
+    d_hip = trial.suggest_uniform('d_hip', 0, 10)
+    d_knee = trial.suggest_uniform('d_knee', 0, 8)
+    d_ankle = trial.suggest_uniform('d_ankle', 0, 8)
     gains = [k_hip, k_knee, k_ankle] * 2
     dampings = [d_hip, d_knee, d_ankle] * 2
 
