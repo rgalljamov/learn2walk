@@ -9,8 +9,7 @@ Script to handle reference trajectories.
 
 import numpy as np
 import scipy.io as spio
-from scripts.common import utils
-from scripts.common.config import is_mod, MOD_REFS_RAMP
+from scripts.common.config import is_mod, MOD_REFS_RAMP, SKIP_N_STEPS, STEPS_PER_VEL
 from scripts.common.utils import log, is_remote, config_pyplot, smooth_exponential
 
 
@@ -120,6 +119,8 @@ class ReferenceTrajectories:
         self.ep_dur = 0
         # flag to indicate the last step in the refs was reached
         self.has_reached_last_step = False
+        # count how many steps were taken without skipping steps
+        self.count_steps_same_vel = 1
 
 
     def next(self, increment=2):
@@ -135,6 +136,7 @@ class ReferenceTrajectories:
     def reset(self):
         """ Set all indices and counters to zero."""
         self._i_step = 0
+        self._step = self.data[0]
         self._pos = 0
         self.dist = 0
         self.ep_dur = 0
@@ -309,11 +311,24 @@ class ReferenceTrajectories:
         """
 
         # increase the step index, reset if last step was reached
-        if self._i_step >= len(self.data)-1:
+        if self._i_step >= len(self.data)-SKIP_N_STEPS-STEPS_PER_VEL:
             self.has_reached_last_step = True
-            self._i_step = 0
+            # reset to the step with the correct foot
+            self._i_step = 0 if self._i_step in self.left_leg_indices else 1
         else:
-            self._i_step += 1
+            # do multiple steps at the same velocity before skipping to a higher vel
+            if self.count_steps_same_vel < STEPS_PER_VEL:
+                self._i_step += 1
+                self.count_steps_same_vel += 1
+            else:
+                # skipping an odd number of steps should result in a step with
+                # the other leg/side, however after the step 137 with left foot
+                # the next step with left foot is 140
+                if self._i_step <= 137 and (self._i_step + SKIP_N_STEPS) > 137:
+                    self._i_step += 1
+                self._i_step += SKIP_N_STEPS
+                self.count_steps_same_vel = 1
+
         # update the so far traveled distance
         self.dist = self._step[COM_POSX, -1]
         # check how many points on the previous steps were left
@@ -404,7 +419,7 @@ class ReferenceTrajectories:
         Returns the mean COM forward velocity of the current step
         which is a rough estimation of the walking speed
         """
-        return self.step_velocities[self._i_step]
+        return self.step_velocities[max(0, self._i_step-self.count_steps_same_vel+1)]
 
     def _determine_trajectory_ranges(self, print_ranges=False):
         '''Needed for early termination. We terminate an episode when the agent

@@ -95,8 +95,9 @@ et_rew_thres = 0.1
 # mirror experiences
 MOD_MIRROR_EXPS = 'mirr_exps'
 
+# ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_FLY,
+modification = mod([MOD_REFS_RAMP, 'fixed_skips', 'skip_after', 'normd_com_vel', MOD_MIRROR_EXPS,
     MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
     ])
 assert_mod_compatibility()
@@ -106,19 +107,23 @@ assert_mod_compatibility()
 # ----------------------------------------------------------------------------------
 DEBUG = False
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
+
+rew_weights = '6130' if not is_mod(MOD_FLY) else '7300'
 ent_coef = 0 # 0.002 # -0.002
-logstd = -2
-et_reward = -2 # reward for a terminal state
+logstd = 0
+et_reward = -100 # reward for a terminal state
 cliprange = 0.15
-wb_project_name = 'bc_fly'
-# TODO: Test also if we need joint pow reward
-rew_weights = '6130'
-if is_mod(MOD_FLY): rew_weights = '7300'
-wb_run_name = f'NOOO BC + std {logstd} + et_rew {et_reward}'
-# wb_run_name = f'BC PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
-wb_run_notes = 'Checking if smaller logstd still explores enough! ' \
-               'Flight mode with full observation space. ' \
-               'Baseline for trying BC in flight mode! ' \
+SKIP_N_STEPS = 25
+STEPS_PER_VEL = 4
+
+wb_project_name = 'ramp_skips'
+wb_run_name = f'skip {SKIP_N_STEPS} after {STEPS_PER_VEL} steps + mirror'
+wb_run_notes = 'Training agent to walk at different speeds. ' \
+               'Varying training procedure by skipping a single or multiple steps ' \
+               'once a few steps of constant speed were taken! ' \
+               'Testing if smaller batch_size is helpful also without mirroring! ' \
+               '16minibatches are required to achieve best results when mirroring experiences!' \
+               ' ' \
                'Actions are normalized angle deltas.' \
                # 'initializing obs_rms from previous run'
 # ----------------------------------------------------------------------------------
@@ -134,13 +139,16 @@ env_name = env_names[env_index]
 algo = 'ppo2'
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
-mio_steps = 4 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
+mio_steps = 16 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
-n_mini_batches = 16
+minibatch_size = 512
+n_mini_batches = int(batch_size / minibatch_size)
 hid_layer_sizes = [128, 128]
 lr_start = 1500
-lr_final = int((lr_start*(1-mio_steps/16))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
+mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
+slope = mio_steps/mio_steps_to_lr1
+lr_final = 0 # int((lr_start*(1-slope))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 gamma = 0.99
 _ep_dur_in_k = 4
 ep_dur_max = int(_ep_dur_in_k * 1e3) + 100
