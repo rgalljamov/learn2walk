@@ -6,20 +6,23 @@ import gym, time, mujoco_py
 # necessary to import custom gym environments
 import gym_mimic_envs
 from gym_mimic_envs.monitor import Monitor
-from gym_mimic_envs.mimic_env import MimicEnv
 from stable_baselines import PPO2
 from scripts.common.utils import load_env
 from scripts.common import config as cfg
 
+FLY = False
 DETERMINISTIC_ACTIONS = True
-FROM_PATH = False
-RENDER = True
-FLY = True
-if FLY: cfg.rew_weights = "6400"
+RENDER = False
+
+SPEED_CONTROL = False
+
+FROM_PATH = True
 PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
-       "mirr_exps/cstm_pi/pi_deltas/norm_acts/mim2d/8envs/ppo2/8mio/118-evaled"
+       "refs_ramp/normd_com_vel/cstm_pi/pi_deltas/norm_acts/mim2d/8envs/ppo2/16mio/719-evaled"
 if not PATH.endswith('/'): PATH += '/'
 checkpoint = 999 # 'ep_ret2000_7M' #'mean_rew60'
+
+if FLY: cfg.rew_weights = "6400"
 
 if FROM_PATH:
     # load model
@@ -40,9 +43,13 @@ if not isinstance(env, Monitor):
     vec_env = env
     env = env.venv.envs[0]
 
+if SPEED_CONTROL:
+    env.activate_speed_control([0.8, 1.25])
+
 obs = env.reset()
 if FLY: env.do_fly()
 env.activate_evaluation()
+
 for i in range(10000):
 
     # obs, reward, done, _ = env.step(np.zeros_like(env.action_space.sample()))

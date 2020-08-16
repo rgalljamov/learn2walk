@@ -36,6 +36,8 @@ class MimicEnv:
             self.model.actuator_forcerange[:,:] = cfg.TORQUE_RANGES
         # for ET based on mocap distributions
         self.left_step_distrib, self.right_step_distrib = None, None
+        # control desired walking speed
+        self.SPEED_CONTROL = False
 
 
     def step(self):
@@ -210,58 +212,40 @@ class MimicEnv:
                                          old_state.act, old_state.udd_state)
         self.sim.set_state(new_state)
 
+    def activate_speed_control(self, desired_walking_speeds):
+        self.SPEED_CONTROL = True
+        self.desired_walking_speeds = desired_walking_speeds
+        self.i_speed = 0
+
     def _get_obs(self):
         global _rsinitialized
         qpos, qvel = self.get_joint_kinematics()
         # remove COM x position as the action should be independent of it
         qpos = qpos[1:]
-        if False and cfg.is_mod(cfg.MOD_FLY):
-            # remove all obs with constant values due to the torso being fixed in the air
-            qpos = qpos[2:]
-            qvel = qvel[3:]
-            # only pos and vel of the 6 leg joints should remain
-            assert np.size(qpos) == 6 and np.size(qvel) == 6
         if _rsinitialized and not cfg.approach == cfg.AP_RUN:
-            desired_walking_speed = self.refs.get_step_velocity()
+
+            if self.SPEED_CONTROL:
+                self.desired_walking_speed = self.desired_walking_speeds[self.i_speed]
+                self.i_speed += 1
+                if self.i_speed >= len(self.desired_walking_speeds): self.i_speed = 0
+            else:
+                self.desired_walking_speed = self.refs.get_step_velocity()
+
             phase = self.refs.get_phase_variable()
         else:
-            desired_walking_speed = -3.33
+            self.desired_walking_speed = -3.33
             phase = 0
         if cfg.approach == cfg.AP_RUN:
             obs = np.concatenate([qpos, qvel]).ravel()
         else:
-            obs = np.concatenate([np.array([phase, desired_walking_speed]), qpos, qvel]).ravel()
+            obs = np.concatenate([np.array([phase, self.desired_walking_speed]), qpos, qvel]).ravel()
         return obs
 
     def reset_model(self):
         '''WARNING: This method seems to be specific to MujocoEnv.
            Other gym environments just use reset().'''
         self.joint_pow_sum_normed = 0
-        qpos, qvel = self.get_random_init_state()
-
-        # # tune hip pd gains
-        # left_hip_index = 6
-        # qpos_hip_left = qpos[left_hip_index]
-        # qvel_hip_left = qvel[left_hip_index]
-        # qpos = np.zeros_like(qpos)
-        # qvel = np.zeros_like(qvel)
-        # qpos[left_hip_index] = qpos_hip_left
-        # qvel[left_hip_index] = qvel_hip_left
-        # qpos[3] = 0.1
-
-        # # tune knee pd gains
-        # left_index = 7
-        # right_index = 4
-        # left_joint_pos = qpos[left_index]
-        # left_joint_vel = qvel[left_index]
-        # qpos[left_index] = left_joint_pos
-        # qvel[left_index] = left_joint_vel
-        # qpos[right_index] = 0.5
-        # qvel[right_index] = 0
-        # # set ankle pos and vel to zero
-        # ankle_ins = [5,8]
-        # qpos[ankle_ins] = 0
-        # qvel[ankle_ins] = 0
+        qpos, qvel = self.get_init_state(not self.SPEED_CONTROL)
 
         ### avoid huge joint toqrues from PD servos after RSI
         # Explanation: on reset, ctrl is set to all zeros.
@@ -282,12 +266,13 @@ class MimicEnv:
         return self._get_obs()
 
 
-    def get_random_init_state(self):
+    def get_init_state(self, random=True):
         ''' Random State Initialization:
             @returns: qpos and qvel of a random step at a random position'''
         global _rsinitialized
         _rsinitialized = True
-        return self.refs.get_random_init_state()
+        return self.refs.get_random_init_state() if random \
+            else self.refs.get_deterministic_init_state()
 
 
     def get_ref_kinematics(self, exclude_com=False, concat=False):
@@ -488,6 +473,7 @@ class MimicEnv:
             is_out = deviation > std_state
             et = ( any((is_out[2:8])) or any((is_out[11:17])) ) if cfg.is_mod(cfg.MOD_FLY) \
                 else any((is_out[:9]))
+            et = any((is_out[:9]))
             # if et:
             #     print(self.refs.ep_dur)
             return et

@@ -252,6 +252,12 @@ class ReferenceTrajectories:
         self.dist = 0
         return self.get_qpos(), self.get_qvel()
 
+    def get_deterministic_init_state(self, i_step = 0):
+        ''' Random State Initialization:
+            @returns: qpos and qvel of a random step at a random position'''
+        self.reset()
+        return self.get_qpos(), self.get_qvel()
+
     def get_com_kinematics_full(self):
         """:returns com kinematics for the current steps."""
         com_pos = self._step[:3, :]
