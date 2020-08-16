@@ -326,7 +326,19 @@ class MimicEnv:
     def get_com_reward(self):
         qpos, qvel = self.get_joint_kinematics()
         ref_pos, ref_vel = self.get_ref_kinematics()
-        com_is = self._get_COM_indices()
+
+        com_pos = np.array([qpos[1], qvel[0]])
+        com_ref = np.array([ref_pos[1], ref_vel[0]])
+        # normalize the differences
+        # divide by max allowed deviation (50% of full range in ref trajecs)
+        max_deviats = [0.75 / 2, 0.1 / 2]
+        dif = np.abs(com_pos - com_ref)
+        dif_prct = dif / max_deviats
+        # dif_sqrd = np.square(dif_prct)
+        mean_dif_prct = np.mean(dif_prct)
+        exp_rew = np.exp(-3 * mean_dif_prct)
+        return exp_rew
+
         com_pos, com_ref = qpos[com_is], ref_pos[com_is]
         dif = com_pos - com_ref
         dif_sqrd = np.square(dif)
