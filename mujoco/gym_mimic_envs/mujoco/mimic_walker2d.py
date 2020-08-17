@@ -54,15 +54,15 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             self._get_viewer('human')._paused = True
             pause_viewer_at_first_step = False
 
-        global step_count, ep_dur
-        step_count += 1
-        ep_dur += 1
-
         DEBUG = False
         mimic_env_inited = MimicEnv.step(self)
         if not mimic_env_inited:
             ob = self._get_obs()
             return ob, -3.33, False, {}
+
+        global step_count, ep_dur
+        step_count += 1
+        ep_dur += 1
 
         qpos_before = np.copy(self.sim.data.qpos)
         qvel_before = np.copy(self.sim.data.qvel)
@@ -139,10 +139,9 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         # punish episode termination
         if done:
             # but don't punish if episode just reached max length
-            reward = -100 if (not cfg.do_run() and ep_dur < cfg.ep_dur_max) else 0
+            reward = cfg.et_reward if ep_dur < cfg.ep_dur_max else 1
             ep_dur = 0
 
-        do_render = True and not is_remote()
         if step_count % 240000 == 0:
             print("start rendering, step: ", step_count)
             # do_render = True
@@ -150,7 +149,6 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         elif step_count % 250000 == 0:
             print("stop rendering, step: ", step_count)
             # do_render = False
-        if do_render: self.render()
 
         return obs, reward, done, {}
 

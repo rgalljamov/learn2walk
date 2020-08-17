@@ -1,3 +1,4 @@
+import numpy as np
 from os.path import dirname
 from tensorflow import keras
 from tensorflow.keras import layers
@@ -8,6 +9,7 @@ from scripts.behavior_cloning.dataset import get_obs_and_delta_actions
 
 from scripts.common import config as cfg
 
+FLY = True
 SHUFFLE = True
 EPOCHS = 200
 LEARN_RATE0 = 0.01
@@ -28,7 +30,8 @@ def build_model(state_dim, act_dim):
     return model
 
 if __name__ == '__main__':
-    x_data, y_data = get_obs_and_delta_actions(norm_obs=True, norm_acts=True)
+    x_data, y_data = get_obs_and_delta_actions(norm_obs=True, norm_acts=True, fly=FLY)
+    y_data = np.zeros_like(y_data)
 
     # train, val, test split
     x_train, x_test, y_train, y_test = \
@@ -63,7 +66,8 @@ if __name__ == '__main__':
     # construct save paths
     model_path = dirname(dirname(dirname(__file__))) \
                  + '/scripts/behavior_cloning/models/'
-    model_name = 'MAE_ramp_ortho_l2_actnorm' + f'_ep{EPOCHS}'
+    model_name = 'ZERO_MAE_const_ortho_l2_actnorm' \
+                 + ('FLY' if FLY else '') + f'_ep{EPOCHS}'
 
     # create callback to save best model
     best_model_path = model_path + f'best/{model_name}'

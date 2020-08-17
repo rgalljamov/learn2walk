@@ -1,8 +1,3 @@
-# suppress the annoying TF Warnings at startup
-import warnings
-warnings.filterwarnings('ignore', category=FutureWarning)
-warnings.filterwarnings('ignore', category=DeprecationWarning)
-
 import os.path
 import wandb
 from scripts import eval
@@ -40,11 +35,17 @@ def init_wandb(model):
         "lr0": cfg.lr_start,
         "lr1": cfg.lr_final,
         "batch_size": batch_size,
-        "mini_batch": int(batch_size / model.nminibatches),
+        "n_mini_batches": model.nminibatches,
+        "mini_batch_size": int(batch_size / model.nminibatches),
         "mio_steps": cfg.mio_steps,
+        "mio_steps_to_lr1": cfg.mio_steps_to_lr1,
+        "lr_slope": cfg.slope,
         "ent_coef": model.ent_coef,
         "ep_dur": cfg.ep_dur_max,
         "imit_rew": cfg.rew_weights,
+        "logstd": cfg.logstd,
+        "et_rew": cfg.et_reward,
+        "et_rew_thres": cfg.et_rew_thres,
         "env": cfg.env_name,
         "gam": model.gamma,
         "lam": model.lam,
@@ -63,7 +64,7 @@ def init_wandb(model):
                project=cfg.wb_project_name, notes=cfg.wb_run_notes)
 
 
-if __name__ == "__main__":
+def train():
 
     # create model directories
     if not os.path.exists(cfg.save_path):
@@ -78,14 +79,14 @@ if __name__ == "__main__":
                         deltas=cfg.is_mod(cfg.MOD_PI_OUT_DELTAS))
 
     # setup model/algorithm
-    training_timesteps = int(cfg.mio_steps * 1e6)
+    training_timesteps = int(cfg.mio_steps * 1e6 * 1.05)
     learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
     network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
-                    'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_NETS) else {}
+                    'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else {}
 
-    model = CustomPPO2(CustomPolicy if cfg.is_mod(cfg.MOD_CUSTOM_NETS) else MlpPolicy,
+    model = CustomPPO2(CustomPolicy if cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else MlpPolicy,
                        env, verbose=1, n_steps=int(cfg.batch_size/cfg.n_envs),
-                       policy_kwargs=network_args,
+                       policy_kwargs=network_args, nminibatches=cfg.n_mini_batches,
                        learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
                        gamma=cfg.gamma, cliprange=cfg.cliprange,
                        tensorboard_log=cfg.save_path + 'tb_logs/')

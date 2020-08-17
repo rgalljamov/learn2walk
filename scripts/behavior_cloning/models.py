@@ -8,15 +8,25 @@ from scripts.behavior_cloning.dataset import get_obs_and_delta_actions
 
 def load_weights():
     import h5py
-    weights_file = h5py.File(cfg.abs_project_path
-                             +'scripts/behavior_cloning/models/'
-                              'weights/MAE_ramp_ortho_l2_actnorm_ep200.h5', 'r')
+    if cfg.is_mod(cfg.MOD_FLY):
+        weights_file = h5py.File(cfg.abs_project_path
+                                 + 'scripts/behavior_cloning/models/best/'
+                                   'MAE_const_ortho_l2_actnormFLY_ep200', 'r')
+    else:
+        weights_file = h5py.File(cfg.abs_project_path
+                                 +'scripts/behavior_cloning/models/'
+                                  'weights/MAE_ramp_ortho_l2_actnorm_ep200', 'r')
     keys = list(weights_file.keys())
-    assert keys == ['hid1', 'hid2', 'output']
+    if 'model_weights' in keys:
+        weights_file = weights_file['model_weights']
+        keys = list(weights_file.keys())
+    assert keys == ['hid1', 'hid2', 'output'], f'Layer names were: {keys}'
+    hid_keys = list(weights_file['hid1'].keys())
+    hid1 = weights_file['hid1']['hid1']
     # output of weights_file['hid1']['hid1_1'].keys():
     b_key, w_key = ['bias:0', 'kernel:0']
-    ws = [weights_file[key][key+'_1'][w_key].value for key in keys]
-    bs = [weights_file[key][key+'_1'][b_key].value for key in keys]
+    ws = [weights_file[key][key][w_key].value for key in keys]
+    bs = [weights_file[key][key][b_key].value for key in keys]
     return ws, bs
 
     model = load_model()

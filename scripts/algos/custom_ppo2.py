@@ -52,7 +52,8 @@ class CustomPPO2(PPO2):
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
 
-        log('Using CustomPPO2:\nMirrors observations and actions to increase num of samples.')
+        log('Using CustomPPO2!')
+
         self.mirror_experiences = cfg.is_mod(cfg.MOD_MIRROR_EXPS)
 
         super(CustomPPO2, self).__init__(policy, env, gamma, n_steps, ent_coef, learning_rate, vf_coef,
@@ -68,8 +69,8 @@ class CustomPPO2(PPO2):
         """ Overwritten to double the batch size when experiences are mirrored. """
         super(CustomPPO2, self).setup_model()
         if self.mirror_experiences:
+            log('Mirroring observations and actions to improve sample-efficiency.')
             self.n_batch *= 2
-            self.nminibatches *= 2
 
     def learn(self, total_timesteps, callback=None, log_interval=1, tb_log_name="PPO2",
               reset_num_timesteps=True):
@@ -77,7 +78,6 @@ class CustomPPO2(PPO2):
         Just copied from the stable_baselines.ppo2 implementation.
         Goal is to change some parts of it later.
         """
-        log('Custom Learn Function in custom PPO called!')
         # Transform to callable if needed
         self.learning_rate = get_schedule_fn(self.learning_rate)
         self.cliprange = get_schedule_fn(self.cliprange)

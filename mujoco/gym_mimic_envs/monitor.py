@@ -8,6 +8,8 @@ from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNorma
 # length of the buffer containing sim and ref trajecs for comparison
 _trajec_buffer_length = 2000
 
+PLOT_REF_DISTRIB =  False
+
 class Monitor(gym.Wrapper):
 
     def __init__(self, env: MimicEnv):
@@ -24,18 +26,26 @@ class Monitor(gym.Wrapper):
         elif isinstance(env, DummyVecEnv):
             self.env = env.envs[0]
 
-
         super(Monitor, self).__init__(self.env)
 
         self.num_dofs = len(self.env.kinem_labels)
         # self.num_dofs = self.env.observation_space.high.size
         self.num_actions = self.env.action_space.high.size
+        # do we want to control walking speed
+        self.SPEED_CONTROL = False
 
         self.setup_containers()
 
         self.plt = config_pyplot(fullscreen=True, font_size=12,
                                  tick_size=12, legend_fontsize=16)
 
+    def activate_speed_control(self, speeds):
+        self.SPEED_CONTROL = True
+        desired_walking_speeds = np.concatenate(
+            [np.linspace(speeds[0], speeds[1], int(_trajec_buffer_length/6)),
+            np.linspace(speeds[1], speeds[0], int(_trajec_buffer_length/6))])
+        desired_walking_speeds = np.concatenate((desired_walking_speeds, desired_walking_speeds, desired_walking_speeds))
+        self.env.activate_speed_control(desired_walking_speeds)
 
     def setup_containers(self):
         self.ep_len = 0
@@ -66,6 +76,8 @@ class Monitor(gym.Wrapper):
         self.action_buf = np.zeros((self.num_actions, _trajec_buffer_length))
         # monitor the joint torques
         self.torque_buf = np.zeros((self.num_actions, _trajec_buffer_length))
+        # monitor desired walking speed
+        self.speed_buf = np.zeros((_trajec_buffer_length,))
 
         self.left_step_distrib, self.right_step_distrib = None, None
 
@@ -103,6 +115,7 @@ class Monitor(gym.Wrapper):
 
         COMPARE_TRAJECS = True and not is_remote()
         if COMPARE_TRAJECS:
+
             # save sim and ref trajecs in a buffer for comparison
             sim_trajecs = self.env.get_joint_kinematics(concat=True)
             ref_trajecs = self.env.get_ref_kinematics(concat=True)
@@ -110,8 +123,8 @@ class Monitor(gym.Wrapper):
             self.trajecs_buffer = np.roll(self.trajecs_buffer, -1, axis=2)
             self.trajecs_buffer[0, :, -1] = sim_trajecs
             self.trajecs_buffer[1, :, -1] = ref_trajecs
-            PLOT_REF_DISTRIBUTION = True
-            if PLOT_REF_DISTRIBUTION:
+
+            if PLOT_REF_DISTRIB:
                 # load trajectory distributions if not done already
                 if self.left_step_distrib is None:
                     from scripts.common import config as cfg
@@ -131,9 +144,13 @@ class Monitor(gym.Wrapper):
                 std_state = 3 * step_dist[1][:, pos]
                 self.trajecs_buffer[2, :, -1] = mean_state
                 self.trajecs_buffer[3, :, -1] = std_state
+
             # do the same with the dones
             self.dones_buf = np.roll(self.dones_buf, -1)
             self.dones_buf[-1] = done
+            # and with the desired walking speed
+            self.speed_buf = np.roll(self.speed_buf, -1)
+            self.speed_buf[-1] = self.env.desired_walking_speed
             # save actions
             self.action_buf = np.roll(self.action_buf, -1, axis=1)
             self.action_buf[:, -1] = action
@@ -158,12 +175,22 @@ class Monitor(gym.Wrapper):
         plt = self.plt
         plt.rcParams.update({'figure.autolayout': False})
         sns.set_style("whitegrid", {'axes.edgecolor':'#ffffff00'})
-        names = ['Simulation [rad]'] # line names (legend)
+        names = ['Simulation'] # line names (legend)
         second_y_axis_pos = 1.0
 
-        num_joints = len(self.kinem_labels)
-        cols = 5
-        rows = int((num_joints+1)/cols) + 1
+        if self.SPEED_CONTROL:
+            # plt.rcParams.update({'axes.labelsize': 14})
+            num_joints = 2
+            rows, cols = 3, 1
+            # only plot com x pos and velocity
+            inds = [0, 9]
+            self.trajecs_buffer = self.trajecs_buffer[:, inds, :]
+            self.kinem_labels = self.kinem_labels[inds]
+            y_labels = ['Moved Distance [m]', 'COM X Vel [m/s]']
+        else:
+            num_joints = len(self.kinem_labels)
+            cols = 5
+            rows = int((num_joints+1)/cols) + 1
         # plot sim trajecs
         trajecs = self.trajecs_buffer[0,:,:]
         # collect axes to reuse them for overlaying multiple plots
@@ -180,11 +207,13 @@ class Monitor(gym.Wrapper):
             plt.vlines(np.argwhere(self.dones_buf).flatten()+1,
                        np.min(trajec), np.max(trajec), colors='#cccccc', linestyles='dashed')
             plt.rcParams['lines.linewidth'] = 2
-            plt.title(self.kinem_labels[i_joint])
+            if self.SPEED_CONTROL:
+                plt.ylabel(y_labels[i_joint])
+            else:
+                plt.title(self.kinem_labels[i_joint])
         lines.append(line[0])
 
         # plot ref trajec distributions (mean + 2std)
-        PLOT_REF_DISTRIB = True
         if PLOT_REF_DISTRIB:
             trajecs = self.trajecs_buffer[2,:,:]
             stds = self.trajecs_buffer[3,:,:]
@@ -195,17 +224,17 @@ class Monitor(gym.Wrapper):
                 axes[i_joint].fill_between(range(len(trajec)), trajec+std, trajec-std,
                                            color='orange', alpha=0.5)
             lines.append(line[0])
-            names.append('Reference Distribution\n(mean $\pm$ 2std) [rad]')
+            names.append('Reference Distribution\n(mean $\pm$ 2std)')
 
         PLOT_REFS = True
         if PLOT_REFS:
             trajecs = self.trajecs_buffer[1, :, :]
             for i_joint in range(num_joints):
                 trajec = trajecs[i_joint, :]
-                line = axes[i_joint].plot(trajec, color='red')
+                line = axes[i_joint].plot(trajec, color='red' if PLOT_REF_DISTRIB else 'orange')
 
             lines.append(line[0])
-            names.append('Reference [rad]')
+            names.append('Reference')
 
         def plot_actions(buffer, name, line_color='#777777'):
             with sns.axes_style("white", {"axes.edgecolor": '#ffffff00',
@@ -227,49 +256,59 @@ class Monitor(gym.Wrapper):
             lines.append(line[0])
             names.append(name)
 
-        PLOT_TORQUES = True
+        PLOT_TORQUES = False
         if PLOT_TORQUES:
             plot_actions(self.torque_buf/1000, "Joint Torque [kNm]")
             second_y_axis_pos = 1.12
 
         PLOT_ACTIONS = False
         if PLOT_ACTIONS:
-            plot_actions(self.action_buf, 'PD Target [rad]', '#ff0000')
+            plot_actions(self.action_buf, 'PD Target', '#ff0000')
 
-        # plot the legend in a separate subplot
-        with sns.axes_style("white", {"axes.edgecolor": 'white'}):
-            legend_subplot = plt.subplot(rows, cols, num_joints + 2)
-            legend_subplot.set_xticks([])
-            legend_subplot.set_yticks([])
-            legend_subplot.legend(lines, names, bbox_to_anchor=(1.2, 1.075))
+        if self.SPEED_CONTROL:
+            plt.subplot(rows, cols, 3, sharex=axes[-1])
+            plt.plot(self.speed_buf)
+            plt.ylabel('Desired Walking Speed [m/s]')
+            plt.xlabel('Simulation Timesteps []')
+            axes[0].legend(lines, names)
+        else:
+            # plot the legend in a separate subplot
+            with sns.axes_style("white", {"axes.edgecolor": 'white'}):
+                legend_subplot = plt.subplot(rows, cols, num_joints + 2)
+                legend_subplot.set_xticks([])
+                legend_subplot.set_yticks([])
+                legend_subplot.legend(lines, names, bbox_to_anchor=(
+                    1.2 if PLOT_REF_DISTRIB else 1, 1.075 if PLOT_REF_DISTRIB else 1))
+
+            # add rewards and returns
+            rew_plot = plt.subplot(rows, cols, len(axes) + 1, sharex=axes[-1])
+            rew_plot.plot(self.rewards[-_trajec_buffer_length:])
+            rew_plot.set_ylim([-0.075, 1.025])
+            # plot episode terminations
+            plt.vlines(np.argwhere(self.dones_buf).flatten() + 1,
+                       0, 1, colors='#cccccc')
+            # plot episode returns
+            ret_plot = rew_plot.twinx().twiny()
+            ret_plot.plot(self.returns, '#77777777')
+            ret_plot.tick_params(axis='y', labelcolor='#77777777')
+            ret_plot.set_xticks([])
+
+            plt.title('Rewards & Returns')
 
         # fix title overlapping when tight_layout is true
         plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
         plt.subplots_adjust(wspace=0.55, hspace=0.5)
         PD_TUNING = False
         if PD_TUNING:
+            rew_plot.set_xlim([-5, 250])
             dampings = self.env.model.dof_damping[3:].astype(int).tolist()
             kps = self.env.model.actuator_gainprm[:,0].astype(int).tolist()
-            plt.suptitle(f'PD Gains Tuning:    kp={kps}    kd={dampings}')
+            mean_rew = int(1000 * np.mean(self.rewards[-_trajec_buffer_length:]))
+            plt.suptitle(f'PD Gains Tuning:   rew={mean_rew}    kp={kps}    kd={dampings}')
         else:
-            plt.suptitle('Simulation and Reference Joint Kinematics over Time '
-                         '(Angles in [rad], Angular Velocities in [rad/s])')
-
-        # add rewards and returns
-        rew_plot = plt.subplot(rows, cols, len(axes)+1, sharex=axes[-1])
-        rew_plot.plot(self.rewards[-_trajec_buffer_length:])
-        rew_plot.set_ylim([-0.075, 1.025])
-        # plot episode terminations
-        plt.vlines(np.argwhere(self.dones_buf).flatten()+1,
-                   0 , 1, colors='#cccccc')
-        # plot episode returns
-        ret_plot = rew_plot.twinx().twiny()
-        ret_plot.plot(self.returns, '#77777777')
-        ret_plot.tick_params(axis='y', labelcolor='#77777777')
-        ret_plot.set_xticks([])
-
-        plt.title('Rewards & Returns')
+            plt.suptitle('Simulation and Reference Joint Kinematics over Time ' + \
+                         '' if self.SPEED_CONTROL else '(Angles in [rad], Angular Velocities in [rad/s])')
 
         plt.show()
-        # if not self.is_eval:
-        #     raise SystemExit('Planned exit after closing trajectory comparison plot.')
+        if self.env.is_evaluation_on() or PD_TUNING:
+            raise SystemExit('Planned exit after closing trajectory comparison plot.')

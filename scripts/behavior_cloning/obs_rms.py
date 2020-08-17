@@ -81,6 +81,6 @@ if __name__ == '__main__':
 
     # construct save paths
     model_path = dirname(dirname(dirname(__file__))) + '/scripts/behavior_cloning/models/rms/'
-    model_name = 'obs_rms_init_const_speed'
+    model_name = 'ref_obs_rms_init_const_speed'
     save_path = model_path + model_name
     env.save(save_path)

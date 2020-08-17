@@ -1,3 +1,8 @@
+# suppress the annoying TF Warnings at startup
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
 import numpy as np
 from os.path import dirname
 from scripts.common import utils
@@ -26,7 +31,7 @@ def assert_mod_compatibility():
     if is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
         raise TypeError("Normalized actions (ctrlrange [-1,1] for all joints) " \
                         "currently only work when policy outputs delta angles.")
-    if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_NETS):
+    if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_POLICY):
         raise TypeError("Using sac and tanh actions is only possible in combination"
                         "with the custom policy: MOD_CUSTOM_NETS.")
 
@@ -57,7 +62,7 @@ MOD_PHASE_VAR = 'phase_var'
 MOD_REFS_CONST = 'refs_const'
 MOD_REFS_RAMP = 'refs_ramp'
 
-MOD_CUSTOM_NETS = 'cstm_pi'
+MOD_CUSTOM_POLICY = 'cstm_pi'
 MOD_REW_MULT = 'rew_mult'
 # allow the policy to output angles in the maximum range
 # but punish actions that are too far away from current angle
@@ -90,9 +95,10 @@ et_rew_thres = 0.1
 # mirror experiences
 MOD_MIRROR_EXPS = 'mirr_exps'
 
+# ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_MIRROR_EXPS,
-    MOD_CUSTOM_NETS, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
+modification = mod([MOD_MIRROR_EXPS, MOD_REFS_RAMP,
+    MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
     ])
 assert_mod_compatibility()
 
@@ -101,18 +107,20 @@ assert_mod_compatibility()
 # ----------------------------------------------------------------------------------
 DEBUG = False
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
-logstd = 0
+
+rew_weights = '6130' if not is_mod(MOD_FLY) else '7300'
 ent_coef = 0 # 0.002 # -0.002
+logstd = 0
+et_reward = -100 # reward for a terminal state
 cliprange = 0.15
-rew_weights = '6121'
-wb_project_name = 'mirr_exps'
-# TODO: Test also if we need joint pow reward
-wb_run_name = f'4M - 8minibatches'
-# wb_run_name = f'BC PI, logstd{s(logstd)}, ent{s(ent_coef)}, clp{s(cliprange)}'
-wb_run_notes = 'As experiences are mirrored, the training stops after half of training steps. ' \
-               'Have now set n_steps to 8M so that we collect 4M of experiences. ' \
-               'Mirroring every collected experience to reduce num of required samples. ' \
-               '' \
+SKIP_N_STEPS = 55
+STEPS_PER_VEL = 2
+
+wb_project_name = 'intermediate'
+wb_run_name = f'reprod before merge'
+wb_run_notes = '' \
+               '16minibatches are required to achieve best results when mirroring experiences!' \
+               ' ' \
                'Actions are normalized angle deltas.' \
                # 'initializing obs_rms from previous run'
 # ----------------------------------------------------------------------------------
@@ -126,15 +134,21 @@ env_name = env_names[env_index]
 
 # choose hyperparams
 algo = 'ppo2'
-mio_steps = 4 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
+# number of experiences to collect, not training steps.
+# In case of mirroring, during 4M training steps, we collect 8M samples.
+mio_steps = 16 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
+minibatch_size = 512
+n_mini_batches = int(batch_size / minibatch_size)
 hid_layer_sizes = [128, 128]
 lr_start = 1500
-lr_final = int((lr_start*(1-mio_steps/16))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
+mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
+slope = mio_steps/mio_steps_to_lr1
+lr_final = 0 # int((lr_start*(1-slope))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 gamma = 0.99
 _ep_dur_in_k = 4
-ep_dur_max = int(_ep_dur_in_k * 1e3)
+ep_dur_max = int(_ep_dur_in_k * 1e3) + 100
 
 own_hypers = ''
 info = ''
@@ -152,8 +166,11 @@ hyp_path = (f'{own_hypers + info}/' if len(own_hypers + info) > 0 else '')
 save_path_norun= abs_project_path + 'models/' + _mod_path + hyp_path
 save_path = save_path_norun + f'{run_id}/'
 init_obs_rms_path = abs_project_path + 'scripts/behavior_cloning/models/rms/env_999'
+if is_mod(MOD_FLY):
+    init_obs_rms_path = abs_project_path + 'scripts/behavior_cloning/models/' \
+                                           'rms/env_rms_fly_const_speed'
 
-if DEBUG: print('Debugging model: ', save_path)
+print('Model: ', save_path)
 print('Modification:', modification)
 
 # wandb
@@ -165,6 +182,10 @@ if len(wb_project_name) == 0:
 # names of saved model before and after training
 init_checkpoint = s(0)
 final_checkpoint = s(999)
+
+if __name__ == '__main__':
+    from scripts.train import train
+    train()
 
 
 '''
