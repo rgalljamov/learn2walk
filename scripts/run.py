@@ -12,19 +12,23 @@ from scripts.common import config as cfg
 
 FLY = False
 DETERMINISTIC_ACTIONS = True
-RENDER = False
+RENDER = True
 
-SPEED_CONTROL = False
+SPEED_CONTROL = True
 
 FROM_PATH = True
 PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
-       "refs_ramp/normd_com_vel/cstm_pi/pi_deltas/norm_acts/mim2d/8envs/ppo2/16mio/719-evaled"
+       "refs_ramp/fixed_skips/skip_after/normd_com_vel/mirr_exps/cstm_pi/" \
+       "pi_deltas/norm_acts/mim2d/8envs/ppo2/32mio/435-evaled"
 if not PATH.endswith('/'): PATH += '/'
 checkpoint = 999 # 'ep_ret2000_7M' #'mean_rew60'
 
 if FLY: cfg.rew_weights = "6400"
 
 if FROM_PATH:
+    # check if correct reference trajectories are used
+    if cfg.MOD_REFS_RAMP in PATH and not cfg.is_mod(cfg.MOD_REFS_RAMP):
+        raise AssertionError('Model trained on ramp-trajecs but is used with constant speed trajecs!')
     # load model
     model_path = PATH + f'models/model_{checkpoint}.zip'
     model = PPO2.load(load_path=model_path)

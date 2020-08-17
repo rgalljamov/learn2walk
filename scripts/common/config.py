@@ -97,7 +97,7 @@ MOD_MIRROR_EXPS = 'mirr_exps'
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_REFS_RAMP, 'fixed_skips', 'skip_after', 'normd_com_vel', MOD_MIRROR_EXPS,
+modification = mod([MOD_MIRROR_EXPS, MOD_REFS_RAMP,
     MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
     ])
 assert_mod_compatibility()
@@ -113,15 +113,12 @@ ent_coef = 0 # 0.002 # -0.002
 logstd = 0
 et_reward = -100 # reward for a terminal state
 cliprange = 0.15
-SKIP_N_STEPS = 25
-STEPS_PER_VEL = 4
+SKIP_N_STEPS = 55
+STEPS_PER_VEL = 2
 
-wb_project_name = 'ramp_skips'
-wb_run_name = f'skip {SKIP_N_STEPS} after {STEPS_PER_VEL} steps + mirror'
-wb_run_notes = 'Training agent to walk at different speeds. ' \
-               'Varying training procedure by skipping a single or multiple steps ' \
-               'once a few steps of constant speed were taken! ' \
-               'Testing if smaller batch_size is helpful also without mirroring! ' \
+wb_project_name = 'intermediate'
+wb_run_name = f'reprod before merge'
+wb_run_notes = '' \
                '16minibatches are required to achieve best results when mirroring experiences!' \
                ' ' \
                'Actions are normalized angle deltas.' \
