@@ -16,6 +16,9 @@ class TrainingMonitor(BaseCallback):
         # to control how often to save the model
         self.times_surpassed_ep_return_threshold = 0
         self.times_surpassed_mean_reward_threshold = 0
+        # log data less frequently
+        self.skip_n_steps = 10
+        self.skipped_steps = 10
 
     def _on_training_start(self) -> None:
         self.env = self.training_env
@@ -24,12 +27,20 @@ class TrainingMonitor(BaseCallback):
         if cfg.DEBUG and self.num_timesteps > cfg.MAX_DEBUG_STEPS:
             raise SystemExit(f"Planned Exit after {cfg.MAX_DEBUG_STEPS} due to Debugging mode!")
 
+        # skip n steps to reduce logging interval and speed up training
+        if self.skipped_steps < self.skip_n_steps:
+            self.skipped_steps += 1
+            return True
+
         ep_len = self.get_mean('ep_len_smoothed')
         ep_ret = self.get_mean('ep_ret_smoothed')
         mean_rew = self.get_mean('mean_reward_smoothed')
 
         self.log_to_tb(mean_rew, ep_len, ep_ret)
         self.save_model_if_good(mean_rew, ep_ret)
+
+        # reset counter of skipped steps after data was logged
+        self.skipped_steps = 0
 
         return True
 

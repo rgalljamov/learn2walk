@@ -38,9 +38,14 @@ def init_wandb(model):
         "n_mini_batches": model.nminibatches,
         "mini_batch_size": int(batch_size / model.nminibatches),
         "mio_steps": cfg.mio_steps,
+        "mio_steps_to_lr1": cfg.mio_steps_to_lr1,
+        "lr_slope": cfg.slope,
         "ent_coef": model.ent_coef,
         "ep_dur": cfg.ep_dur_max,
         "imit_rew": cfg.rew_weights,
+        "logstd": cfg.logstd,
+        "et_rew": cfg.et_reward,
+        "et_rew_thres": cfg.et_rew_thres,
         "env": cfg.env_name,
         "gam": model.gamma,
         "lam": model.lam,
@@ -74,7 +79,7 @@ def train():
                         deltas=cfg.is_mod(cfg.MOD_PI_OUT_DELTAS))
 
     # setup model/algorithm
-    training_timesteps = int(cfg.mio_steps * 1e6) + 10
+    training_timesteps = int(cfg.mio_steps * 1e6 * 1.05)
     learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
     network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
                     'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else {}
