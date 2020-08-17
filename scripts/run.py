@@ -6,22 +6,29 @@ import gym, time, mujoco_py
 # necessary to import custom gym environments
 import gym_mimic_envs
 from gym_mimic_envs.monitor import Monitor
-from gym_mimic_envs.mimic_env import MimicEnv
 from stable_baselines import PPO2
 from scripts.common.utils import load_env
 from scripts.common import config as cfg
 
+FLY = False
 DETERMINISTIC_ACTIONS = True
-FROM_PATH = False
 RENDER = True
-FLY = True
-if FLY: cfg.rew_weights = "6400"
+
+SPEED_CONTROL = True
+
+FROM_PATH = True
 PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
-       "mirr_exps/cstm_pi/pi_deltas/norm_acts/mim2d/8envs/ppo2/8mio/118-evaled"
+       "refs_ramp/fixed_skips/skip_after/normd_com_vel/mirr_exps/cstm_pi/" \
+       "pi_deltas/norm_acts/mim2d/8envs/ppo2/32mio/435-evaled"
 if not PATH.endswith('/'): PATH += '/'
 checkpoint = 999 # 'ep_ret2000_7M' #'mean_rew60'
 
+if FLY: cfg.rew_weights = "6400"
+
 if FROM_PATH:
+    # check if correct reference trajectories are used
+    if cfg.MOD_REFS_RAMP in PATH and not cfg.is_mod(cfg.MOD_REFS_RAMP):
+        raise AssertionError('Model trained on ramp-trajecs but is used with constant speed trajecs!')
     # load model
     model_path = PATH + f'models/model_{checkpoint}.zip'
     model = PPO2.load(load_path=model_path)
@@ -40,9 +47,13 @@ if not isinstance(env, Monitor):
     vec_env = env
     env = env.venv.envs[0]
 
+if SPEED_CONTROL:
+    env.activate_speed_control([0.8, 1.25])
+
 obs = env.reset()
 if FLY: env.do_fly()
 env.activate_evaluation()
+
 for i in range(10000):
 
     # obs, reward, done, _ = env.step(np.zeros_like(env.action_space.sample()))

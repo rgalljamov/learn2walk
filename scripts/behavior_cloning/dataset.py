@@ -61,7 +61,7 @@ def get_refs(refs=None):
     return refs
 
 
-def get_data(refs:rt.ReferenceTrajectories=None, debug=False):
+def get_data(refs:rt.ReferenceTrajectories=None, fly=False, debug=False):
     """
     :returns:   data_x (n_points, state_dim)
                 data_y (n_points, act_dim)
@@ -69,6 +69,7 @@ def get_data(refs:rt.ReferenceTrajectories=None, debug=False):
     if refs is None:
         refs = rt.ReferenceTrajectories(qpos_indices, qvel_indices, {})
         debug = False
+
     x_data, y_data = [], []
     # iterate twice through the refs to get all points
     # as we're skipping 1 step in refs.next()
@@ -82,9 +83,20 @@ def get_data(refs:rt.ReferenceTrajectories=None, debug=False):
             qpos, qvel = refs.get_ref_kinmeatics()
             # remove COM x position as the action should be independent of it
             qpos = qpos[1:]
-            if all(np.copy(qpos)<0.001):
-                print('similar')
-                stop = True
+
+            if fly:
+                # remove all obs with constant values due to the torso being fixed in the air
+                REMOVE_CONST_JOINTS = False
+                if REMOVE_CONST_JOINTS:
+                    qpos = qpos[2:]
+                    qvel = qvel[3:]
+                    # only pos and vel of the 6 leg joints should remain
+                    assert np.size(qpos) == 6 and np.size(qvel) == 6
+                else:
+                    # set the joints affected by fixed torso to a constant values
+                    qpos[:2] = [1.2, 0.0] # COM Z and Trunk Rot
+                    qvel[:3] = [0.0, -0.05, 0.0] # COM X, COM Z, Trunk Rot
+
             desired_walking_speed = refs.get_step_velocity()
             phase = refs.get_phase_variable()
             obs = np.concatenate([np.array([phase, desired_walking_speed]), qpos, qvel]).ravel()
@@ -240,14 +252,13 @@ def get_delta_angs(x_data, y_data):
     return y_delta
 
 
-def get_obs_and_delta_actions(norm_obs=True, norm_acts=False):
+def get_obs_and_delta_actions(norm_obs=True, norm_acts=False, fly=False):
     """
     Loads the SL data extracted from the reference trajectories,
-    calculates the action deltas and normalize the observations.
+    calculates the action deltas and normalizes the observations.
     """
     # get data
-
-    x_data, y_data = get_data()
+    x_data, y_data = get_data(fly=fly)
     # test_data(x_data, y_data)
     y_data = get_delta_angs(x_data, y_data)
     if norm_obs:
@@ -291,7 +302,7 @@ if __name__ == '__main__':
 
     means, vars, stds = get_refs_stats(refs, False, True)
     print('Means and STDs shape:', (means.shape, stds.shape))
-    x_data, y_data = get_data(refs, DEBUG)
+    x_data, y_data = get_data(refs, False, DEBUG)
     y_delta = get_delta_angs(x_data, y_data)
     test_data(x_data, y_data)
 
