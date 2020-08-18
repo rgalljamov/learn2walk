@@ -239,7 +239,7 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
     env.close()
 
     # rename folder to mark it as evaluated
-    path_evaled = save_path[:-1] + '-evaled'
+    path_evaled = save_path[:-1] + f'-evaled-ret{np.mean(all_returns)}'
     os.rename(save_path[:-1], path_evaled)
 
     # upload videos to wandb

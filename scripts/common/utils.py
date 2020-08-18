@@ -23,7 +23,7 @@ def import_pyplot():
        @param: setup_plot_params: if true, activates seaborn and sets rcParams"""
     import matplotlib
     try:
-        matplotlib.use('tkagg')
+        matplotlib.use('tkagg') if is_remote() else matplotlib.use('Qt5Agg')
     except Exception:
         pass
     from matplotlib import pyplot as plt
