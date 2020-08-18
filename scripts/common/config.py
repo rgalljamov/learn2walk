@@ -1,5 +1,5 @@
 # suppress the annoying TF Warnings at startup
-import warnings
+import warnings, sys
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
@@ -110,7 +110,7 @@ assert_mod_compatibility()
 # ----------------------------------------------------------------------------------
 # Weights and Biases
 # ----------------------------------------------------------------------------------
-DEBUG = False
+DEBUG = False or not sys.gettrace() is None
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '6130' if not is_mod(MOD_FLY) else '7300'
