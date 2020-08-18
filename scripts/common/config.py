@@ -94,11 +94,17 @@ MOD_REF_STATS_ET = 'ref_et'
 et_rew_thres = 0.1
 # mirror experiences
 MOD_MIRROR_EXPS = 'mirr_exps'
+# improve reward function by normalizing individual joints etc.
+MOD_IMPROVE_REW = 'improve_rew'
+# use linear instead of exponential reward to have better gradient away from trajecs
+MOD_LIN_REW = 'lin_rew'
+# use com x velocity instead of x position for com reward
+MOD_COM_X_VEL = 'com_x_vel'
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_MIRROR_EXPS, MOD_REFS_RAMP,
-    MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
+modification = mod([MOD_IMPROVE_REW, MOD_COM_X_VEL, MOD_MIRROR_EXPS,
+                    MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
     ])
 assert_mod_compatibility()
 
@@ -113,16 +119,13 @@ ent_coef = 0 # 0.002 # -0.002
 logstd = 0
 et_reward = -100 # reward for a terminal state
 cliprange = 0.15
-SKIP_N_STEPS = 55
-STEPS_PER_VEL = 2
+SKIP_N_STEPS = 1
+STEPS_PER_VEL = 1
 
 wb_project_name = 'intermediate'
-wb_run_name = f'reprod before merge'
-wb_run_notes = '' \
-               '16minibatches are required to achieve best results when mirroring experiences!' \
-               ' ' \
+wb_run_name = f'mirror + improved rew + com x vel'
+wb_run_notes = 'Using improved normalized rewards with com x vel instead of com x pos! ' \
                'Actions are normalized angle deltas.' \
-               # 'initializing obs_rms from previous run'
 # ----------------------------------------------------------------------------------
 
 # choose environment
@@ -136,7 +139,7 @@ env_name = env_names[env_index]
 algo = 'ppo2'
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
-mio_steps = 16 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
+mio_steps = 4 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
 minibatch_size = 512
