@@ -4,6 +4,7 @@ import numpy as np
 from stable_baselines import PPO2
 from scripts.common.utils import log
 from scripts.common import config as cfg
+from scripts.behavior_cloning.dataset import get_obs_and_delta_actions
 
 # imports required to copy the learn method
 from stable_baselines import logger
@@ -55,6 +56,10 @@ class CustomPPO2(PPO2):
         log('Using CustomPPO2!')
 
         self.mirror_experiences = cfg.is_mod(cfg.MOD_MIRROR_EXPS)
+
+        if cfg.is_mod(cfg.MOD_REF_REPLAY):
+            # load obs and actions generated from reference trajectories
+            self.ref_obs, self.ref_actions = get_obs_and_delta_actions(norm_obs=True, norm_acts=True, fly=False)
 
         super(CustomPPO2, self).__init__(policy, env, gamma, n_steps, ent_coef, learning_rate, vf_coef,
                                          max_grad_norm, lam, nminibatches, noptepochs, cliprange, cliprange_vf,
@@ -119,6 +124,22 @@ class CustomPPO2(PPO2):
                     obs, returns, masks, actions, values, neglogpacs, \
                     states, ep_infos, true_reward = rollout
 
+                if cfg.is_mod(cfg.MOD_REF_REPLAY):
+                    # load ref experiences and treat them as taken experiences
+                    n_ref_exps = self.ref_obs.shape[0]
+                    ref_returns = np.ones((n_ref_exps,)) * np.max(returns)
+                    ref_values = np.ones((n_ref_exps,)) * np.mean(values)
+                    ref_masks = np.array([False]*n_ref_exps)
+                    ref_neglogpacs = np.ones_like(ref_values) * np.max(neglogpacs)
+
+                    obs = np.concatenate((obs, self.ref_obs), axis=0)
+                    actions = np.concatenate((actions, self.ref_actions), axis=0)
+                    # the other values should stay the same for the mirrored experiences
+                    returns = np.concatenate((returns, ref_returns))
+                    masks = np.concatenate((masks, ref_masks))
+                    values = np.concatenate((values, ref_values))
+                    neglogpacs = np.concatenate((neglogpacs, ref_neglogpacs))
+
                 callback.on_rollout_end()
 
                 # Early stopping due to the callback
@@ -164,7 +185,9 @@ class CustomPPO2(PPO2):
                 t_now = time.time()
                 fps = int(self.n_batch / (t_now - t_start))
 
-                if writer is not None:
+                # disable logging of some metrics... otherwise require overhead to make the metrics
+                # of a correct size when mirroring or reusing experiences
+                if False and writer is not None:
                     if self.mirror_experiences: self.n_steps = int(self.n_steps * 2)
                     total_episode_reward_logger(self.episode_reward,
                                                 true_reward.reshape((self.n_envs, self.n_steps)),

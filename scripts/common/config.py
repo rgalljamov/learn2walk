@@ -99,10 +99,12 @@ MOD_IMPROVE_REW = 'improve_rew'
 MOD_LIN_REW = 'lin_rew'
 # use com x velocity instead of x position for com reward
 MOD_COM_X_VEL = 'com_x_vel'
+# use reference trajectories as a replay buffer
+MOD_REF_REPLAY = 'ref_replay'
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_IMPROVE_REW, MOD_COM_X_VEL, MOD_MIRROR_EXPS,
+modification = mod([MOD_REF_REPLAY,
                     MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
     ])
 assert_mod_compatibility()
@@ -121,9 +123,9 @@ cliprange = 0.15
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
-wb_project_name = 'intermediate'
-wb_run_name = f'mirror + improved rew + com x vel'
-wb_run_notes = 'Using improved normalized rewards with com x vel instead of com x pos! ' \
+wb_project_name = 'ref_replay'
+wb_run_name = f'ret max, val mean, pi(a|s) max'
+wb_run_notes = '' \
                'Actions are normalized angle deltas.' \
 # ----------------------------------------------------------------------------------
 

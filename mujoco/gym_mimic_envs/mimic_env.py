@@ -51,11 +51,16 @@ class MimicEnv:
         True if MimicEnv was already instantiated.
         Workaround (see doc string for _rsinitialized)
         """
+        global _rsinitialized
+
         if not _rsinitialized:
             return False
 
-        if self.refs is None:
+        try:
+            if self.refs is None: pass
+        except:
             log("MimicEnv.step() called before refs were initialized!")
+            _rsinitialized = False
             return False
 
         self.joint_pow_sum_normed = self.get_joint_power_sum_normed()
