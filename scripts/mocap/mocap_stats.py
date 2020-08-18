@@ -115,13 +115,30 @@ def get_joint_mocap_stats(refs=None, plot=False, std_only=False, save_path=None)
 
         plt.show()
 
-    if not std_only:
-        return means_left, means_right, stds_left, stds_right
-    else:
+    if std_only:
         return stds_left, stds_right
+    else:
+        return means_left, means_right, stds_left, stds_right
+
+
+def determine_max_allowed_deviations(refs=None, save_stds=False):
+    if refs is None:
+        refs = get_refs()
+
+    refs.reset()
+    # (num_data_points x refs_dim)
+    data_matrix = np.concatenate(refs.data.tolist(), axis=1).transpose()
+    # convert to float array
+    data = np.array(data_matrix, dtype=np.float32)
+    # get stds as max allowed devitations
+    stds = np.std(data, axis=0)
+    if save_stds:
+        np.save('/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
+                'assets/ref_trajecs/distributions/stds_all_steps_const_speed_400hz.npy', stds)
 
 
 if __name__ == '__main__':
+    determine_max_allowed_deviations()
     means_left, means_right, stds_left, stds_right = \
                     get_joint_mocap_stats(plot=True) # /mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/assets/ref_trajecs/distributions
     mean_stds = np.mean(np.hstack([stds_left, stds_right]), axis=1)
