@@ -9,6 +9,7 @@ from scripts.behavior_cloning.dataset import get_obs_and_delta_actions
 
 from scripts.common import config as cfg
 
+SAVE_MODEL = False
 FLY = True
 SHUFFLE = True
 EPOCHS = 200
@@ -94,11 +95,12 @@ if __name__ == '__main__':
     losses = ['loss',  'mean_squared_error', 'mean_squared_logarithmic_error',
               'mean_absolute_error', 'mean_absolute_percentage_error']
 
-    # save weights of best model
-    best_model = keras.models.load_model(best_model_path)
-    best_model_weights_path = best_model_path.replace('best', 'weights')
-    best_model.save_weights(best_model_weights_path+'.h5')
-    print('Saved weights of best model in:\n', best_model_weights_path)
+    if SAVE_MODEL:
+        # save weights of best model
+        best_model = keras.models.load_model(best_model_path)
+        best_model_weights_path = best_model_path.replace('best', 'weights')
+        best_model.save_weights(best_model_weights_path+'.h5')
+        print('Saved weights of best model in:\n', best_model_weights_path)
 
     for i, loss_str in enumerate(losses):
         plt.subplot(2, len(losses)//2+1, i+1)

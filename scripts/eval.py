@@ -60,7 +60,7 @@ def eval_model(from_config=True):
 
     print('\nModel:\n', model_path + '\n')
 
-    env = utils.load_env(checkpoint, save_path)
+    env = utils.load_env(checkpoint, save_path, cfg.env_id)
     env.venv.envs[0].activate_evaluation()
 
     ep_rewards, all_returns, ep_durations = [], [], []
@@ -174,7 +174,7 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
         save_path = PATH
     else:
         save_path = cfg.save_path_norun + f'{run_id}/'
-    env = utils.load_env(checkpoint, save_path)
+    env = utils.load_env(checkpoint, save_path, cfg.env_id)
     obs = env.reset()
 
     ep_count, step = 0, 0

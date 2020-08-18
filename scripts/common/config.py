@@ -4,7 +4,6 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 import numpy as np
-from os.path import dirname
 from scripts.common import utils
 
 def s(input):
@@ -161,7 +160,7 @@ info_baseline_hyp_tune = f'hl{s(hid_layer_sizes)}_ent{int(ent_coef * 1000)}_lr{l
        f'bs{int(batch_size/1000)}_imrew{rew_weights}_gam{int(gamma*1e3)}'
 
 # construct the paths
-abs_project_path = dirname(dirname(dirname(__file__))) + '/'
+abs_project_path = utils.get_absolute_project_path()
 _mod_path = ('debug/' if DEBUG else '') + \
             f'{approach}/{modification}/{env_name}/{n_envs}envs/' \
             f'{algo}/{mio_steps}mio/'

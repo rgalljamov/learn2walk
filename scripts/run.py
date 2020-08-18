@@ -35,7 +35,7 @@ if FROM_PATH:
 
     print('\nModel:\n', model_path + '\n')
 
-    env = load_env(checkpoint, PATH)
+    env = load_env(checkpoint, PATH, cfg.env_id)
 
 else:
     env = gym.make('MimicWalker2d-v0')

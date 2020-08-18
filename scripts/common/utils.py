@@ -7,7 +7,11 @@ def is_remote():
     # automatically detect running PC
     return 'remote' in path.abspath(getcwd())
 
-from scripts.common.config import abs_project_path, save_path, env_id
+def get_absolute_project_path():
+    dirname = path.dirname
+    return dirname(dirname(dirname(__file__))) + '/'
+
+abs_project_path = get_absolute_project_path()
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 # import gym_mimic_envs
 
@@ -174,6 +178,7 @@ def save_pi_weights(model, name):
     # todo: check why it does not work for pretrained models!
     return
 
+    save_path = None
     # log('Model Parameters:', model.params)
 
     for param in model.params:
@@ -202,7 +207,7 @@ def save_pi_weights(model, name):
         np.savez(save_path + 'models/params/attens_' + str(name),
                  A0=attens[0], A1=attens[1])
 
-def load_env(checkpoint, save_path):
+def load_env(checkpoint, save_path, env_id):
     # load a single environment for evaluation
     env_path = save_path + f'envs/env_{checkpoint}'
     env = vec_env(env_id, num_envs=1, norm_rew=False, load_path=env_path)
