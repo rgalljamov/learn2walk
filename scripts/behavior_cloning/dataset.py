@@ -2,18 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from scripts.mocap import ref_trajecs as rt
-from gym_mimic_envs.mujoco.mimic_walker2d import MimicWalker2dEnv
-
-# qpos and qvel indices for quick access to the reference trajectories
-qpos_indices = [rt.COM_POSX, rt.COM_POSZ, rt.TRUNK_ROT_Y,
-                rt.HIP_SAG_ANG_R, rt.KNEE_ANG_R, rt.ANKLE_ANG_R,
-                rt.HIP_SAG_ANG_L, rt.KNEE_ANG_L, rt.ANKLE_ANG_L]
-
-qvel_indices = [rt.COM_VELX, rt.COM_VELZ, rt.TRUNK_ANGVEL_Y,
-                rt.HIP_SAG_ANGVEL_R,
-                rt.KNEE_ANGVEL_R, rt.ANKLE_ANGVEL_R,
-                rt.HIP_SAG_ANGVEL_L,
-                rt.KNEE_ANGVEL_L, rt.ANKLE_ANGVEL_L]
+from gym_mimic_envs.mujoco.mimic_walker2d import MimicWalker2dEnv, qpos_indices, qvel_indices
 
 def build_data_matrix(refs):
     """:returns: 2D matrix containing all the data points in the reference trajectory:

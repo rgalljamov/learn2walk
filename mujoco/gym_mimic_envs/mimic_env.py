@@ -32,12 +32,16 @@ class MimicEnv:
         # keep the body in the air for testing purposes
         self._FLY = False or cfg.is_mod(cfg.MOD_FLY)
         self._evaluation_on = False
-        if cfg.MOD_MAX_TORQUE:
+        if cfg.is_mod(cfg.MOD_MAX_TORQUE):
             self.model.actuator_forcerange[:,:] = cfg.TORQUE_RANGES
         # for ET based on mocap distributions
         self.left_step_distrib, self.right_step_distrib = None, None
         # control desired walking speed
         self.SPEED_CONTROL = False
+        # load kinematic stds for deviation normalization and better reward signal
+        self.kinem_stds = np.load(cfg.abs_project_path +
+                                  'assets/ref_trajecs/distributions/stds_all_steps_const_speed_400hz.npy')
+        # self.kinem_stds = self.kinem_stds[self.refs.qpos_is + self.refs.qvel_is]
 
 
     def step(self):
@@ -291,6 +295,23 @@ class MimicEnv:
         ref_pos, _ = self.get_ref_kinematics(exclude_com=True)
         if self._FLY:
             ref_pos[0] = 0
+
+        if cfg.is_mod(cfg.MOD_IMPROVE_REW):
+            difs = np.abs(qpos - ref_pos)
+            # normalize deviations to treat all joints the same
+            # use two standard deviations of refs for normalization
+            ref_pos_stds = 2 * self.kinem_stds[self.refs.qpos_is[2:]]
+            difs_normed = difs / ref_pos_stds
+            difs_mean = np.mean(difs_normed)
+            exp_rew = np.exp(-2.5 * difs_mean)
+
+            if cfg.is_mod(cfg.MOD_LIN_REW):
+                lin_rew = 1 - difs_mean * (0.5 if cfg.is_mod('half_slope') else 1)
+                return lin_rew
+            else:
+                return exp_rew
+
+
         dif = qpos - ref_pos
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
@@ -301,28 +322,53 @@ class MimicEnv:
         _, qvel = self.get_joint_kinematics(exclude_com=True)
         _, ref_vel = self.get_ref_kinematics(exclude_com=True)
         if self._FLY:
+            # set trunk angular velocity to zero
             ref_vel[0] = 0
-        dif = qvel - ref_vel
-        dif_sqrd = np.square(dif)
-        sum = np.sum(dif_sqrd)
-        vel_rew = np.exp(-0.2 * sum)
+        if cfg.is_mod(cfg.MOD_IMPROVE_REW):
+            difs = np.abs(qvel - ref_vel)
+            # normalize deviations to treat all joints the same
+            # use two standard deviations or refs for normalization
+            ref_vel_stds = 2 * self.kinem_stds[self.refs.qvel_is[2:]]
+            dif_normed = difs / ref_vel_stds
+            dif_mean = np.mean(dif_normed)
+            if cfg.is_mod(cfg.MOD_LIN_REW):
+                vel_rew = 1 - dif_mean * (0.5 if cfg.is_mod('half_slope') else 1)
+            else:
+                vel_rew = np.exp(-2.5*dif_mean)
+        else:
+            difs = qvel - ref_vel
+            dif_sqrd = np.square(difs)
+            dif_sum = np.sum(dif_sqrd)
+            vel_rew = np.exp(-0.2 * dif_sum)
         return vel_rew
 
     def get_com_reward(self):
         qpos, qvel = self.get_joint_kinematics()
         ref_pos, ref_vel = self.get_ref_kinematics()
+        com_is = self._get_COM_indices()
 
-        com_pos = np.array([qpos[1], qvel[0]])
-        com_ref = np.array([ref_pos[1], ref_vel[0]])
-        # normalize the differences
-        # divide by max allowed deviation (50% of full range in ref trajecs)
-        max_deviats = [0.75 / 2, 0.1 / 2]
-        dif = np.abs(com_pos - com_ref)
-        dif_prct = dif / max_deviats
-        # dif_sqrd = np.square(dif_prct)
-        mean_dif_prct = np.mean(dif_prct)
-        exp_rew = np.exp(-3 * mean_dif_prct)
-        return exp_rew
+        if cfg.is_mod(cfg.MOD_IMPROVE_REW):
+            USE_COM_XVEL = cfg.is_mod(cfg.MOD_COM_X_VEL)
+            if USE_COM_XVEL:
+                com_pos = np.array([qpos[1], qvel[0]])
+                com_ref = np.array([ref_pos[1], ref_vel[0]])
+                # normalize the differences with 2*stds
+                max_deviats = [2 * self.kinem_stds[self.refs.qpos_is[1]],
+                               2 * self.kinem_stds[self.refs.qvel_is[0]]]
+            else:
+                com_pos, com_ref = qpos[com_is], ref_pos[com_is]
+                # normalize the differences with 2stds
+                inds = np.array(self.refs.qpos_is)[com_is]
+                max_deviats = 2 * self.kinem_stds[inds]
+
+            dif = np.abs(com_pos - com_ref)
+            dif_normed = dif / max_deviats
+            # dif_sqrd = np.square(dif_normed)
+            mean_dif_normed = np.mean(dif_normed)
+            exp_rew = np.exp(-2.5 * mean_dif_normed)
+            if cfg.is_mod(cfg.MOD_LIN_REW):
+                return 1 - mean_dif_normed * (0.5 if cfg.is_mod('half_slope') else 1)
+            return exp_rew
 
         com_pos, com_ref = qpos[com_is], ref_pos[com_is]
         dif = com_pos - com_ref
@@ -406,11 +452,12 @@ class MimicEnv:
         pos_rew = self.get_pose_reward()
         vel_rew = self.get_vel_reward()
         com_rew = self.get_com_reward()
+        pow_rew = self.get_energy_reward() if w_pow != 0 else 0
 
         if cfg.is_mod(cfg.MOD_REW_MULT):
             imit_rew = np.sqrt(pos_rew) * np.sqrt(com_rew) # * vel_rew**w_vel
         else:
-            imit_rew = w_pos * pos_rew + w_vel * vel_rew + w_com * com_rew
+            imit_rew = w_pos * pos_rew + w_vel * vel_rew + w_com * com_rew + w_pow * pow_rew
 
         if cfg.is_mod(cfg.MOD_PUNISH_UNREAL_TARGET_ANGS):
             # punish unrealistic joint target angles
