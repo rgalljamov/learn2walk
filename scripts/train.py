@@ -34,6 +34,7 @@ def init_wandb(model):
         "mod": cfg.modification,
         "lr0": cfg.lr_start,
         "lr1": cfg.lr_final,
+        "noptepochs": cfg.noptepochs,
         "batch_size": batch_size,
         "n_mini_batches": model.nminibatches,
         "mini_batch_size": int(batch_size / model.nminibatches),
@@ -45,6 +46,7 @@ def init_wandb(model):
         "imit_rew": cfg.rew_weights,
         "logstd": cfg.logstd,
         "et_rew": cfg.et_reward,
+        "ep_end_rew": cfg.ep_end_reward,
         "et_rew_thres": cfg.et_rew_thres,
         "env": cfg.env_name,
         "gam": model.gamma,
@@ -60,6 +62,11 @@ def init_wandb(model):
         "cliprange": model.cliprange,
         "cliprange_vf": model.cliprange_vf,
         "n_cpu_tf_sess": model.n_cpu_tf_sess}
+
+    if cfg.is_mod(cfg.MOD_REFS_RAMP):
+        params['skip_n_steps'] = cfg.SKIP_N_STEPS
+        params['steps_per_vel'] = cfg.STEPS_PER_VEL
+
     wandb.init(config=params, sync_tensorboard=True, name=cfg.get_wb_run_name(),
                project=cfg.wb_project_name, notes=cfg.wb_run_notes)
 
@@ -88,7 +95,7 @@ def train():
                        env, verbose=1, n_steps=int(cfg.batch_size/cfg.n_envs),
                        policy_kwargs=network_args, nminibatches=cfg.n_mini_batches,
                        learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
-                       gamma=cfg.gamma, cliprange=cfg.cliprange,
+                       gamma=cfg.gamma, cliprange=cfg.cliprange, noptepochs=cfg.noptepochs,
                        tensorboard_log=cfg.save_path + 'tb_logs/')
 
     # init wandb

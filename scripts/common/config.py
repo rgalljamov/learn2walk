@@ -99,10 +99,13 @@ MOD_IMPROVE_REW = 'improve_rew'
 MOD_LIN_REW = 'lin_rew'
 # use com x velocity instead of x position for com reward
 MOD_COM_X_VEL = 'com_x_vel'
-
+# use reference trajectories as a replay buffer
+MOD_REFS_REPLAY = 'ref_replay'
+# train VF and PI on ref trajectories during the first policy update
+MOD_ONLINE_CLONE = 'online_clone'
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_IMPROVE_REW, MOD_COM_X_VEL, MOD_MIRROR_EXPS,
+modification = mod([MOD_REF_REPLAY,
                     MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
     ])
 assert_mod_compatibility()
@@ -110,20 +113,21 @@ assert_mod_compatibility()
 # ----------------------------------------------------------------------------------
 # Weights and Biases
 # ----------------------------------------------------------------------------------
-DEBUG = False or not sys.gettrace() is None
+DEBUG = False or not sys.gettrace() is None or not utils.is_remote()
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '6130' if not is_mod(MOD_FLY) else '7300'
 ent_coef = 0 # 0.002 # -0.002
 logstd = 0
-et_reward = -100 # reward for a terminal state
 cliprange = 0.15
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
-wb_project_name = 'intermediate'
-wb_run_name = f'mirror + improved rew + com x vel'
-wb_run_notes = 'Using improved normalized rewards with com x vel instead of com x pos! ' \
+wb_project_name = 'ref_replay'
+wb_run_name = f'ret max, val mean, pi(a|s) max'
+wb_run_notes = '' \
+# num of times a batch of experiences is used
+noptepochs = 4
                'Actions are normalized angle deltas.' \
 # ----------------------------------------------------------------------------------
 
@@ -136,6 +140,10 @@ env_name = env_names[env_index]
 
 # choose hyperparams
 algo = 'ppo2'
+# reward the agent gets when max episode length was reached
+ep_end_reward = 5
+# reward for an early terminal state
+et_reward = -100
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mio_steps = 4 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)

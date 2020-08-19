@@ -4,6 +4,7 @@ import numpy as np
 from stable_baselines import PPO2
 from scripts.common.utils import log
 from scripts.common import config as cfg
+from scripts.behavior_cloning.dataset import get_obs_and_delta_actions
 
 # imports required to copy the learn method
 from stable_baselines import logger
@@ -46,6 +47,34 @@ def mirror_experiences(rollout):
            neglogpacs, states, ep_infos, true_reward
 
 
+def generate_experiences_from_refs(rollout, ref_obs, ref_acts):
+    """
+    Generate experiences from reference trajectories.
+    - obs and actions can be used without a change. TODO: obs and acts should be normalized by current running stats
+    - predicted state values are estimated as the mean value of taken experiences. TODO: query VF network
+    - neglogpacs, -log[p(a|s)], are estimated by using the smallest probability of taken experiences. TODO: query PI network
+    - returns are estimated by max return of taken (s,a)-pairs
+    TODO: Mirror refs
+    """
+
+    obs, returns, masks, actions, values, neglogpacs, \
+    states, ep_infos, true_reward = rollout
+
+    n_ref_exps = ref_obs.shape[0]
+    ref_returns = np.ones((n_ref_exps,), dtype=np.float32) * np.max(returns)
+    ref_values = np.ones((n_ref_exps,), dtype=np.float32) * np.mean(values)
+    ref_masks = np.array([False] * n_ref_exps)
+    ref_neglogpacs = np.ones_like(ref_values) * np.mean(neglogpacs)
+
+    obs = np.concatenate((obs, ref_obs), axis=0)
+    actions = np.concatenate((actions, ref_acts), axis=0)
+    returns = np.concatenate((returns, ref_returns))
+    masks = np.concatenate((masks, ref_masks))
+    values = np.concatenate((values, ref_values))
+    neglogpacs = np.concatenate((neglogpacs, ref_neglogpacs))
+
+    return obs, actions, returns, masks, values, neglogpacs
+
 class CustomPPO2(PPO2):
     def __init__(self, policy, env, gamma=0.99, n_steps=128, ent_coef=0.01, learning_rate=2.5e-4, vf_coef=0.5,
                  max_grad_norm=0.5, lam=0.95, nminibatches=4, noptepochs=4, cliprange=0.2, cliprange_vf=None,
@@ -55,6 +84,10 @@ class CustomPPO2(PPO2):
         log('Using CustomPPO2!')
 
         self.mirror_experiences = cfg.is_mod(cfg.MOD_MIRROR_EXPS)
+
+        if cfg.is_mod(cfg.MOD_REFS_REPLAY) or cfg.is_mod(cfg.MOD_ONLINE_CLONE):
+            # load obs and actions generated from reference trajectories
+            self.ref_obs, self.ref_acts = get_obs_and_delta_actions(norm_obs=True, norm_acts=True, fly=False)
 
         super(CustomPPO2, self).__init__(policy, env, gamma, n_steps, ent_coef, learning_rate, vf_coef,
                                          max_grad_norm, lam, nminibatches, noptepochs, cliprange, cliprange_vf,
@@ -96,12 +129,12 @@ class CustomPPO2(PPO2):
             callback.on_training_start(locals(), globals())
 
             for update in range(1, n_updates + 1):
-                assert self.n_batch % self.nminibatches == 0, ("The number of minibatches (`nminibatches`) "
-                                                               "is not a factor of the total number of samples "
-                                                               "collected per rollout (`n_batch`), "
-                                                               "some samples won't be used."
-                                                               )
                 batch_size = self.n_batch // self.nminibatches
+                if self.n_batch % self.nminibatches != 0:
+                    log("The number of minibatches (`nminibatches`) "
+                        "is not a factor of the total number of samples "
+                        "collected per rollout (`n_batch`), "
+                        "some samples won't be used.")
                 t_start = time.time()
                 frac = 1.0 - (update - 1.0) / n_updates
                 lr_now = self.learning_rate(frac)
@@ -119,6 +152,16 @@ class CustomPPO2(PPO2):
                     obs, returns, masks, actions, values, neglogpacs, \
                     states, ep_infos, true_reward = rollout
 
+                log(f'Values and Returns of collected experiences: ',
+                    [f'min returns:\t{np.min(returns)}', f'min values:\t\t{np.min(values)}',
+                     f'mean returns:\t{np.mean(returns)}', f'mean values:\t{np.mean(values)}',
+                     f'max returns:\t{np.max(returns)}', f'max values:\t\t{np.max(values)}'])
+
+                if cfg.is_mod(cfg.MOD_REFS_REPLAY) or cfg.is_mod(cfg.MOD_ONLINE_CLONE):
+                    # load ref experiences and treat them as real experiences
+                    obs, actions, returns, masks, values, neglogpacs = \
+                        generate_experiences_from_refs(rollout, self.ref_obs, self.ref_acts)
+
                 callback.on_rollout_end()
 
                 # Early stopping due to the callback
@@ -130,7 +173,9 @@ class CustomPPO2(PPO2):
                 if states is None:  # nonrecurrent version
                     update_fac = self.n_batch // self.nminibatches // self.noptepochs + 1
                     inds = np.arange(self.n_batch)
-                    for epoch_num in range(self.noptepochs):
+                    n_epochs = self.noptepochs \
+                        if not cfg.is_mod(cfg.MOD_ONLINE_CLONE) or update > 9 else 200
+                    for epoch_num in range(n_epochs):
                         np.random.shuffle(inds)
                         for start in range(0, self.n_batch, batch_size):
                             timestep = self.num_timesteps // update_fac + ((self.noptepochs * self.n_batch + epoch_num *
@@ -163,14 +208,6 @@ class CustomPPO2(PPO2):
                 loss_vals = np.mean(mb_loss_vals, axis=0)
                 t_now = time.time()
                 fps = int(self.n_batch / (t_now - t_start))
-
-                if writer is not None:
-                    if self.mirror_experiences: self.n_steps = int(self.n_steps * 2)
-                    total_episode_reward_logger(self.episode_reward,
-                                                true_reward.reshape((self.n_envs, self.n_steps)),
-                                                masks.reshape((self.n_envs, self.n_steps)),
-                                                writer, self.num_timesteps)
-                    if self.mirror_experiences: self.n_steps = int(self.n_steps / 2)
 
                 if self.verbose >= 1 and (update % log_interval == 0 or update == 1):
                     explained_var = explained_variance(values, returns)

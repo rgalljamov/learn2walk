@@ -51,11 +51,16 @@ class MimicEnv:
         True if MimicEnv was already instantiated.
         Workaround (see doc string for _rsinitialized)
         """
+        global _rsinitialized
+
         if not _rsinitialized:
             return False
 
-        if self.refs is None:
+        try:
+            if self.refs is None: pass
+        except:
             log("MimicEnv.step() called before refs were initialized!")
+            _rsinitialized = False
             return False
 
         self.joint_pow_sum_normed = self.get_joint_power_sum_normed()
@@ -487,8 +492,7 @@ class MimicEnv:
         trunk_ang_exceeded = np.abs(trunk_ang_saggit) > 0.7
 
         rew_too_low = rew < rew_threshold
-        max_episode_dur_reached = self.refs.ep_dur >= cfg.ep_dur_max
-        return com_max_dev_exceeded or trunk_ang_exceeded or rew_too_low or max_episode_dur_reached
+        return com_max_dev_exceeded or trunk_ang_exceeded or rew_too_low
 
 
     def is_out_of_ref_distribution(self, state, scale_pos_std=2, scale_vel_std=10):

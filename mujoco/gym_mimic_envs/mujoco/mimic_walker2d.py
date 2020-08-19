@@ -129,7 +129,8 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             else:
                 done = self.has_exceeded_allowed_deviations()
         elif USE_REW_ET:
-            done = self.do_terminate_early(reward, height, ang, rew_threshold=cfg.et_rew_thres)
+            done = self.do_terminate_early(reward, height, ang, rew_threshold=cfg.et_rew_thres) \
+                   or ep_dur >= cfg.ep_dur_max
         else:
             done = not (height > 0.8 and height < 2.0 and
                         ang > -1.0 and ang < 1.0)
@@ -139,7 +140,12 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         # punish episode termination
         if done:
             # but don't punish if episode just reached max length
-            reward = cfg.et_reward if ep_dur < cfg.ep_dur_max else 1
+            if ep_dur < cfg.ep_dur_max:
+                reward = cfg.et_reward
+            else:
+                reward = cfg.ep_end_reward
+                print(f'Successfully reached the end of the episode '
+                      f'after {ep_dur} steps and got reward of ', reward)
             ep_dur = 0
 
         if step_count % 240000 == 0:
