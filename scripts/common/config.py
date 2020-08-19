@@ -100,8 +100,9 @@ MOD_LIN_REW = 'lin_rew'
 # use com x velocity instead of x position for com reward
 MOD_COM_X_VEL = 'com_x_vel'
 # use reference trajectories as a replay buffer
-MOD_REF_REPLAY = 'ref_replay'
-
+MOD_REFS_REPLAY = 'ref_replay'
+# train VF and PI on ref trajectories during the first policy update
+MOD_ONLINE_CLONE = 'online_clone'
 # ------------------
 approach = AP_DEEPMIMIC
 modification = mod([MOD_REF_REPLAY,
