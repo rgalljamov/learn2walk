@@ -248,6 +248,12 @@ class MimicEnv:
             obs = np.concatenate([qpos, qvel]).ravel()
         else:
             obs = np.concatenate([np.array([phase, self.desired_walking_speed]), qpos, qvel]).ravel()
+
+        if cfg.is_mod(cfg.MOD_GROUND_CONTACT):
+            has_contact = np.array(self.has_ground_contact()).astype(np.float)
+            has_contact *= 0.1
+            obs = np.concatenate([has_contact, obs]).ravel()
+
         return obs
 
     def reset_model(self):
@@ -621,3 +627,12 @@ class MimicEnv:
         :returns: A numpy array containing the maximum absolute velocity peaks
                   of each actuated joint. E.g. np.array([6, 12, 12, 6, 12, 12])
         """
+        raise NotImplementedError
+
+
+    def has_ground_contact(self):
+        """
+        :returns: two booleans indicating ground contact of left and right foot.
+        Example: [True, False] means left foot has ground contact, [True, True] indicates double stance.
+        """
+        raise NotImplementedError
