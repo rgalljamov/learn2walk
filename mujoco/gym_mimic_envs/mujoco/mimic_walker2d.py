@@ -190,3 +190,17 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
     def _get_max_actuator_velocities(self):
         """Maximum joint velocities approximated from the reference data."""
         return np.array([5, 10, 10, 5, 10, 10])
+
+
+    def has_ground_contact(self):
+        has_contact = [False, False]
+        for contact in self.data.contact[:10]:
+            if contact.geom1 == 0 and contact.geom2 == 4:
+                # right foot has ground contact
+                has_contact[1] = True
+            elif contact.geom1 == 0 and contact.geom2 == 7:
+                # left foot has ground contact
+                has_contact[0] = True
+        return has_contact
+
+

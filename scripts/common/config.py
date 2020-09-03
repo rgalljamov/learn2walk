@@ -103,9 +103,13 @@ MOD_COM_X_VEL = 'com_x_vel'
 MOD_REFS_REPLAY = 'ref_replay'
 # train VF and PI on ref trajectories during the first policy update
 MOD_ONLINE_CLONE = 'online_clone'
+# input ground contact information
+MOD_GROUND_CONTACT = 'grnd_contact'
+
+
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_REF_REPLAY,
+modification = mod([MOD_GROUND_CONTACT,
                     MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
     ])
 assert_mod_compatibility()
@@ -123,12 +127,13 @@ cliprange = 0.15
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
-wb_project_name = 'ref_replay'
-wb_run_name = f'ret max, val mean, pi(a|s) max'
+wb_project_name = 'ground_contact'
+wb_run_name = f'0/0.1 input - no mirr'
 wb_run_notes = '' \
+               'Actions are normalized angle deltas.' \
 # num of times a batch of experiences is used
 noptepochs = 4
-               'Actions are normalized angle deltas.' \
+
 # ----------------------------------------------------------------------------------
 
 # choose environment
