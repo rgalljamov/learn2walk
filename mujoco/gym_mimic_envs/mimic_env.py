@@ -251,9 +251,7 @@ class MimicEnv:
 
         if cfg.is_mod(cfg.MOD_GROUND_CONTACT):
             has_contact = np.array(self.has_ground_contact()).astype(np.float)
-            has_contact *= 0.1
             obs = np.concatenate([has_contact, obs]).ravel()
-
         return obs
 
     def reset_model(self):
