@@ -105,11 +105,15 @@ MOD_REFS_REPLAY = 'ref_replay'
 MOD_ONLINE_CLONE = 'online_clone'
 # input ground contact information
 MOD_GROUND_CONTACT = 'grnd_contact'
+# train multiple networks for different phases (left/right step, double stance)
+MOD_GROUND_CONTACT_NNS = 'grnd_contact_nns'
+MOD_3_PHASES = '3_phases'
+
 
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_GROUND_CONTACT,
+modification = mod([MOD_GROUND_CONTACT, MOD_GROUND_CONTACT_NNS, MOD_3_PHASES,
                     MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
     ])
 assert_mod_compatibility()
@@ -120,16 +124,17 @@ assert_mod_compatibility()
 DEBUG = False or not sys.gettrace() is None or not utils.is_remote()
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
-rew_weights = '6130' if not is_mod(MOD_FLY) else '7300'
+rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
 ent_coef = 0 # 0.002 # -0.002
 logstd = 0
 cliprange = 0.15
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
-wb_project_name = 'ground_contact'
-wb_run_name = f'0/0.1 input - no mirr'
-wb_run_notes = '' \
+wb_project_name = 'grd_contact_nn'
+# TODO: Test 3 phases having all 1's in double stance! Not tested yet!
+wb_run_name = f'3x1 phases, pi n vf hids'
+wb_run_notes = 'In case of double stance, left and right foot flags remain True!' \
                'Actions are normalized angle deltas.' \
 # num of times a batch of experiences is used
 noptepochs = 4

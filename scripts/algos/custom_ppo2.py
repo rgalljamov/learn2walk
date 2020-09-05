@@ -152,7 +152,8 @@ class CustomPPO2(PPO2):
                     obs, returns, masks, actions, values, neglogpacs, \
                     states, ep_infos, true_reward = rollout
 
-                log(f'Values and Returns of collected experiences: ',
+                if np.random.randint(low=0, high=9, size=1)[0] == 7:
+                    log(f'Values and Returns of collected experiences: ',
                     [f'min returns:\t{np.min(returns)}', f'min values:\t\t{np.min(values)}',
                      f'mean returns:\t{np.mean(returns)}', f'mean values:\t{np.mean(values)}',
                      f'max returns:\t{np.max(returns)}', f'max values:\t\t{np.max(values)}'])

@@ -201,6 +201,8 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             elif contact.geom1 == 0 and contact.geom2 == 7:
                 # left foot has ground contact
                 has_contact[0] = True
+        if cfg.is_mod(cfg.MOD_3_PHASES):
+            has_contact += [all(has_contact)]
         return has_contact
 
 

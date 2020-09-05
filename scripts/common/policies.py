@@ -43,10 +43,33 @@ class CustomPolicy(ActorCriticPolicy):
             if cfg.is_mod(cfg.MOD_PRETRAIN_PI):
                 pi_h = self.load_pretrained_policy_hid_layers('pi_fc_hid', obs, act_func_hid)
                 log('Loading pretrained policy HIDDEN LAYER weights!')
+            elif cfg.is_mod(cfg.MOD_GROUND_CONTACT_NNS):
+                log('Constructing multiple networks for different gait phases!')
+                pi_left = self.fc_hidden_layers('pi_left_hid', obs, cfg.hid_layer_sizes, act_func_hid)
+                pi_right = self.fc_hidden_layers('pi_right_hid', obs, cfg.hid_layer_sizes, act_func_hid)
+                pi_double = self.fc_hidden_layers('pi_double_hid', obs, cfg.hid_layer_sizes, act_func_hid)
+                has_ground_contact_left = tf.stack([obs[:,0]]*cfg.hid_layer_sizes[-1], axis=1)
+                has_ground_contact_right = tf.stack([obs[:,1]]*cfg.hid_layer_sizes[-1], axis=1)
+                has_ground_contact_both = tf.stack([obs[:,2]]*cfg.hid_layer_sizes[-1], axis=1)
+                pi_h = tf.divide(
+                    (tf.multiply(has_ground_contact_left, pi_left)
+                     + tf.multiply(has_ground_contact_right, pi_right)
+                     + tf.multiply(has_ground_contact_both, pi_double)),
+                    (has_ground_contact_left+has_ground_contact_right+has_ground_contact_both))
             else:
                 pi_h = self.fc_hidden_layers('pi_fc_hid', obs, cfg.hid_layer_sizes, act_func_hid)
             # build the value network's hidden layers
-            vf_h = self.fc_hidden_layers('vf_fc_hid', obs, cfg.hid_layer_sizes, act_func_hid)
+            if cfg.is_mod(cfg.MOD_GROUND_CONTACT_NNS):
+                vf_left = self.fc_hidden_layers('vf_left_hid', obs, cfg.hid_layer_sizes, act_func_hid)
+                vf_right = self.fc_hidden_layers('vf_right_hid', obs, cfg.hid_layer_sizes, act_func_hid)
+                vf_double = self.fc_hidden_layers('vf_double_hid', obs, cfg.hid_layer_sizes, act_func_hid)
+                vf_h = tf.divide(
+                (tf.multiply(has_ground_contact_left, vf_left)
+                 + tf.multiply(has_ground_contact_right, vf_right)
+                 + tf.multiply(has_ground_contact_both, vf_double)),
+                (has_ground_contact_left + has_ground_contact_right + has_ground_contact_both))
+            else:
+                vf_h = self.fc_hidden_layers('vf_fc_hid', obs, cfg.hid_layer_sizes, act_func_hid)
             # build the output layer of the policy (init_scale as proposed by stable-baselines)
             self._proba_distribution, self._policy, self.q_value = \
                 self.pdtype.proba_distribution_from_latent(pi_h, vf_h, init_scale=0.01)
