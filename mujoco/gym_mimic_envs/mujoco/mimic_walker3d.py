@@ -1,5 +1,6 @@
 import numpy as np
 from gym import utils
+from os.path import join, dirname
 from gym.envs.mujoco import mujoco_env
 from gym_mimic_envs.mimic_env import MimicEnv
 from scripts.mocap import ref_trajecs as refs
@@ -24,14 +25,14 @@ qvel_indices = [refs.COM_VELX, refs.COM_VELY, refs.COM_VELZ,
 
 
 class MimicWalker3dEnv(mujoco_env.MujocoEnv, utils.EzPickle, MimicEnv):
-    '''The 3D bipedal walker model from Guoping Zhao.
-       The reference data used in this work were initially developed for this environment.
-       Therefore this environment was used to play back the reference trajectories
-       and thus test whether we've correctly interpreted them.'''
+    '''
+    The 2D Mujoco Walker from OpenAI Gym extended to match
+    the 3D bipedal walker model from Guoping Zhao.
+    '''
 
     def __init__(self):
-        mujoco_env.MujocoEnv.__init__(self, "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/"
-                                            "mujoco/gym_mimic_envs/mujoco/assets/human7segment.xml", 4)
+        mujoco_env.MujocoEnv.__init__(self,
+                                      join(dirname(__file__), "assets","walker3pd.xml"), 4)
         utils.EzPickle.__init__(self)
         # init the mimic environment, automatically loads and inits ref trajectories
         global qpos_indices, qvel_indices
