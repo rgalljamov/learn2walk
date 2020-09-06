@@ -113,8 +113,8 @@ MOD_3_PHASES = '3_phases'
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_GROUND_CONTACT, MOD_GROUND_CONTACT_NNS, MOD_3_PHASES,
-                    MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
+modification = mod([MOD_MIRROR_EXPS,
+                    MOD_CUSTOM_POLICY,
     ])
 assert_mod_compatibility()
 
@@ -133,8 +133,10 @@ STEPS_PER_VEL = 1
 
 wb_project_name = 'grd_contact_nn'
 # TODO: Test 3 phases having all 1's in double stance! Not tested yet!
-wb_run_name = f'3x1 phases, pi n vf hids'
-wb_run_notes = 'In case of double stance, left and right foot flags remain True!' \
+wb_run_name = f'TRQ DMM + MIRR'
+wb_run_notes = 'Training now a torque model. Outputting values between 0 and 1 ' \
+               'resulting in torques between - and + 300 Nm.' \
+               'In case of double stance, left and right foot flags remain True!' \
                'Actions are normalized angle deltas.' \
 # num of times a batch of experiences is used
 noptepochs = 4
@@ -142,9 +144,9 @@ noptepochs = 4
 # ----------------------------------------------------------------------------------
 
 # choose environment
-envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
-env_names = ['mim2d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 0
+envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
+env_names = ['mim2d', 'mim_trq2d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
+env_index = 1
 env_id = envs[env_index]
 env_name = env_names[env_index]
 
