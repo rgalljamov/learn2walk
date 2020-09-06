@@ -1,11 +1,12 @@
-<mujoco model="walker2d">
+<mujoco model="walker2pd">
   <compiler angle="radian" coordinate="local" inertiafromgeom="false"/>
   <visual>
 	    <scale framelength='0.5' framewidth='0.0075' forcewidth='0.0075' contactwidth='0.1' contactheight='0.01'/>
   </visual>
   <default>
     <joint armature="0.01" limited="true" />
-    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="300" forcelimited="true" forcerange="-300 300"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100"/>
+    <position ctrllimited="true" forcelimited="true" forcerange="-300 300" gear="1"/>
     <geom conaffinity="0" condim="3" contype="1" density="1000" friction=".7 .1 .1" rgba="0.8 0.6 .4 1"/>
   </default>
   <option integrator="RK4" timestep="0.001"/>
@@ -54,19 +55,21 @@
     </body>
   </worldbody>
   <actuator>
-    <motor joint="hip_joint_right"/>
-    <motor joint="knee_joint_right"/>
-    <motor joint="ankle_joint_right"/>
-    <motor joint="hip_left_joint"/>
-    <motor joint="knee_left_joint"/>
-    <motor joint="ankle_left_joint"/>
-    <!-- <position joint="hip_joint_right"   kp="3200"  ctrlrange="-0.8727 0.8727"/>
-    <position joint="knee_joint_right"  kp="1600"  ctrlrange="0.0 2.6180"/>
-    <position joint="ankle_joint_right" kp="2800"  ctrlrange="-0.3491 0.6981"/>
-    <position joint="hip_left_joint"    kp="3200"  ctrlrange="-0.8727 0.8727"/>
-    <position joint="knee_left_joint"   kp="1600"  ctrlrange="0.0 2.6180"/>
-    <position joint="ankle_left_joint"  kp="2800"  ctrlrange="-0.3491 0.6981"/>
+    <!-- <motor joint="torso_joint" ctrlrange="-100.0 100.0" isctrllimited="true"/>-->
+    <!-- Uncommented original torque motors
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="hip_joint_right"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="knee_joint_right"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="ankle_joint_right"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="hip_left_joint"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="knee_left_joint"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="ankle_left_joint"/>
     -->
+    <position joint="hip_joint_right"   kp="3200"  ctrlrange="-0.8727 0.8727"/> 
+    <position joint="knee_joint_right"  kp="1600"  ctrlrange="0.0 2.6180"/> 
+    <position joint="ankle_joint_right" kp="2800"  ctrlrange="-0.3491 0.6981"/> 
+    <position joint="hip_left_joint"    kp="3200"  ctrlrange="-0.8727 0.8727"/> 
+    <position joint="knee_left_joint"   kp="1600"  ctrlrange="0.0 2.6180"/> 
+    <position joint="ankle_left_joint"  kp="2800"  ctrlrange="-0.3491 0.6981"/> 
   </actuator>
     <asset>
         <texture type="skybox" builtin="gradient" rgb1=".4 .5 .6" rgb2="0 0 0"

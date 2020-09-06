@@ -34,8 +34,10 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
     Building upon the Walker2d-v2 Environment with the id: Walker2d-v2
     """
     def __init__(self):
+        walker_xml = {'mim2d': 'walker2pd.xml',
+                      'mim_trq2d': 'walker2d.xml'}[cfg.env_name]
         mujoco_env.MujocoEnv.__init__(self,
-                                      join(dirname(__file__), "assets", 'walker2d.xml'), 4)
+                                      join(dirname(__file__), "assets", walker_xml), 4)
         utils.EzPickle.__init__(self)
         # init the mimic environment, automatically loads and inits ref trajectories
         MimicEnv.__init__(self,
