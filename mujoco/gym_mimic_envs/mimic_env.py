@@ -152,7 +152,7 @@ class MimicEnv:
             else:
                 done = self.has_exceeded_allowed_deviations()
         elif USE_REW_ET:
-            done = self.do_terminate_early(reward, height, ang, rew_threshold=cfg.et_rew_thres) \
+            done = self.do_terminate_early(reward, rew_threshold=cfg.et_rew_thres) \
                    or ep_dur >= cfg.ep_dur_max
         else:
             done = not (height > 0.8 and height < 2.0 and
@@ -237,6 +237,16 @@ class MimicEnv:
 
     def get_force_ranges(self):
         return np.copy(self.model.actuator_forcerange)
+
+    def get_max_qpos_deltas(self):
+        """Returns the scalars needed to rescale the normalized actions from the agent."""
+        # get max allowed deviations in actuated joints
+        max_vels = self._get_max_actuator_velocities()
+        # double max deltas for better perturbation recovery
+        # to keep balance the agent might require to output
+        # angles that are not reachable to saturate the motors
+        max_qpos_deltas = 2 * max_vels / self.control_freq
+        return max_qpos_deltas
 
     def playback_ref_trajectories(self, timesteps=2000, pd_pos_control=False):
         global _play_ref_trajecs
@@ -589,14 +599,17 @@ class MimicEnv:
 
         return imit_rew
 
-    def do_terminate_early(self, rew, com_height, trunk_ang_saggit,
-                           rew_threshold = 0.05):
+    def do_terminate_early(self, rew, rew_threshold = 0.05):
         """
         Early Termination based on reward, falling and episode duration
         """
         if (not _rsinitialized) or _play_ref_trajecs:
             # ET only works after RSI was executed
             return False
+
+        qpos = self.get_qpos()
+        com_height = qpos[self._get_COM_indices()[-1]]
+        trunk_ang_saggit = qpos[self._get_saggital_trunk_joint_index()]
 
         # calculate if allowed com height was exceeded (e.g. walker felt down)
         com_height_des = self.refs.get_com_height()
@@ -722,6 +735,10 @@ class MimicEnv:
 
         Caution: Do not include trunk joints here.
         """
+        raise NotImplementedError
+
+    def _get_saggital_trunk_joint_index(self):
+        """ Return the index of the trunk euler rotation in the saggital plane. """
         raise NotImplementedError
 
     def _get_not_actuated_joint_indices(self):
