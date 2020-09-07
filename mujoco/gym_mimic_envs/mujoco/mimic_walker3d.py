@@ -75,8 +75,7 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
 
     def _get_max_actuator_velocities(self):
         """Maximum joint velocities approximated from the reference data."""
-        # todo: Warning('Determine max actuator velocities for hip in the frontal plane!')
-        return np.array([5, 5, 10, 10, 5, 5, 10, 10])
+        return np.array([5, 1, 10, 10, 5, 1, 10, 10])
 
     def has_ground_contact(self):
         has_contact = [False, False]
