@@ -4,7 +4,7 @@ Interface for environments using reference trajectories.
 import gym, mujoco_py
 import numpy as np
 from scripts.common import config as cfg
-from scripts.common.utils import log
+from scripts.common.utils import log, is_remote
 from scripts.mocap.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 # double max deltas for better perturbation recovery. To keep balance,
@@ -17,6 +17,13 @@ _rsinitialized = False
 
 # flag if ref trajectories are played back
 _play_ref_trajecs = False
+
+# pause sim on startup to be able to change rendering speed, camera perspective etc.
+pause_viewer_at_first_step = True and not is_remote()
+
+# monitor episode duration
+step_count = 0
+ep_dur = 0
 
 class MimicEnv:
 
@@ -44,7 +51,7 @@ class MimicEnv:
         # self.kinem_stds = self.kinem_stds[self.refs.qpos_is + self.refs.qvel_is]
 
 
-    def step(self):
+    def step(self, a):
         """
         Returns
         -------
@@ -54,18 +61,125 @@ class MimicEnv:
         global _rsinitialized
 
         if not _rsinitialized:
-            return False
+            obs = self._get_obs()
+            return obs, -3.33, False, {}
 
         try:
             if self.refs is None: pass
         except:
             log("MimicEnv.step() called before refs were initialized!")
             _rsinitialized = False
-            return False
+            obs = self._get_obs()
+            return obs, -3.33, False, {}
 
         self.joint_pow_sum_normed = self.get_joint_power_sum_normed()
         self.refs.next()
-        return True
+
+        # pause sim on startup to be able to change rendering speed, camera perspective etc.
+        global pause_viewer_at_first_step
+        if pause_viewer_at_first_step:
+            self._get_viewer('human')._paused = True
+            pause_viewer_at_first_step = False
+
+        DEBUG = False
+
+        global step_count, ep_dur
+        step_count += 1
+        ep_dur += 1
+
+        qpos_before = np.copy(self.sim.data.qpos)
+        qvel_before = np.copy(self.sim.data.qvel)
+
+        posbefore = qpos_before[0]
+
+        # hold the agent in the air
+        if self._FLY:
+            # get current joint angles and velocities
+            qpos_set = np.copy(qpos_before)
+            qvel_set = np.copy(qvel_before)
+            # fix COM position, trunk rotation and corresponding velocities
+            qpos_set[[0, 1, 2]] = [0, 1.2, 0]
+            qvel_set[[0, 1, 2, ]] = [0, 0, 0]
+            self.set_joint_kinematics_in_sim(qpos_set, qvel_set)
+
+        # save qpos of actuated joints for reward calculation
+        qpos_act_before_step = self.get_qpos(True, True)
+
+        # policy outputs qpos deltas
+        if cfg.is_mod(cfg.MOD_PI_OUT_DELTAS):
+            if cfg.is_mod(cfg.MOD_NORM_ACTS):
+                # rescale actions to actual bounds
+                a *= self.get_max_qpos_deltas()
+            a = qpos_act_before_step + a
+
+        # execute simulation with desired action for multiple steps
+        self.do_simulation(a, self._frame_skip)
+
+        qpos_after = self.sim.data.qpos
+        qvel_after = self.sim.data.qvel
+
+        posafter, height, ang = qpos_after[0:3]
+
+        qpos_delta0 = qpos_before[0] - qpos_after[0]
+        qpos_delta = qpos_after - qpos_before
+
+        alive_bonus = 1.0
+        com_x_vel_finite_difs = (posafter - posbefore) / self.dt
+        com_x_vel_qvel = self.sim.data.qvel[0]
+        com_x_vel_delta = com_x_vel_finite_difs - com_x_vel_qvel
+        qvel_findifs = (qpos_delta) / self.dt
+        qvel_delta = qvel_after - qvel_findifs
+
+        # get state observation after simulation step
+        obs = self._get_obs()
+
+        USE_DMM_REW = True and not cfg.do_run()
+        if USE_DMM_REW:
+            reward = self.get_imitation_reward(qpos_act_before_step, a)
+            if DEBUG: print('Reward ', reward)
+        else:
+            reward = (com_x_vel_finite_difs)
+            reward += alive_bonus
+            reward -= 1e-3 * np.square(a).sum()
+
+        USE_ET = False or cfg.is_mod(cfg.MOD_REF_STATS_ET)
+        USE_REW_ET = True and not cfg.do_run() and not USE_ET
+        if self.is_evaluation_on():
+            done = height < 0.5
+        elif USE_ET:
+            if cfg.is_mod(cfg.MOD_REF_STATS_ET):
+                done = self.is_out_of_ref_distribution(obs)
+            else:
+                done = self.has_exceeded_allowed_deviations()
+        elif USE_REW_ET:
+            done = self.do_terminate_early(reward, rew_threshold=cfg.et_rew_thres) \
+                   or ep_dur >= cfg.ep_dur_max
+        else:
+            done = not (height > 0.8 and height < 2.0 and
+                        ang > -1.0 and ang < 1.0)
+            done = done or ep_dur > cfg.ep_dur_max
+        if DEBUG and done: print('Done')
+
+        # punish episode termination
+        if done:
+            # but don't punish if episode just reached max length
+            if ep_dur < cfg.ep_dur_max:
+                reward = cfg.et_reward
+            else:
+                reward = cfg.ep_end_reward
+                print(f'Successfully reached the end of the episode '
+                      f'after {ep_dur} steps and got reward of ', reward)
+            ep_dur = 0
+
+        if step_count % 240000 == 0:
+            print("start rendering, step: ", step_count)
+            # do_render = True
+            # pause_viewer_at_first_step = True
+        elif step_count % 250000 == 0:
+            print("stop rendering, step: ", step_count)
+            # do_render = False
+
+        return obs, reward, done, {}
 
     def get_sim_freq_and_frameskip(self):
         """
@@ -123,6 +237,16 @@ class MimicEnv:
 
     def get_force_ranges(self):
         return np.copy(self.model.actuator_forcerange)
+
+    def get_max_qpos_deltas(self):
+        """Returns the scalars needed to rescale the normalized actions from the agent."""
+        # get max allowed deviations in actuated joints
+        max_vels = self._get_max_actuator_velocities()
+        # double max deltas for better perturbation recovery
+        # to keep balance the agent might require to output
+        # angles that are not reachable to saturate the motors
+        max_qpos_deltas = 2 * max_vels / self.control_freq
+        return max_qpos_deltas
 
     def playback_ref_trajectories(self, timesteps=2000, pd_pos_control=False):
         global _play_ref_trajecs
@@ -475,14 +599,17 @@ class MimicEnv:
 
         return imit_rew
 
-    def do_terminate_early(self, rew, com_height, trunk_ang_saggit,
-                           rew_threshold = 0.05):
+    def do_terminate_early(self, rew, rew_threshold = 0.05):
         """
         Early Termination based on reward, falling and episode duration
         """
         if (not _rsinitialized) or _play_ref_trajecs:
             # ET only works after RSI was executed
             return False
+
+        qpos = self.get_qpos()
+        com_height = qpos[self._get_COM_indices()[-1]]
+        trunk_ang_saggit = qpos[self._get_saggital_trunk_joint_index()]
 
         # calculate if allowed com height was exceeded (e.g. walker felt down)
         com_height_des = self.refs.get_com_height()
@@ -605,7 +732,13 @@ class MimicEnv:
 
         Returns a list of indices pointing at COM joint position/index
         in the considered robot model, e.g. [0,1,2]
+
+        Caution: Do not include trunk joints here.
         """
+        raise NotImplementedError
+
+    def _get_saggital_trunk_joint_index(self):
+        """ Return the index of the trunk euler rotation in the saggital plane. """
         raise NotImplementedError
 
     def _get_not_actuated_joint_indices(self):
@@ -615,7 +748,7 @@ class MimicEnv:
 
         @returns a list of indices specifying indices of
         joints in the considered robot model that are not actuated.
-        Example: return [0,1,2,6,7]
+        Example: return [0,1,2]
         """
         raise NotImplementedError
 

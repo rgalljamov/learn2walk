@@ -6,6 +6,7 @@ import gym, time, mujoco_py
 # necessary to import custom gym environments
 import gym_mimic_envs
 from gym_mimic_envs.monitor import Monitor
+from gym_mimic_envs.mujoco.mimic_walker2d import MimicWalker2dEnv
 from stable_baselines import PPO2
 from scripts.common.utils import load_env
 from scripts.common import config as cfg
@@ -14,9 +15,9 @@ FLY = False
 DETERMINISTIC_ACTIONS = True
 RENDER = True
 
-SPEED_CONTROL = True
+SPEED_CONTROL = False
 
-FROM_PATH = True
+FROM_PATH = False
 PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
        "refs_ramp/fixed_skips/skip_after/normd_com_vel/mirr_exps/cstm_pi/" \
        "pi_deltas/norm_acts/mim2d/8envs/ppo2/32mio/435-evaled"
@@ -38,7 +39,7 @@ if FROM_PATH:
     env = load_env(checkpoint, PATH, cfg.env_id)
 
 else:
-    env = gym.make('MimicWalker2d-v0')
+    env = gym.make(cfg.env_id)
     env = Monitor(env)
     # env.playback_ref_trajectories(10000, pd_pos_control=True)
 
@@ -79,7 +80,7 @@ for i in range(10000):
         obs, reward, done, _ = env.step(des_qpos)
 
     # only stop episode when agent has fallen
-    done = env.data.qpos[1] < 0.5
+    done = env.data.qpos[env.env._get_COM_indices()[-1]] < 0.5
 
     if RENDER: env.render()
     if done:

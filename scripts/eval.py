@@ -4,6 +4,7 @@ import numpy as np
 from scripts.common import utils
 from scripts.common import config as cfg
 from gym_mimic_envs.monitor import Monitor as EnvMonitor
+from gym_mimic_envs.mujoco.mimic_walker2d import MimicWalker2dEnv
 
 # to decrease the amount of deprecation warnings
 import tensorflow as tf
@@ -19,15 +20,16 @@ PLOT_RESULTS = False
 DETERMINISTIC_ACTIONS = True
 
 FROM_PATH = True
-PATH = "/home/rustam/code/remote/models/test/deepmim/orig/mim_walker2d/16envs/ppo2/16mio/412-evaled"
+PATH = "/home/rustam/code/remote/models/dmm/" \
+       "cstm_pi/pi_deltas/norm_acts/mim3d/8envs/ppo2/20mio/364-evaled-ret-12300"
 if not PATH.endswith('/'): PATH += '/'
 
 # which model should be evaluated
-run_id = 78
-checkpoint =  'mean_rew55_3M' # 'mean_rew60_12M' # 'ep_ret5500' # 999
+run_id = 364
+checkpoint =  '999' # 'mean_rew60_12M' # 'ep_ret5500' # 999
 
 # evaluate for n episodes
-n_eps = 5
+n_eps = 1
 # how many actions to record in each episode
 rec_n_steps = 1000
 
@@ -239,7 +241,7 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
     env.close()
 
     # rename folder to mark it as evaluated
-    path_evaled = save_path[:-1] + f'-evaled-ret{np.mean(all_returns)}'
+    path_evaled = save_path[:-1] + f'-evaled-ret{int(np.mean(all_returns))}'
     os.rename(save_path[:-1], path_evaled)
 
     # upload videos to wandb
@@ -251,7 +253,8 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
     # wandb.log({"video": wandb.Video(mp4_paths[1], fps=4, format='mp4')})
 
 def has_fallen(video_env):
-    com_z_pos = video_env.env.venv.envs[0].env.data.qpos[1]
+    mimic_env = video_env.env.venv.envs[0].env
+    com_z_pos = mimic_env.data.qpos[mimic_env._get_COM_indices()[-1]]
     return com_z_pos < 0.5
 
 
