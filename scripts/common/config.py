@@ -1,10 +1,9 @@
 # suppress the annoying TF Warnings at startup
-import warnings
+import warnings, sys
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 import numpy as np
-from os.path import dirname
 from scripts.common import utils
 
 def s(input):
@@ -100,46 +99,66 @@ MOD_IMPROVE_REW = 'improve_rew'
 MOD_LIN_REW = 'lin_rew'
 # use com x velocity instead of x position for com reward
 MOD_COM_X_VEL = 'com_x_vel'
+# use reference trajectories as a replay buffer
+MOD_REFS_REPLAY = 'ref_replay'
+# train VF and PI on ref trajectories during the first policy update
+MOD_ONLINE_CLONE = 'online_clone'
+# input ground contact information
+MOD_GROUND_CONTACT = 'grnd_contact'
+# train multiple networks for different phases (left/right step, double stance)
+MOD_GROUND_CONTACT_NNS = 'grnd_contact_nns'
+MOD_3_PHASES = '3_phases'
+
+
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_IMPROVE_REW, MOD_COM_X_VEL, MOD_MIRROR_EXPS,
-                    MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
+modification = mod([
+    MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS
     ])
 assert_mod_compatibility()
 
 # ----------------------------------------------------------------------------------
 # Weights and Biases
 # ----------------------------------------------------------------------------------
-DEBUG = False
+DEBUG = False or not sys.gettrace() is None or not utils.is_remote()
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
-rew_weights = '6130' if not is_mod(MOD_FLY) else '7300'
+rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
 ent_coef = 0 # 0.002 # -0.002
 logstd = 0
-et_reward = -100 # reward for a terminal state
 cliprange = 0.15
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
-wb_project_name = 'intermediate'
-wb_run_name = f'mirror + improved rew + com x vel'
-wb_run_notes = 'Using improved normalized rewards with com x vel instead of com x pos! ' \
-               'Actions are normalized angle deltas.' \
+wb_project_name = 'walk3d'
+wb_run_name = f'normed deltas rew811'
+wb_run_notes = 'Use better reward weighting! Outputing normed angle deltas! ' \
+               'Deep Mimic with hypers from the 2D walker. ' \
+               'Minibatch-Size is already set to 512, which was actually' \
+               'an improvement learned later!'
+               # 'Actions are normalized angle deltas.'
+# num of times a batch of experiences is used
+noptepochs = 4
+
 # ----------------------------------------------------------------------------------
 
 # choose environment
-envs = ['MimicWalker2d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
-env_names = ['mim2d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 0
+envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
+env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
+env_index = 2
 env_id = envs[env_index]
 env_name = env_names[env_index]
 
 # choose hyperparams
 algo = 'ppo2'
+# reward the agent gets when max episode length was reached
+ep_end_reward = 10
+# reward for an early terminal state
+et_reward = -100
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
-mio_steps = 4 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
+mio_steps = 20 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
 minibatch_size = 512
@@ -161,7 +180,7 @@ info_baseline_hyp_tune = f'hl{s(hid_layer_sizes)}_ent{int(ent_coef * 1000)}_lr{l
        f'bs{int(batch_size/1000)}_imrew{rew_weights}_gam{int(gamma*1e3)}'
 
 # construct the paths
-abs_project_path = dirname(dirname(dirname(__file__))) + '/'
+abs_project_path = utils.get_absolute_project_path()
 _mod_path = ('debug/' if DEBUG else '') + \
             f'{approach}/{modification}/{env_name}/{n_envs}envs/' \
             f'{algo}/{mio_steps}mio/'
