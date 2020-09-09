@@ -14,18 +14,18 @@ from stable_baselines import PPO2
 plt = utils.import_pyplot()
 
 
-RENDER = False and not utils.is_remote()
+RENDER = True and not utils.is_remote()
 NO_ET = True
 PLOT_RESULTS = False
 DETERMINISTIC_ACTIONS = True
 
 FROM_PATH = True
-PATH = "/home/rustam/code/remote/models/dmm/" \
-       "cstm_pi/pi_deltas/norm_acts/mim3d/8envs/ppo2/20mio/364-evaled-ret-12300"
+PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/mirr_exps/cstm_pi/pi_deltas/norm_acts/" \
+       "mim3d/8envs/ppo2/1.0mio/672-evaled-ret-12901"
 if not PATH.endswith('/'): PATH += '/'
 
 # which model should be evaluated
-run_id = 364
+run_id = 672
 checkpoint =  '999' # 'mean_rew60_12M' # 'ep_ret5500' # 999
 
 # evaluate for n episodes
@@ -55,7 +55,6 @@ def eval_model(from_config=True):
     else:
         save_path = cfg.save_path_norun + f'{run_id}/'
 
-
     # load model
     model_path = save_path + f'models/model_{checkpoint}.zip'
     model = PPO2.load(load_path=model_path)
@@ -63,7 +62,8 @@ def eval_model(from_config=True):
     print('\nModel:\n', model_path + '\n')
 
     env = utils.load_env(checkpoint, save_path, cfg.env_id)
-    env.venv.envs[0].activate_evaluation()
+    mimic_env = env.venv.envs[0]
+    mimic_env.activate_evaluation()
 
     ep_rewards, all_returns, ep_durations = [], [], []
     all_rewards = np.zeros((n_eps, rec_n_steps))
@@ -206,18 +206,22 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
                                          record_video_trigger=lambda x: x > 0,
                                          video_length=video_n_steps,
                                          name_prefix=f'{ep_name}_{int(ep_ret)}_')
-            if 'fly' in save_path:
-                video_env.env.venv.envs[0].env._FLY = True
-                print('flight detected')
-            obs = video_env.reset()
+            # access the wrapped mimic environment
+            mimic_env = video_env.env.venv.envs[0].env
+            mimic_env.activate_evaluation()
 
+            if 'fly' in save_path:
+                mimic_env._FLY = True
+                print('flight detected')
+
+            obs = video_env.reset()
 
             while step <= video_n_steps:
                 action, hid_states = model.predict(obs, deterministic=DETERMINISTIC_ACTIONS)
                 obs, reward, done, info = video_env.step(action)
                 step += 1
                 # only reset when agent has fallen
-                if has_fallen(video_env):
+                if has_fallen(mimic_env):
                     video_env.reset()
 
             video_env.close()
@@ -252,10 +256,9 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
     wandb.log({"video": wandb.Video(mp4_paths[0], fps=16, format='gif')})
     # wandb.log({"video": wandb.Video(mp4_paths[1], fps=4, format='mp4')})
 
-def has_fallen(video_env):
-    mimic_env = video_env.env.venv.envs[0].env
+def has_fallen(mimic_env):
     com_z_pos = mimic_env.data.qpos[mimic_env._get_COM_indices()[-1]]
-    return com_z_pos < 0.5
+    return com_z_pos < 0.25
 
 
 if __name__ == "__main__":
