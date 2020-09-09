@@ -118,7 +118,8 @@ class MimicEnv:
         qpos_after = self.sim.data.qpos
         qvel_after = self.sim.data.qvel
 
-        posafter, height, ang = qpos_after[0:3]
+        posafter, _, ang = qpos_after[0:3]
+        com_z_pos = qpos_after[self._get_COM_indices()[-1]]
 
         qpos_delta0 = qpos_before[0] - qpos_after[0]
         qpos_delta = qpos_after - qpos_before
@@ -145,7 +146,7 @@ class MimicEnv:
         USE_ET = False or cfg.is_mod(cfg.MOD_REF_STATS_ET)
         USE_REW_ET = True and not cfg.do_run() and not USE_ET
         if self.is_evaluation_on():
-            done = height < 0.5
+            done = com_z_pos < 0.5
         elif USE_ET:
             if cfg.is_mod(cfg.MOD_REF_STATS_ET):
                 done = self.is_out_of_ref_distribution(obs)
@@ -155,7 +156,7 @@ class MimicEnv:
             done = self.do_terminate_early(reward, rew_threshold=cfg.et_rew_thres) \
                    or ep_dur >= cfg.ep_dur_max
         else:
-            done = not (height > 0.8 and height < 2.0 and
+            done = not (com_z_pos > 0.8 and com_z_pos < 2.0 and
                         ang > -1.0 and ang < 1.0)
             done = done or ep_dur > cfg.ep_dur_max
         if DEBUG and done: print('Done')
