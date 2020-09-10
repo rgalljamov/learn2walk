@@ -114,7 +114,7 @@ MOD_3_PHASES = '3_phases'
 # ------------------
 approach = AP_DEEPMIMIC
 modification = mod([
-    MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS
+    MOD_CUSTOM_POLICY
     ])
 assert_mod_compatibility()
 
@@ -131,22 +131,23 @@ cliprange = 0.15
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
-wb_project_name = 'walk3d'
-wb_run_name = f'normed deltas rew811'
-wb_run_notes = 'Use better reward weighting! Outputing normed angle deltas! ' \
-               'Deep Mimic with hypers from the 2D walker. ' \
+# TODO: Try cliprange scheduling... start with a big one, reduce to a small one...
+wb_project_name = 'trq3d_bench'
+wb_run_name = f'baseline 20M, higher LR1'
+wb_run_notes = '' \
+               'Normalized Actions: 1 -> 300Nm. ' \
+               'Adjusted hypers from the 2D walker. ' \
                'Minibatch-Size is already set to 512, which was actually' \
                'an improvement learned later!'
-               # 'Actions are normalized angle deltas.'
 # num of times a batch of experiences is used
 noptepochs = 4
 
 # ----------------------------------------------------------------------------------
 
 # choose environment
-envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
-env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 2
+envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
+env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
+env_index = 3
 env_id = envs[env_index]
 env_name = env_names[env_index]
 
@@ -163,11 +164,11 @@ n_envs = 8 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
 minibatch_size = 512
 n_mini_batches = int(batch_size / minibatch_size)
-hid_layer_sizes = [128, 128]
-lr_start = 1500
+hid_layer_sizes = [256]*2
+lr_start = 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
-lr_final = 0 # int((lr_start*(1-slope))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
+lr_final = 0.5 # int((lr_start*(1-slope))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 gamma = 0.99
 _ep_dur_in_k = 4
 ep_dur_max = int(_ep_dur_in_k * 1e3) + 100

@@ -210,7 +210,7 @@ class Monitor(gym.Wrapper):
             if self.SPEED_CONTROL:
                 plt.ylabel(y_labels[i_joint])
             else:
-                plt.title(self.kinem_labels[i_joint])
+                plt.title(f'{i_joint}. ' + self.kinem_labels[i_joint])
         lines.append(line[0])
 
         # plot ref trajec distributions (mean + 2std)
