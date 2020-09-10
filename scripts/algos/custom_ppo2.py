@@ -63,8 +63,8 @@ def mirror_experiences(rollout):
     # the other values should stay the same for the mirrored experiences
     returns = np.concatenate((returns, returns))
     masks = np.concatenate((masks, masks))
-    values = np.concatenate((values, values))
-    neglogpacs = np.concatenate((neglogpacs, neglogpacs))
+    values = np.concatenate((values, values)) # todo: query VF network to get the values of mirrored obs
+    neglogpacs = np.concatenate((neglogpacs, neglogpacs)) # todo: query learned gaussian policy to get log[p(a|s)]
     true_reward = np.concatenate((true_reward, true_reward))
 
     assert true_reward.shape[0] == cfg.batch_size*2

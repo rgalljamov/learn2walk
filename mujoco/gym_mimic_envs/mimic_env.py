@@ -246,7 +246,7 @@ class MimicEnv:
         # double max deltas for better perturbation recovery
         # to keep balance the agent might require to output
         # angles that are not reachable to saturate the motors
-        max_qpos_deltas = 2 * max_vels / self.control_freq
+        max_qpos_deltas = SCALE_MAX_VELS * max_vels / self.control_freq
         return max_qpos_deltas
 
     def playback_ref_trajectories(self, timesteps=2000, pd_pos_control=False):

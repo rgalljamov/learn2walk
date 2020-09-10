@@ -34,6 +34,7 @@ def init_wandb(model):
         "mod": cfg.modification,
         "lr0": cfg.lr_start,
         "lr1": cfg.lr_final,
+        'hid_sizes': cfg.hid_layer_sizes,
         "noptepochs": cfg.noptepochs,
         "batch_size": batch_size,
         "n_mini_batches": model.nminibatches,
@@ -58,7 +59,6 @@ def init_wandb(model):
         "vf_coef": model.vf_coef,
         "max_grad_norm": model.max_grad_norm,
         "nminibatches": model.nminibatches,
-        "noptepochs": model.noptepochs,
         "cliprange": model.cliprange,
         "cliprange_vf": model.cliprange_vf,
         "n_cpu_tf_sess": model.n_cpu_tf_sess}
