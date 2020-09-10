@@ -33,8 +33,10 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
     '''
 
     def __init__(self):
+        walker_xml = {'mim3d': 'walker3pd.xml',
+                      'mim_trq3d': 'walker3d.xml'}[cfg.env_name]
         mujoco_env.MujocoEnv.__init__(self,
-                                      join(dirname(__file__), "assets", "walker3pd.xml"), 4)
+                                      join(dirname(__file__), "assets", walker_xml), 4)
         utils.EzPickle.__init__(self)
         # init the mimic environment, automatically loads and inits ref trajectories
         global qpos_indices, qvel_indices
