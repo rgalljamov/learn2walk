@@ -59,7 +59,8 @@ def init_wandb(model):
         "vf_coef": model.vf_coef,
         "max_grad_norm": model.max_grad_norm,
         "nminibatches": model.nminibatches,
-        "cliprange": model.cliprange,
+        "clip0": cfg.clip_start,
+        "clip1": cfg.clip_end,
         "cliprange_vf": model.cliprange_vf,
         "n_cpu_tf_sess": model.n_cpu_tf_sess}
 
@@ -88,6 +89,7 @@ def train():
     # setup model/algorithm
     training_timesteps = int(cfg.mio_steps * 1e6 * 1.05)
     learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
+    clip_schedule = LinearSchedule(cfg.clip_start, cfg.clip_end).value
     network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
                     'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else {}
 
@@ -95,7 +97,8 @@ def train():
                        env, verbose=1, n_steps=int(cfg.batch_size/cfg.n_envs),
                        policy_kwargs=network_args, nminibatches=cfg.n_mini_batches,
                        learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
-                       gamma=cfg.gamma, cliprange=cfg.cliprange, noptepochs=cfg.noptepochs,
+                       gamma=cfg.gamma, noptepochs=cfg.noptepochs, cliprange_vf=cfg.cliprange,
+                       cliprange=clip_schedule if cfg.is_mod(cfg.MOD_CLIPRANGE_SCHED) else cfg.cliprange,
                        tensorboard_log=cfg.save_path + 'tb_logs/')
 
     # init wandb

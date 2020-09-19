@@ -113,12 +113,13 @@ MOD_GRND_CONTACT_ONE_HOT = 'grnd_1hot'
 # train multiple networks for different phases (left/right step, double stance)
 MOD_GROUND_CONTACT_NNS = 'grnd_contact_nns'
 MOD_3_PHASES = '3_phases'
+MOD_CLIPRANGE_SCHED = 'clip_sched'
 
 
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([
+modification = mod([MOD_CLIPRANGE_SCHED,
     MOD_CUSTOM_POLICY
     ])
 assert_mod_compatibility()
@@ -133,13 +134,15 @@ rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
 ent_coef = 0 # 0.002 # -0.002
 logstd = 0
 cliprange = 0.15
+clip_start = 0.3 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
+clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
-# TODO: Try cliprange scheduling... start with a big one, reduce to a small one...
 wb_project_name = 'trq3d_eval'
-wb_run_name = f'bsln + smaller l1 = 0.001'
-wb_run_notes = 'Making learning rate decay steeper to avoid performance drops after reaching stable walking! ' \
+wb_run_name = f'LIN clip_sched {clip_start} - {clip_end}'
+wb_run_notes = 'Linear cliprange scheduling! ' \
+               'Making learning rate decay steeper to avoid performance drops after reaching stable walking! ' \
                'Normalized Actions: 1 -> 300Nm. ' \
                'Adjusted hypers from the 2D walker. ' \
                'Minibatch-Size is already set to 512, which was actually' \
