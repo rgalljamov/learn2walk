@@ -3,6 +3,9 @@ import warnings, sys
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
+# workaround to start scripts from cmd on remote server
+sys.path.append('/home/rustam/code/remote/')
+
 import numpy as np
 from scripts.common import utils
 
@@ -105,6 +108,8 @@ MOD_REFS_REPLAY = 'ref_replay'
 MOD_ONLINE_CLONE = 'online_clone'
 # input ground contact information
 MOD_GROUND_CONTACT = 'grnd_contact'
+# double stance results in 0, 0, 1
+MOD_GRND_CONTACT_ONE_HOT = 'grnd_1hot'
 # train multiple networks for different phases (left/right step, double stance)
 MOD_GROUND_CONTACT_NNS = 'grnd_contact_nns'
 MOD_3_PHASES = '3_phases'
@@ -132,9 +137,9 @@ SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
 # TODO: Try cliprange scheduling... start with a big one, reduce to a small one...
-wb_project_name = 'trq3d_bench'
-wb_run_name = f'baseline 20M, higher LR1'
-wb_run_notes = '' \
+wb_project_name = 'trq3d_eval'
+wb_run_name = f'bsln + smaller l1 = 0.001'
+wb_run_notes = 'Making learning rate decay steeper to avoid performance drops after reaching stable walking! ' \
                'Normalized Actions: 1 -> 300Nm. ' \
                'Adjusted hypers from the 2D walker. ' \
                'Minibatch-Size is already set to 512, which was actually' \
@@ -159,7 +164,7 @@ ep_end_reward = 10
 et_reward = -100
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
-mio_steps = 20 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
+mio_steps = 12 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 1
 batch_size = 8192 if utils.is_remote() else 1024
 minibatch_size = 512
@@ -168,7 +173,7 @@ hid_layer_sizes = [256]*2
 lr_start = 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
-lr_final = 0.5 # int((lr_start*(1-slope))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
+lr_final = 0.001 # int((lr_start*(1-slope))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
 gamma = 0.99
 _ep_dur_in_k = 4
 ep_dur_max = int(_ep_dur_in_k * 1e3) + 100

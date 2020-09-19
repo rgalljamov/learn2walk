@@ -88,6 +88,21 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             elif contact.geom1 == 0 and contact.geom2 == 7:
                 # left foot has ground contact
                 has_contact[0] = True
+
         if cfg.is_mod(cfg.MOD_3_PHASES):
-            has_contact += [all(has_contact)]
+            double_stance = all(has_contact)
+            if cfg.is_mod(cfg.MOD_GRND_CONTACT_ONE_HOT):
+                if double_stance:
+                    return [False, False, True]
+                else:
+                    has_contact += [False]
+            else: has_contact + [double_stance]
+
+        # when both feet have no ground contact
+        if cfg.is_mod(cfg.MOD_GROUND_CONTACT_NNS) and not any(has_contact):
+            print('Both feet without ground contact!')
+            # let the left and right foot network handle this situation
+            has_contact = np.array(has_contact)
+            has_contact[:2] = True
+
         return has_contact
