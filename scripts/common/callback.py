@@ -23,6 +23,7 @@ class TrainingMonitor(BaseCallback):
         # control evaluation
         self.n_evals = 0
         self.mean_walked_distance = 0
+        self.min_walked_distance = 0
         # log data less frequently
         self.skip_n_steps = 20
         self.skipped_steps = 20
@@ -67,7 +68,8 @@ class TrainingMonitor(BaseCallback):
 
         # Log scalar values
         summary = tf.Summary(value=[
-            tf.Summary.Value(tag='_own_data/0. eval distance (deterministic)', simple_value=self.mean_walked_distance),
+            tf.Summary.Value(tag='_own_data/0. mean eval distance (deterministic)', simple_value=self.mean_walked_distance),
+            tf.Summary.Value(tag='_own_data/0. MIN eval distance (deterministic)', simple_value=self.min_walked_distance),
             tf.Summary.Value(tag='_own_data/1. moved distance (smoothed 0.25)', simple_value=moved_distance),
             tf.Summary.Value(tag='_own_data/2. step reward (smoothed 0.25)', simple_value=mean_rew),
             tf.Summary.Value(tag='_own_data/3. episode return (smoothed 0.75)', simple_value=ep_ret),
@@ -136,12 +138,19 @@ class TrainingMonitor(BaseCallback):
 
         # calculate mean walked distance
         self.mean_walked_distance = np.mean(moved_distances)
+        self.min_walked_distance = np.min(moved_distances)
         print(f'Mean walked distance in {eval_n_times} trials was {self.mean_walked_distance}')
+        print(f'MIN walked distance in {eval_n_times} trials was {self.min_walked_distance}')
 
         # delete evaluation model if stable walking was not achieved yet
-        if self.mean_walked_distance < 25:
+        if self.min_walked_distance < 15 and self.min_walked_distance < 25:
+            utils.log('Deleting Model:', [f'Min walked distance: {self.min_walked_distance}'
+                                          f'Mean walked distance: {self.mean_walked_distance}'])
             remove(model_path)
             remove(env_path)
+        else:
+            utils.log('Saved Model:', [f'Min walked distance: {self.min_walked_distance}'
+                                       f'Mean walked distance: {self.mean_walked_distance}'])
 
 
 
