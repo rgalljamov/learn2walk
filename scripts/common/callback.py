@@ -22,6 +22,7 @@ class TrainingMonitor(BaseCallback):
         self.times_surpassed_mean_reward_threshold = 0
         # control evaluation
         self.n_evals = 0
+        self.n_saved_models = 0
         self.mean_walked_distance = 0
         self.min_walked_distance = 0
         # log data less frequently
@@ -141,7 +142,7 @@ class TrainingMonitor(BaseCallback):
         self.min_walked_distance = np.min(moved_distances)
 
         # delete evaluation model if stable walking was not achieved yet
-        if self.min_walked_distance < 15 and self.mean_walked_distance < 25:
+        if self.n_saved_models >= 5 or self.min_walked_distance < 20:
             utils.log('Deleting Model:', [f'Min walked distance: {self.min_walked_distance}',
                                           f'Mean walked distance: {self.mean_walked_distance}'])
             remove(model_path)
@@ -149,6 +150,7 @@ class TrainingMonitor(BaseCallback):
         else:
             utils.log('Saved Model:', [f'Min walked distance: {self.min_walked_distance}',
                                        f'Mean walked distance: {self.mean_walked_distance}'])
+            self.n_saved_models += 1
 
 
 
