@@ -74,7 +74,7 @@ class TrainingMonitor(BaseCallback):
             tf.Summary.Value(tag='_own_data/2. step reward (smoothed 0.25)', simple_value=mean_rew),
             tf.Summary.Value(tag='_own_data/3. episode return (smoothed 0.75)', simple_value=ep_ret),
             tf.Summary.Value(tag='_own_data/4. episode length (smoothed 0.75)', simple_value=ep_len),
-            tf.Summary.Value(tag='_own_data/5. mean absolute episode joint power (smoothed 0.75)', simple_value=mean_ep_joint_pow_sum)
+            tf.Summary.Value(tag='_own_data/5. mean normed episode joint power sum (smoothed 0.75)', simple_value=mean_ep_joint_pow_sum)
         ])
         self.locals['writer'].add_summary(summary, self.num_timesteps)
 

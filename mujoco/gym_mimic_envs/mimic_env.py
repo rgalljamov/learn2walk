@@ -531,12 +531,12 @@ class MimicEnv:
         assert qvels.shape == max_vels.shape
         pows = np.multiply(torques, qvels)
         max_pows = np.multiply(max_tors, max_vels)
-        sqrd_pows = np.square(pows)
-        sqrd_max_pows = np.square(max_pows)
-        sum_pows = np.sum(sqrd_pows)
-        sum_max_pows = np.sum(sqrd_max_pows)
-        pow_prct = sum_pows / sum_max_pows
-        return pow_prct
+        abs_pows = np.abs(pows)
+        abs_max_pows = np.abs(max_pows)
+        sum_pows = np.sum(abs_pows)
+        sum_max_pows = np.sum(abs_max_pows)
+        pow_normed = sum_pows / sum_max_pows
+        return pow_normed
 
     def get_angle_deltas_reward(self, qpos_act, action):
         """
