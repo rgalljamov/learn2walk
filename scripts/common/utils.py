@@ -155,17 +155,24 @@ def plot_weight_matrix(weight_matrix, show=True, max_abs_value=1, center_cmap=Tr
     return weight_matrix
 
 
-def save_model(model, path, checkpoint):
-    """ saves the model, the corresponding environment means and pi weights"""
-    model_path = path + f'models/model_{checkpoint}'
+def save_model(model, path, checkpoint, full=False):
+    """
+    saves the model, the corresponding environment means and pi weights
+    :param full: if True, also save network weights and upload model to wandb
+    """
+    model_path = path + f'models/model_{checkpoint}.zip'
     model.save(save_path=model_path)
-    save_pi_weights(model, checkpoint)
     # save Running mean of observations and reward
     env_path = path + f'envs/env_{checkpoint}'
     model.get_env().save(env_path)
-    # save model and env to wandb
-    wandb.save(model_path+'.zip')
-    wandb.save(env_path)
+
+    if full:
+        save_pi_weights(model, checkpoint)
+        # save model and env to wandb
+        wandb.save(model_path)
+        wandb.save(env_path)
+
+    return model_path, env_path
 
 
 def save_pi_weights(model, name):
