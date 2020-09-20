@@ -28,3 +28,15 @@ class LinearSchedule(Schedule):
 
     def __repr__(self):
         return f'LinearSchedule: {self.start} -> {self.end}'
+
+
+class ExponentialSchedule(Schedule):
+    def __init__(self, start_value, final_value):
+        self.start = start_value
+        self.end = final_value
+        self.difference = start_value - final_value
+
+    def value(self, fraction_timesteps_left):
+        fraction_passed = 1 - fraction_timesteps_left
+        val = self.end + np.exp(-5 * fraction_passed) * self.difference
+        return val
