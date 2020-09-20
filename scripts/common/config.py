@@ -114,12 +114,13 @@ MOD_GRND_CONTACT_ONE_HOT = 'grnd_1hot'
 MOD_GROUND_CONTACT_NNS = 'grnd_contact_nns'
 MOD_3_PHASES = '3_phases'
 MOD_CLIPRANGE_SCHED = 'clip_sched'
+MOD_EXP_LR_SCHED = 'expLRdec'
 
 
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_CLIPRANGE_SCHED,
+modification = mod([MOD_EXP_LR_SCHED,
     MOD_CUSTOM_POLICY
     ])
 assert_mod_compatibility()
@@ -140,8 +141,8 @@ SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
 wb_project_name = 'trq3d_eval'
-wb_run_name = f'LIN clip_sched {clip_start} - {clip_end}'
-wb_run_notes = 'Linear cliprange scheduling! ' \
+wb_run_name = f'EXP5 LR sched 1500 -> 0.001'
+wb_run_notes = 'Exponential LR schedule with exp(-5x)! ' \
                'Making learning rate decay steeper to avoid performance drops after reaching stable walking! ' \
                'Normalized Actions: 1 -> 300Nm. ' \
                'Adjusted hypers from the 2D walker. ' \
@@ -169,11 +170,11 @@ et_reward = -100
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mio_steps = 12 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 1
-batch_size = 8192 if utils.is_remote() else 1024
+batch_size = 8192 if not DEBUG else 1024
 minibatch_size = 512
 n_mini_batches = int(batch_size / minibatch_size)
 hid_layer_sizes = [256]*2
-lr_start = 500
+lr_start = 1500 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
 lr_final = 0.001 # int((lr_start*(1-slope))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps

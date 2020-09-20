@@ -2,7 +2,7 @@ import os.path
 import wandb
 from scripts import eval
 from scripts.common import config as cfg, utils
-from scripts.common.schedules import LinearSchedule
+from scripts.common.schedules import LinearSchedule, ExponentialSchedule
 from scripts.common.callback import TrainingMonitor
 from scripts.common.policies import CustomPolicy
 
@@ -88,7 +88,12 @@ def train():
 
     # setup model/algorithm
     training_timesteps = int(cfg.mio_steps * 1e6 * 1.05)
-    learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
+    lr_start = cfg.lr_start * (1e-6)
+    lr_end = cfg.lr_final * (1e-6)
+    if cfg.is_mod(cfg.MOD_EXP_LR_SCHED):
+        learning_rate_schedule = ExponentialSchedule(lr_start, lr_end).value
+    else:
+        learning_rate_schedule = ExponentialSchedule(lr_start, lr_end).value
     clip_schedule = LinearSchedule(cfg.clip_start, cfg.clip_end).value
     network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
                     'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else {}
