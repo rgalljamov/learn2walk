@@ -115,6 +115,15 @@ def mirror_experiences(rollout, ppo2=None):
               f'mirred percentiles: {np.percentile(neglogpacs_mirred, percentiles)}',
               ])
 
+        CLIP_NEGLOGPACS = False
+        if CLIP_NEGLOGPACS:
+            # limit neglogpacs_mirred to be not bigger than the max neglogpacs
+            # otherwise the action distribution stay too wide
+            max_allowed_neglogpac = np.percentile(neglogpacs, 99)
+            min_allowed_neglogpac = np.percentile(neglogpacs, 1)
+            neglogpacs_mirred = np.clip(neglogpacs_mirred,
+                                        min_allowed_neglogpac, max_allowed_neglogpac)
+
         residuals_neglogpacs = neglogpacs - neglogpacs_test
         residuals_values = values - values_test
 
@@ -145,6 +154,22 @@ def mirror_experiences(rollout, ppo2=None):
     returns = np.concatenate((returns, returns))
     masks = np.concatenate((masks, masks))
     true_reward = np.concatenate((true_reward, true_reward))
+
+    # remove mirrored experiences with too high neglogpacs
+    FILTER_MIRRED_EXPS = False
+    if FILTER_MIRRED_EXPS:
+        n_mirred_exps = int(len(neglogpacs) / 2)
+        max_allowed_neglogpac = np.percentile(neglogpacs[:n_mirred_exps], 95)
+        delete_act_indices = np.where(neglogpacs[n_mirred_exps:] > max_allowed_neglogpac)[0] + n_mirred_exps
+        log(f'Deleted {len(delete_act_indices)} mirrored actions with neglogpac > {max_allowed_neglogpac}')
+
+        obs = np.delete(obs, delete_act_indices, axis=0)
+        actions = np.delete(actions, delete_act_indices, axis=0)
+        returns = np.delete(returns, delete_act_indices, axis=0)
+        masks = np.delete(masks, delete_act_indices, axis=0)
+        values = np.delete(values, delete_act_indices, axis=0)
+        true_reward = np.delete(true_reward, delete_act_indices, axis=0)
+        neglogpacs = np.delete(neglogpacs, delete_act_indices, axis=0)
 
     # assert true_reward.shape[0] == cfg.batch_size*2
     # assert obs.shape[0] == cfg.batch_size*2
@@ -240,7 +265,7 @@ class CustomPPO2(PPO2):
                     log("The number of minibatches (`nminibatches`) "
                         "is not a factor of the total number of samples "
                         "collected per rollout (`n_batch`), "
-                        "some samples won't be used.")
+                        "which is ok, as still all experiences will be used!")
                 t_start = time.time()
                 frac = 1.0 - (update - 1.0) / n_updates
                 lr_now = self.learning_rate(frac)
@@ -294,7 +319,8 @@ class CustomPPO2(PPO2):
                 mb_loss_vals = []
                 if states is None:  # nonrecurrent version
                     update_fac = self.n_batch // self.nminibatches // self.noptepochs + 1
-                    inds = np.arange(self.n_batch)
+                    # inds = np.arange(self.n_batch)
+                    inds = np.arange(obs.shape[0])
                     n_epochs = self.noptepochs \
                         if not cfg.is_mod(cfg.MOD_ONLINE_CLONE) or update > 9 else 200
                     for epoch_num in range(n_epochs):

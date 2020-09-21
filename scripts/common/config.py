@@ -120,7 +120,7 @@ MOD_EXP_LR_SCHED = 'expLRdec'
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_EXP_LR_SCHED,
+modification = mod([MOD_MIRROR_EXPS, 'rmv_improb_exps',
     MOD_CUSTOM_POLICY
     ])
 assert_mod_compatibility()
@@ -132,7 +132,7 @@ DEBUG = False or not sys.gettrace() is None or not utils.is_remote()
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
-ent_coef = 0 # 0.002 # -0.002
+ent_coef = 0 # -0.005
 logstd = 0
 cliprange = 0.15
 clip_start = 0.3 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
@@ -140,10 +140,12 @@ clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
+# add negative ent_coef to counteract growing entropy
 wb_project_name = 'trq3d_eval'
-wb_run_name = f'EXP5 LR sched 1500 -> 0.001'
-wb_run_notes = 'Exponential LR schedule with exp(-5x)! ' \
-               'Making learning rate decay steeper to avoid performance drops after reaching stable walking! ' \
+wb_run_name = f'MIRROR, REMOVE_MIRRED_EXPS 95, ent {ent_coef}'
+wb_run_notes = 'Remove ALL experiences that are too improbable (neglogpac too high)! ' \
+               'NO LONGER Clip the smallest and biggest neglogp,' \
+               'based on 5 and 95 percentile of the neglogprob from original actions. ' \
                'Normalized Actions: 1 -> 300Nm. ' \
                'Adjusted hypers from the 2D walker. ' \
                'Minibatch-Size is already set to 512, which was actually' \
@@ -170,7 +172,7 @@ et_reward = -100
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mio_steps = 12 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 1
-batch_size = 8192 if not DEBUG else 1024
+batch_size = (4096 * (2 if not is_mod(MOD_MIRROR_EXPS) else 1)) if not DEBUG else 1024
 minibatch_size = 512
 n_mini_batches = int(batch_size / minibatch_size)
 hid_layer_sizes = [256]*2
