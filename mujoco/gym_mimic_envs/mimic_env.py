@@ -234,6 +234,9 @@ class MimicEnv:
 
     def get_actuator_torques(self, abs_mean=False):
         tors = np.copy(self.sim.data.actuator_force)
+        # if ctrl_force is [-1:1] and gear = 300
+        if np.max(tors) <= 1:
+            tors *= 300
         return np.mean(np.abs(tors)) if abs_mean else tors
 
     def get_force_ranges(self):

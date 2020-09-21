@@ -113,8 +113,9 @@ MOD_GRND_CONTACT_ONE_HOT = 'grnd_1hot'
 # train multiple networks for different phases (left/right step, double stance)
 MOD_GROUND_CONTACT_NNS = 'grnd_contact_nns'
 MOD_3_PHASES = '3_phases'
-
-
+MOD_CLIPRANGE_SCHED = 'clip_sched'
+MOD_EXP_LR_SCHED = 'expLRdec'
+MOD_SYMMETRIC_WALK = 'sym_walk'
 
 # ------------------
 approach = AP_DEEPMIMIC
@@ -130,16 +131,18 @@ DEBUG = False or not sys.gettrace() is None or not utils.is_remote()
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
-ent_coef = 0 # 0.002 # -0.002
+ent_coef = 0 # -0.005
 logstd = 0
 cliprange = 0.15
+clip_start = 0.3 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
+clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
-# TODO: Try cliprange scheduling... start with a big one, reduce to a small one...
-wb_project_name = 'trq3d_eval'
-wb_run_name = f'bsln + smaller l1 = 0.001'
-wb_run_notes = 'Making learning rate decay steeper to avoid performance drops after reaching stable walking! ' \
+# add negative ent_coef to counteract growing entropy
+wb_project_name = 'reprod3d'
+wb_run_name = f'baseline'
+wb_run_notes = '' \
                'Normalized Actions: 1 -> 300Nm. ' \
                'Adjusted hypers from the 2D walker. ' \
                'Minibatch-Size is already set to 512, which was actually' \
@@ -166,11 +169,11 @@ et_reward = -100
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mio_steps = 12 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 1
-batch_size = 8192 if utils.is_remote() else 1024
+batch_size = (4096 * (2 if not is_mod(MOD_MIRROR_EXPS) else 1)) if not DEBUG else 1024
 minibatch_size = 512
 n_mini_batches = int(batch_size / minibatch_size)
 hid_layer_sizes = [256]*2
-lr_start = 500
+lr_start = 1500 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
 lr_final = 0.001 # int((lr_start*(1-slope))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps

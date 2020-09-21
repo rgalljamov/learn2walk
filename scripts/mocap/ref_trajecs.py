@@ -73,20 +73,37 @@ TRUNK_ROT_Q1, TRUNK_ROT_Q2, TRUNK_ROT_Q3, TRUNK_ROT_Q4 = range(3,7)
 HIP_FRONT_ANG_R, HIP_SAG_ANG_R, KNEE_ANG_R, ANKLE_ANG_R = range(7,11)
 HIP_FRONT_ANG_L, HIP_SAG_ANG_L, KNEE_ANG_L, ANKLE_ANG_L = range(11,15)
 
+
 # reference trajectory: joint velocity indices
 COM_VELX, COM_VELY, COM_VELZ = range(15,18)
 TRUNK_ANGVEL_X, TRUNK_ANGVEL_Y, TRUNK_ANGVEL_Z = range(18,21)
 HIP_FRONT_ANGVEL_R, HIP_SAG_ANGVEL_R, KNEE_ANGVEL_R, ANKLE_ANGVEL_R = range(21,25)
 HIP_FRONT_ANGVEL_L, HIP_SAG_ANGVEL_L, KNEE_ANGVEL_L, ANKLE_ANGVEL_L = range(25,29)
 
+# mirror right step to get left step
+mirred_indices = [COM_POSX, COM_POSY, COM_POSZ,
+                  TRUNK_ROT_Q1, TRUNK_ROT_Q2, TRUNK_ROT_Q3, TRUNK_ROT_Q4,
+                  HIP_FRONT_ANG_L, HIP_SAG_ANG_L, KNEE_ANG_L, ANKLE_ANG_L,
+                  HIP_FRONT_ANG_R, HIP_SAG_ANG_R, KNEE_ANG_R, ANKLE_ANG_R,
+                  COM_VELX, COM_VELY, COM_VELZ,
+                  TRUNK_ANGVEL_X, TRUNK_ANGVEL_Y, TRUNK_ANGVEL_Z,
+                  HIP_FRONT_ANGVEL_L, HIP_SAG_ANGVEL_L, KNEE_ANGVEL_L, ANKLE_ANGVEL_L,
+                  HIP_FRONT_ANGVEL_R, HIP_SAG_ANGVEL_R, KNEE_ANGVEL_R, ANKLE_ANGVEL_R]
+
+
 # reference trajectory: foot position and GRF indices
 FOOT_POSX_L, FOOT_POSY_L, FOOT_POSZ_L, FOOT_POSX_R, FOOT_POSY_R, FOOT_POSZ_R = range(29,35)
+mirred_indices += [FOOT_POSX_R, FOOT_POSY_R, FOOT_POSZ_R, FOOT_POSX_L, FOOT_POSY_L, FOOT_POSZ_L]
 if _is_constant_speed:
     TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z = range(35, 38)
+    mirred_indices += [TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z]
 else:
     GRF_R, GRF_L = range(35, 37)
     TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z = range(37, 40)
+    mirred_indices += [GRF_L, GRF_R, TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z]
 
+negate_indices = [COM_POSY, TRUNK_ROT_X, TRUNK_ROT_Z, HIP_FRONT_ANG_R, HIP_FRONT_ANG_L,
+                  COM_VELY, TRUNK_ANGVEL_X, TRUNK_ANGVEL_Z, HIP_FRONT_ANGVEL_R, HIP_FRONT_ANGVEL_L]
 
 class ReferenceTrajectories:
 
@@ -108,7 +125,9 @@ class ReferenceTrajectories:
         # calculated and added trunk euler rotations
         # self._add_trunk_euler_rotations()
         # some steps are done with left, some with right foot
-        self.left_leg_indices = self._determine_left_steps_indices()
+        self.left_step_indices = self._determine_left_steps_indices()
+        # mirror right step and use it as left step
+        # self._symmetric_walk()
         # current step
         self._step = self._get_random_step()
         # position on the reference trajectory of the current step
@@ -122,6 +141,18 @@ class ReferenceTrajectories:
         # count how many steps were taken without skipping steps
         self.count_steps_same_vel = 1
 
+    def _symmetric_walk(self):
+        right_step_indices = np.array(self.left_step_indices) - 1
+        # replace left steps with right steps
+        self.data[self.left_step_indices] = self.data[right_step_indices]
+        test = True
+        for i_left_step in self.left_step_indices:
+            # steps at left index are right steps, but not mirrored yet
+            right_step = self.data[i_left_step]
+            mirred_right_step = right_step[mirred_indices, :]
+            # some trajectories maintain their value but have to be negated
+            mirred_right_step[negate_indices, :] *= -1
+            self.data[i_left_step] = mirred_right_step
 
     def next(self, increment=2):
         """
@@ -214,7 +245,7 @@ class ReferenceTrajectories:
 
 
     def is_step_left(self):
-        return self._i_step in self.left_leg_indices
+        return self._i_step in self.left_step_indices
 
     def _get_by_indices(self, indices):
         """
@@ -320,7 +351,7 @@ class ReferenceTrajectories:
         if self._i_step >= len(self.data)-SKIP_N_STEPS-STEPS_PER_VEL:
             self.has_reached_last_step = True
             # reset to the step with the correct foot
-            self._i_step = 0 if self._i_step in self.left_leg_indices else 1
+            self._i_step = 0 if self._i_step in self.left_step_indices else 1
         else:
             # do multiple steps at the same velocity before skipping to a higher vel
             if self.count_steps_same_vel < STEPS_PER_VEL:

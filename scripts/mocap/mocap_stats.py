@@ -40,7 +40,7 @@ def get_joint_mocap_stats(refs=None, plot=False, std_only=False, save_path=None)
     data = data[:, indices, :]
 
     # now, split data into left and right steps
-    left_indices = refs.left_leg_indices
+    left_indices = refs.left_step_indices
     right_indices = np.array(left_indices) - 1
     data_left = data[left_indices, :, :]
     data_right = data[right_indices, :, :]

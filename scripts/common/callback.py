@@ -22,6 +22,7 @@ class TrainingMonitor(BaseCallback):
         self.times_surpassed_mean_reward_threshold = 0
         # control evaluation
         self.n_evals = 0
+        self.n_saved_models = 0
         self.mean_walked_distance = 0
         self.min_walked_distance = 0
         # log data less frequently
@@ -40,7 +41,7 @@ class TrainingMonitor(BaseCallback):
             self.skipped_steps += 1
             return True
 
-        if self.num_timesteps >= EVAL_EVERY_N_STEPS * self.n_evals:
+        if self.num_timesteps >= EVAL_EVERY_N_STEPS * self.n_evals and not cfg.DEBUG:
             self.n_evals += 1
             self.eval_walking()
 
@@ -65,8 +66,32 @@ class TrainingMonitor(BaseCallback):
     def log_to_tb(self, mean_rew, ep_len, ep_ret):
         moved_distance = self.get_mean('moved_distance_smooth')
         mean_ep_joint_pow_sum = self.get_mean('mean_ep_joint_pow_sum_normed_smoothed')
+        mean_abs_torque_smoothed = self.get_mean('mean_abs_torque_smoothed')
+        median_abs_torque_smoothed = self.get_mean('median_abs_torque_smoothed')
 
         # Log scalar values
+        NEW_LOG_STRUCTURE = True
+        if NEW_LOG_STRUCTURE:
+            summary = tf.Summary(value=[
+                tf.Summary.Value(tag='_distance/1. mean eval distance (deterministic)',
+                                 simple_value=self.mean_walked_distance),
+                tf.Summary.Value(tag='_distance/0. MIN eval distance (deterministic)',
+                                 simple_value=self.min_walked_distance),
+                tf.Summary.Value(tag='_distance/2. moved distance (stochastic, smoothed 0.25)',
+                                 simple_value=moved_distance),
+                tf.Summary.Value(tag='_distance/4. episode length (smoothed 0.75)', simple_value=ep_len),
+                tf.Summary.Value(tag='_own/1. step reward (smoothed 0.25)', simple_value=mean_rew),
+                tf.Summary.Value(tag='_own/2. episode return (smoothed 0.75)', simple_value=ep_ret),
+                tf.Summary.Value(tag='_own/3.1. mean abs episode joint torques (smoothed 0.75)',
+                                 simple_value=mean_abs_torque_smoothed),
+                tf.Summary.Value(tag='_own/3.2. median abs episode joint torques (smoothed 0.75)',
+                                 simple_value=median_abs_torque_smoothed),
+                tf.Summary.Value(tag='_own/4. mean normed episode joint power sum (smoothed 0.75)',
+                                 simple_value=mean_ep_joint_pow_sum)
+            ])
+            self.locals['writer'].add_summary(summary, self.num_timesteps)
+            return
+
         summary = tf.Summary(value=[
             tf.Summary.Value(tag='_own_data/0. mean eval distance (deterministic)', simple_value=self.mean_walked_distance),
             tf.Summary.Value(tag='_own_data/0. MIN eval distance (deterministic)', simple_value=self.min_walked_distance),
@@ -141,7 +166,7 @@ class TrainingMonitor(BaseCallback):
         self.min_walked_distance = np.min(moved_distances)
 
         # delete evaluation model if stable walking was not achieved yet
-        if self.min_walked_distance < 15 and self.mean_walked_distance < 25:
+        if self.n_saved_models >= 5 or self.min_walked_distance < 20:
             utils.log('Deleting Model:', [f'Min walked distance: {self.min_walked_distance}',
                                           f'Mean walked distance: {self.mean_walked_distance}'])
             remove(model_path)
@@ -149,6 +174,7 @@ class TrainingMonitor(BaseCallback):
         else:
             utils.log('Saved Model:', [f'Min walked distance: {self.min_walked_distance}',
                                        f'Mean walked distance: {self.mean_walked_distance}'])
+            self.n_saved_models += 1
 
 
 

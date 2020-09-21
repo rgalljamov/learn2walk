@@ -64,6 +64,7 @@ class Monitor(gym.Wrapper):
         # monitor energy efficiency
         self.ep_torques_abs = []
         self.mean_abs_torque_smoothed = 0
+        self.median_abs_torque_smoothed = 0
         self.ep_joint_pow_sum_normed = []
         self.mean_ep_joint_pow_sum_normed_smoothed = 0
 
@@ -107,7 +108,9 @@ class Monitor(gym.Wrapper):
             self.moved_distance_smooth = smooth('dist', self.env.data.qpos[0], 0.25)
 
             self.mean_abs_torque_smoothed = \
-                smooth('mean_ep_tor', np.mean(self.ep_torques_abs), 0.1)
+                smooth('mean_ep_tor', np.mean(self.ep_torques_abs), 0.75)
+            self.median_abs_torque_smoothed = \
+                smooth('med_ep_tor', np.median(self.ep_torques_abs), 0.75)
             self.ep_torques_abs = []
 
             self.mean_ep_joint_pow_sum_normed_smoothed = \
