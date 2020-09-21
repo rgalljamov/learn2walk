@@ -39,9 +39,10 @@ def mirror_experiences(rollout):
                               18, 19, 20,
                               25, 26, 27, 28,
                               21, 22, 23, 24]
-        # some observations have to retain the same absolute value but change the sign
-        negate_obs_indices = [2, 4, 6, 16, 18, 20]
         mirred_acts_indices = [4, 5, 6, 7, 0, 1, 2, 3]
+        # some observations and actions retain the same absolute value but change the sign
+        negate_obs_indices = [2, 4, 6, 8, 12, 16, 18, 20, 22, 26]
+        negate_act_indices = [1, 5]
     else:
         # 2D Walker obs indices:
         #           0: phase, 1: des_vel, 2: com_z, 3: trunk_rot,
@@ -55,8 +56,11 @@ def mirror_experiences(rollout):
                               10, 11, 12, 16, 17, 18, 13, 14, 15]
 
     obs_mirred = obs[:, mirred_obs_indices]
-    if is3d: obs_mirred[:, negate_obs_indices] *= -1
     acts_mirred = actions[:, mirred_acts_indices]
+
+    if is3d:
+        obs_mirred[:, negate_obs_indices] *= -1
+        acts_mirred[:, negate_act_indices] *= -1
     obs = np.concatenate((obs, obs_mirred), axis=0)
     actions = np.concatenate((actions, acts_mirred), axis=0)
 
