@@ -14,7 +14,7 @@ from stable_baselines.common.tf_util import total_episode_reward_logger
 from stable_baselines.common import explained_variance, SetVerbosity, TensorboardWriter
 
 
-def mirror_experiences(rollout):
+def mirror_experiences(rollout, ppo2=None):
     obs, returns, masks, actions, values, neglogpacs, states, ep_infos, true_reward = rollout
     assert obs.shape[0] == cfg.batch_size
     assert states is None
@@ -61,18 +61,93 @@ def mirror_experiences(rollout):
     if is3d:
         obs_mirred[:, negate_obs_indices] *= -1
         acts_mirred[:, negate_act_indices] *= -1
+
+    QUERY_NETS = True
+    if QUERY_NETS:
+        parameters = ppo2.get_parameter_list()
+        parameter_values = np.array(ppo2.sess.run(parameters))
+        pi_w0, pi_w1, pi_w2 = parameter_values[[0, 2, 8]]
+        pi_b0, pi_b1, pi_b2 = parameter_values[[1, 3, 9]]
+        vf_w0, vf_w1, vf_w2 = parameter_values[[4, 6, 13]]
+        vf_b0, vf_b1, vf_b2 = parameter_values[[5, 7, 14]]
+        pi_logstd = parameter_values[10]
+        pi_std = np.exp(pi_logstd)
+        def relu(x): return np.maximum(x, 0)
+        # get values of the mirrored observations
+        def get_value(obs):
+            vf_hid1 = relu(np.matmul(obs,vf_w0) + vf_b0)
+            vf_hid2 = relu(np.matmul(vf_hid1, vf_w1) + vf_b1)
+            values = np.matmul(vf_hid2, vf_w2) + vf_b2
+            return values.flatten()
+
+        def get_action_means(obs):
+            pi_hid1 = relu(np.matmul(obs,pi_w0) + pi_b0)
+            pi_hid2 = relu(np.matmul(pi_hid1, pi_w1) + pi_b1)
+            means = np.matmul(pi_hid2, pi_w2) + pi_b2
+            return means
+
+        values_test = get_value(obs)
+        values_mirred_obs = get_value(obs_mirred)
+
+        def neglogp(acts, mean, logstd):
+            std = np.exp(logstd)
+            return 0.5 * np.sum(np.square((acts - mean) / std), axis=-1) \
+                   + 0.5 * np.log(2.0 * np.pi) * np.array(acts.shape[-1], dtype=np.float) \
+                   + np.sum(logstd, axis=-1)
+
+        act_means = get_action_means(obs)
+        act_means_mirred = get_action_means(obs_mirred)
+
+        neglogpacs_test = neglogp(actions, act_means, pi_logstd)
+        neglogpacs_mirred = neglogp(acts_mirred, act_means_mirred, pi_logstd)
+
+        log('Logstd', [f'logstd = {pi_logstd}', f'std = {pi_std}'])
+
+        percentiles = [50, 75, 90, 95, 99, 100]
+        log('Neglogpacs Comparison (before clipping!)',
+            [f'neglogpacs orig: min {np.min(neglogpacs)}, '
+              f'mean {np.mean(neglogpacs)}, max {np.max(neglogpacs)}',
+              f'neglogpacs mirred: min {np.min(neglogpacs_mirred)}, '
+              f'mean {np.mean(neglogpacs_mirred)}, '
+              f'max {np.max(neglogpacs_mirred)}',
+              f'---\npercentiles {percentiles}:',
+              f'orig percentiles: {np.percentile(neglogpacs, percentiles)}',
+              f'mirred percentiles: {np.percentile(neglogpacs_mirred, percentiles)}',
+              ])
+
+        residuals_neglogpacs = neglogpacs - neglogpacs_test
+        residuals_values = values - values_test
+
+        difs_neglogpacs = neglogpacs_mirred - neglogpacs
+        difs_values = values_mirred_obs - values
+
+        log('Differences between original and mirrored experiences',
+            [f'neglogpacs: min {np.min(difs_neglogpacs)} max {np.max(difs_neglogpacs)}\n'
+             f'values: min {np.min(difs_values)} max {np.max(difs_values)}'])
+
+        if not ( (residuals_neglogpacs < 0.01).all() and (residuals_values < 0.01).all() ):
+            log('WARNING!', ['Residuals exceeded allowed amplitude of 0.01',
+                             f'Neglogpacs: mean {np.mean(residuals_neglogpacs)}, max {np.max(residuals_neglogpacs)}',
+                             f'Values: mean {np.mean(residuals_values)}, max {np.max(residuals_values)}',
+                             ])
+
     obs = np.concatenate((obs, obs_mirred), axis=0)
     actions = np.concatenate((actions, acts_mirred), axis=0)
+
+    if QUERY_NETS:
+        values = np.concatenate((values, values_mirred_obs.flatten()))
+        neglogpacs = np.concatenate((neglogpacs, neglogpacs_mirred.flatten()))
+    else:
+        values = np.concatenate((values, values))
+        neglogpacs = np.concatenate((neglogpacs, neglogpacs))
 
     # the other values should stay the same for the mirrored experiences
     returns = np.concatenate((returns, returns))
     masks = np.concatenate((masks, masks))
-    values = np.concatenate((values, values)) # todo: query VF network to get the values of mirrored obs
-    neglogpacs = np.concatenate((neglogpacs, neglogpacs)) # todo: query learned gaussian policy to get log[p(a|s)]
     true_reward = np.concatenate((true_reward, true_reward))
 
-    assert true_reward.shape[0] == cfg.batch_size*2
-    assert obs.shape[0] == cfg.batch_size*2
+    # assert true_reward.shape[0] == cfg.batch_size*2
+    # assert obs.shape[0] == cfg.batch_size*2
 
     return obs, returns, masks, actions, values, \
            neglogpacs, states, ep_infos, true_reward
@@ -190,11 +265,10 @@ class CustomPPO2(PPO2):
                 # reset count once, rollout was successful
                 tried_rollouts = 0
 
-
                 # Unpack
                 if self.mirror_experiences:
                     obs, returns, masks, actions, values, neglogpacs, \
-                    states, ep_infos, true_reward = mirror_experiences(rollout)
+                    states, ep_infos, true_reward = mirror_experiences(rollout, self)
                 else:
                     obs, returns, masks, actions, values, neglogpacs, \
                     states, ep_infos, true_reward = rollout
