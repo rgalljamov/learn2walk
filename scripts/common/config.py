@@ -115,7 +115,7 @@ MOD_GROUND_CONTACT_NNS = 'grnd_contact_nns'
 MOD_3_PHASES = '3_phases'
 MOD_CLIPRANGE_SCHED = 'clip_sched'
 MOD_EXP_LR_SCHED = 'expLRdec'
-
+MOD_SYMMETRIC_WALK = 'sym_walk'
 
 
 # ------------------
