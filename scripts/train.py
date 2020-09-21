@@ -34,6 +34,7 @@ def init_wandb(model):
         "mod": cfg.modification,
         "lr0": cfg.lr_start,
         "lr1": cfg.lr_final,
+        "lr_sched": 'exp' if cfg.is_mod(cfg.MOD_EXP_LR_SCHED) else 'lin',
         'hid_sizes': cfg.hid_layer_sizes,
         "noptepochs": cfg.noptepochs,
         "batch_size": batch_size,
@@ -93,7 +94,7 @@ def train():
     if cfg.is_mod(cfg.MOD_EXP_LR_SCHED):
         learning_rate_schedule = ExponentialSchedule(lr_start, lr_end).value
     else:
-        learning_rate_schedule = ExponentialSchedule(lr_start, lr_end).value
+        learning_rate_schedule = LinearSchedule(lr_start, lr_end).value
     clip_schedule = LinearSchedule(cfg.clip_start, cfg.clip_end).value
     network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
                     'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else {}
