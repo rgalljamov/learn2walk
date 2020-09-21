@@ -117,10 +117,9 @@ MOD_CLIPRANGE_SCHED = 'clip_sched'
 MOD_EXP_LR_SCHED = 'expLRdec'
 MOD_SYMMETRIC_WALK = 'sym_walk'
 
-
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_MIRROR_EXPS, 'rmv_improb_exps',
+modification = mod([
     MOD_CUSTOM_POLICY
     ])
 assert_mod_compatibility()
@@ -141,11 +140,9 @@ SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 
 # add negative ent_coef to counteract growing entropy
-wb_project_name = 'trq3d_eval'
-wb_run_name = f'MIRROR, REMOVE_MIRRED_EXPS 95, ent {ent_coef}'
-wb_run_notes = 'Remove ALL experiences that are too improbable (neglogpac too high)! ' \
-               'NO LONGER Clip the smallest and biggest neglogp,' \
-               'based on 5 and 95 percentile of the neglogprob from original actions. ' \
+wb_project_name = 'reprod3d'
+wb_run_name = f'baseline'
+wb_run_notes = '' \
                'Normalized Actions: 1 -> 300Nm. ' \
                'Adjusted hypers from the 2D walker. ' \
                'Minibatch-Size is already set to 512, which was actually' \
