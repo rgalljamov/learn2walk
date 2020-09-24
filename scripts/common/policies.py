@@ -27,7 +27,12 @@ class CustomPolicy(ActorCriticPolicy):
             act_func_hid = tf.nn.relu
 
             # reduce dim of observations
-            if cfg.is_mod(cfg.MOD_ENC_DIM_RED):
+            if cfg.is_mod(cfg.MOD_E2E_ENC_OBS):
+                log('Building an autoencoder to reduce observation dimensionality.\n'
+                    f'Input dim original: {obs.shape[1]}\n'
+                    f'Hidden Layer Sizes (E2E): {cfg.enc_layer_sizes + cfg.hid_layer_sizes}')
+                obs = self.fc_hidden_layers('obs_enc_hid', obs, cfg.enc_layer_sizes, act_func_hid)
+            elif cfg.is_mod(cfg.MOD_ENC_DIM_RED_PRETRAINED):
                 # load encoder matrices
                 ws, bs = load_encoder_weights()
                 # transform input (reduce dim)

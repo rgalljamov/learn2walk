@@ -69,6 +69,9 @@ def init_wandb(model):
         params['skip_n_steps'] = cfg.SKIP_N_STEPS
         params['steps_per_vel'] = cfg.STEPS_PER_VEL
 
+    if cfg.is_mod(cfg.MOD_E2E_ENC_OBS):
+        params['enc_layers'] = cfg.enc_layer_sizes
+
     wandb.init(config=params, sync_tensorboard=True, name=cfg.get_wb_run_name(),
                project=cfg.wb_project_name, notes=cfg.wb_run_notes)
 

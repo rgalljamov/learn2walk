@@ -90,7 +90,7 @@ MOD_VF_ZERO = 'vf_zero'
 MOD_MAX_TORQUE = 'max_torque'
 TORQUE_RANGES = get_torque_ranges(300, 300, 300)
 # Reduce dimensionality of the state with a pretrained encoder
-MOD_ENC_DIM_RED = 'dim_red'
+MOD_ENC_DIM_RED_PRETRAINED = 'dim_red'
 # use mocap statistics for ET
 MOD_REF_STATS_ET = 'ref_et'
 et_rew_thres = 0.1
@@ -116,10 +116,13 @@ MOD_3_PHASES = '3_phases'
 MOD_CLIPRANGE_SCHED = 'clip_sched'
 MOD_EXP_LR_SCHED = 'expLRdec'
 MOD_SYMMETRIC_WALK = 'sym_walk'
+# reduce input dimensionality with an end-to-end encoder network of the observations
+# e2e means here that we don't separately train the encoder to reconstruct the observations
+MOD_E2E_ENC_OBS = 'e2e_enc_obs'
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([
+modification = mod([MOD_E2E_ENC_OBS,
     MOD_CUSTOM_POLICY
     ])
 assert_mod_compatibility()
@@ -138,11 +141,14 @@ clip_start = 0.3 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
+enc_layer_sizes = [512]*2 + [16]
+hid_layer_sizes = [512]*2
+
 
 # add negative ent_coef to counteract growing entropy
-wb_project_name = 'reprod3d'
-wb_run_name = f'baseline'
-wb_run_notes = '' \
+wb_project_name = 'e2enc3d'
+wb_run_name = f'{enc_layer_sizes + hid_layer_sizes}'
+wb_run_notes = 'End to End Encoder reduces dim of the observations!' \
                'Normalized Actions: 1 -> 300Nm. ' \
                'Adjusted hypers from the 2D walker. ' \
                'Minibatch-Size is already set to 512, which was actually' \
@@ -172,13 +178,12 @@ n_envs = 8 if utils.is_remote() and not DEBUG else 1
 batch_size = (4096 * (2 if not is_mod(MOD_MIRROR_EXPS) else 1)) if not DEBUG else 1024
 minibatch_size = 512
 n_mini_batches = int(batch_size / minibatch_size)
-hid_layer_sizes = [256]*2
 lr_start = 1500 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
-lr_final = 0.001 # int((lr_start*(1-slope))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
+lr_final = 0.001
 gamma = 0.99
-_ep_dur_in_k = 4
+_ep_dur_in_k = 3
 ep_dur_max = int(_ep_dur_in_k * 1e3) + 100
 
 own_hypers = ''
