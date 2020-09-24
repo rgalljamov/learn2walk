@@ -211,8 +211,8 @@ if len(wb_project_name) == 0:
     wb_project_name = _mod_path.replace('/', '_')[:-1]
 
 # names of saved model before and after training
-init_checkpoint = s(0)
-final_checkpoint = s(999)
+init_checkpoint = 'init'
+final_checkpoint = 'final'
 
 if __name__ == '__main__':
     from scripts.train import train

@@ -67,7 +67,7 @@ class MimicEnv:
         try:
             if self.refs is None: pass
         except:
-            log("MimicEnv.step() called before refs were initialized!")
+            # log("MimicEnv.step() called before refs were initialized!")
             _rsinitialized = False
             obs = self._get_obs()
             return obs, -3.33, False, {}
@@ -168,8 +168,8 @@ class MimicEnv:
                 reward = cfg.et_reward
             else:
                 reward = cfg.ep_end_reward
-                print(f'Successfully reached the end of the episode '
-                      f'after {ep_dur} steps and got reward of ', reward)
+                # print(f'Successfully reached the end of the episode '
+                #       f'after {ep_dur} steps and got reward of ', reward)
             ep_dur = 0
 
         if step_count % 240000 == 0:

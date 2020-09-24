@@ -1,4 +1,4 @@
-from os import makedirs, remove
+from os import makedirs, remove, rename
 import tensorflow as tf
 import numpy as np
 
@@ -12,7 +12,10 @@ EP_RETURN_THRES = 250 if not cfg.do_run() \
 MEAN_REW_THRES = 0.05 if not cfg.do_run() else 2.5
 
 # define evaluation interval
-EVAL_EVERY_N_STEPS = 50000
+EVAL_MORE_FREQUENT_THRES = 2e6
+EVAL_INTERVAL_BEGINNING = 200e3
+EVAL_INTERVAL_FREQUENT = 50e3
+EVAL_INTERVAL = EVAL_INTERVAL_BEGINNING
 
 class TrainingMonitor(BaseCallback):
     def __init__(self, verbose=0):
@@ -21,10 +24,11 @@ class TrainingMonitor(BaseCallback):
         self.times_surpassed_ep_return_threshold = 0
         self.times_surpassed_mean_reward_threshold = 0
         # control evaluation
-        self.n_evals = 0
+        self.n_steps_after_eval = EVAL_INTERVAL
         self.n_saved_models = 0
         self.mean_walked_distance = 0
         self.min_walked_distance = 0
+        self.has_reached_stable_walking = False
         # log data less frequently
         self.skip_n_steps = 20
         self.skipped_steps = 20
@@ -36,21 +40,41 @@ class TrainingMonitor(BaseCallback):
         if cfg.DEBUG and self.num_timesteps > cfg.MAX_DEBUG_STEPS:
             raise SystemExit(f"Planned Exit after {cfg.MAX_DEBUG_STEPS} due to Debugging mode!")
 
+        global EVAL_INTERVAL
         # skip n steps to reduce logging interval and speed up training
         if self.skipped_steps < self.skip_n_steps:
             self.skipped_steps += 1
             return True
 
-        if self.num_timesteps >= EVAL_EVERY_N_STEPS * self.n_evals and not cfg.DEBUG:
-            self.n_evals += 1
-            self.eval_walking()
+        if self.n_steps_after_eval >= EVAL_INTERVAL and not cfg.DEBUG:
+            walking_stably = self.eval_walking()
+            # terminate training when stable walking has been learned
+            if walking_stably:
+                import wandb
+                # log required num of steps to wandb
+                if not self.has_reached_stable_walking:
+                    wandb.run.summary['steps_to_convergence'] = self.num_timesteps
+                    self.has_reached_stable_walking = True
+                utils.log("WE COULD FINISH TRAINING EARLY!",
+                          [f'Agent learned to stably walk after {self.num_timesteps} steps!'])
+            self.n_steps_after_eval = 0
+            if self.num_timesteps > EVAL_MORE_FREQUENT_THRES:
+                EVAL_INTERVAL = EVAL_INTERVAL_FREQUENT
+        else:
+            self.n_steps_after_eval += 1
 
         ep_len = self.get_mean('ep_len_smoothed')
         ep_ret = self.get_mean('ep_ret_smoothed')
         mean_rew = self.get_mean('mean_reward_smoothed')
 
+        # avoid logging data during first episode
+        if ep_len == 0:
+            return True
+
         self.log_to_tb(mean_rew, ep_len, ep_ret)
-        self.save_model_if_good(mean_rew, ep_ret)
+        # do not save a model if its episode length was too short
+        if ep_len > 1500:
+            self.save_model_if_good(mean_rew, ep_ret)
 
         # reset counter of skipped steps after data was logged
         self.skipped_steps = 0
@@ -130,11 +154,12 @@ class TrainingMonitor(BaseCallback):
         """
         Test the deterministic version of the current model:
         How far does it walk (in average) without falling?
+        @returns: If the training can be stopped as stable walking was achieved.
         """
         eval_n_times = 10
-        moved_distances = []
+        moved_distances, mean_rewards = [], []
         # save current model
-        checkpoint = f'{int(self.num_timesteps/1e5)}x1e5'
+        checkpoint = f'{int(self.num_timesteps/1e4)}'
         model_path, env_path = \
             utils.save_model(self.model, cfg.save_path, checkpoint, full=False)
 
@@ -151,30 +176,57 @@ class TrainingMonitor(BaseCallback):
             obs = eval_env.reset()
             ep_dur = 0
             walked_distance = 0
+            rewards = []
             while True:
                 ep_dur += 1
                 action, _ = eval_model.predict(obs, deterministic=True)
                 obs, reward, done, info = eval_env.step(action)
+                rewards.append(reward)
                 if done:
                     moved_distances.append(walked_distance)
+                    mean_rewards.append(np.mean(rewards))
                     break
                 else:
+                    # we cannot get the walked distance after episode termination,
+                    # as when done=True is returned, the env was already reseted.
                     walked_distance = mimic_env.data.qpos[0]
 
         # calculate mean walked distance
         self.mean_walked_distance = np.mean(moved_distances)
         self.min_walked_distance = np.min(moved_distances)
 
-        # delete evaluation model if stable walking was not achieved yet
-        if self.n_saved_models >= 5 or self.min_walked_distance < 20:
-            utils.log('Deleting Model:', [f'Min walked distance: {self.min_walked_distance}',
-                                          f'Mean walked distance: {self.mean_walked_distance}'])
+        ## delete evaluation model if stable walking was not achieved yet
+        # or too many models were saved already
+        were_enough_models_saved = self.n_saved_models >= 5
+        # or walking was not human-like
+        walks_humanlike = np.mean(mean_rewards) >= 0.5
+        min_dist = int(self.min_walked_distance)
+        mean_dist = int(self.mean_walked_distance)
+        # walked 10 times at least 20 meters without falling
+        has_achieved_stable_walking = min_dist > 20
+        # in average stable for 20 meters but not all 20 trials were over 20m
+        has_reached_high_mean_distance = mean_dist > 20
+        is_stable_humanlike_walking = min_dist >= 20 and walks_humanlike
+        # retain the model if it is good else delete it
+        retain_model = is_stable_humanlike_walking and not were_enough_models_saved
+        distances_report = [f'Min walked distance: {min_dist}m',
+                            f'Mean walked distance: {mean_dist}m']
+        if retain_model:
+            utils.log('Saving Model:', distances_report)
+            # rename model: add distances to the models names
+            dists = f'_min{min_dist}mean{mean_dist}'
+            new_model_path = model_path[:-4] + dists +'.zip'
+            new_env_path = env_path + dists
+            rename(model_path, new_model_path)
+            rename(env_path, new_env_path)
+            self.n_saved_models += 1
+        else:
+            utils.log('Deleting Model:', distances_report)
             remove(model_path)
             remove(env_path)
-        else:
-            utils.log('Saved Model:', [f'Min walked distance: {self.min_walked_distance}',
-                                       f'Mean walked distance: {self.mean_walked_distance}'])
-            self.n_saved_models += 1
+
+        return is_stable_humanlike_walking
+
 
 
 
