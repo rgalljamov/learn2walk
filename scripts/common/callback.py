@@ -12,9 +12,9 @@ EP_RETURN_THRES = 250 if not cfg.do_run() \
 MEAN_REW_THRES = 0.05 if not cfg.do_run() else 2.5
 
 # define evaluation interval
-EVAL_MORE_FREQUENT_THRES = 2e6
-EVAL_INTERVAL_BEGINNING = 200e3
-EVAL_INTERVAL_FREQUENT = 50e3
+EVAL_MORE_FREQUENT_THRES = 3e6
+EVAL_INTERVAL_BEGINNING = 250e3
+EVAL_INTERVAL_FREQUENT = 100e3
 EVAL_INTERVAL = EVAL_INTERVAL_BEGINNING
 
 class TrainingMonitor(BaseCallback):
@@ -40,6 +40,7 @@ class TrainingMonitor(BaseCallback):
         if cfg.DEBUG and self.num_timesteps > cfg.MAX_DEBUG_STEPS:
             raise SystemExit(f"Planned Exit after {cfg.MAX_DEBUG_STEPS} due to Debugging mode!")
 
+        self.n_steps_after_eval += 1 * cfg.n_envs
         global EVAL_INTERVAL
         # skip n steps to reduce logging interval and speed up training
         if self.skipped_steps < self.skip_n_steps:
@@ -47,6 +48,7 @@ class TrainingMonitor(BaseCallback):
             return True
 
         if self.n_steps_after_eval >= EVAL_INTERVAL and not cfg.DEBUG:
+            self.n_steps_after_eval = 0
             walking_stably = self.eval_walking()
             # terminate training when stable walking has been learned
             if walking_stably:
@@ -54,21 +56,19 @@ class TrainingMonitor(BaseCallback):
                 # log required num of steps to wandb
                 if not self.has_reached_stable_walking:
                     wandb.run.summary['steps_to_convergence'] = self.num_timesteps
+                    wandb.log({'log_steps_to_convergence': self.num_timesteps})
                     self.has_reached_stable_walking = True
                 utils.log("WE COULD FINISH TRAINING EARLY!",
                           [f'Agent learned to stably walk after {self.num_timesteps} steps!'])
-            self.n_steps_after_eval = 0
             if self.num_timesteps > EVAL_MORE_FREQUENT_THRES:
                 EVAL_INTERVAL = EVAL_INTERVAL_FREQUENT
-        else:
-            self.n_steps_after_eval += 1
 
         ep_len = self.get_mean('ep_len_smoothed')
         ep_ret = self.get_mean('ep_ret_smoothed')
         mean_rew = self.get_mean('mean_reward_smoothed')
 
         # avoid logging data during first episode
-        if ep_len == 0:
+        if ep_len < 30:
             return True
 
         self.log_to_tb(mean_rew, ep_len, ep_ret)
@@ -133,7 +133,7 @@ class TrainingMonitor(BaseCallback):
         def get_mio_timesteps():
             return int(self.num_timesteps/1e6)
 
-        ep_ret_thres = 1000 + int(EP_RETURN_THRES * (self.times_surpassed_ep_return_threshold + 1))
+        ep_ret_thres = 2000 + int(EP_RETURN_THRES * (self.times_surpassed_ep_return_threshold + 1))
         if ep_ret > ep_ret_thres:
             utils.save_model(self.model, cfg.save_path,
                              'ep_ret' + str(ep_ret_thres) + f'_{get_mio_timesteps()}M')
@@ -153,13 +153,13 @@ class TrainingMonitor(BaseCallback):
     def eval_walking(self):
         """
         Test the deterministic version of the current model:
-        How far does it walk (in average) without falling?
+        How far does it walk (in average and at least) without falling?
         @returns: If the training can be stopped as stable walking was achieved.
         """
         eval_n_times = 10
         moved_distances, mean_rewards = [], []
         # save current model
-        checkpoint = f'{int(self.num_timesteps/1e4)}'
+        checkpoint = f'{int(self.num_timesteps/1e5)}'
         model_path, env_path = \
             utils.save_model(self.model, cfg.save_path, checkpoint, full=False)
 
@@ -181,7 +181,9 @@ class TrainingMonitor(BaseCallback):
                 ep_dur += 1
                 action, _ = eval_model.predict(obs, deterministic=True)
                 obs, reward, done, info = eval_env.step(action)
-                rewards.append(reward)
+                # unnormalize reward
+                reward = reward * np.sqrt(eval_env.ret_rms.var + 1e-8)
+                rewards.append(reward[0])
                 if done:
                     moved_distances.append(walked_distance)
                     mean_rewards.append(np.mean(rewards))
@@ -200,6 +202,7 @@ class TrainingMonitor(BaseCallback):
         were_enough_models_saved = self.n_saved_models >= 5
         # or walking was not human-like
         walks_humanlike = np.mean(mean_rewards) >= 0.5
+        print('Mean rewards during evaluation of the deterministic model: ', mean_rewards)
         min_dist = int(self.min_walked_distance)
         mean_dist = int(self.mean_walked_distance)
         # walked 10 times at least 20 meters without falling

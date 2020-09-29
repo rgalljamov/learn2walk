@@ -29,7 +29,7 @@ run_id = 672
 checkpoint =  '999' # 'mean_rew60_12M' # 'ep_ret5500' # 999
 
 # evaluate for n episodes
-n_eps = 1
+n_eps = 10
 # how many actions to record in each episode
 rec_n_steps = 1000
 

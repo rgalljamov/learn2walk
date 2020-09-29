@@ -28,7 +28,7 @@ class CustomPolicy(ActorCriticPolicy):
 
             # reduce dim of observations
             if cfg.is_mod(cfg.MOD_E2E_ENC_OBS):
-                log('Building an autoencoder to reduce observation dimensionality.\n'
+                log('Building an encoder to reduce observation dimensionality.\n'
                     f'Input dim original: {obs.shape[1]}\n'
                     f'Hidden Layer Sizes (E2E): {cfg.enc_layer_sizes + cfg.hid_layer_sizes}')
                 obs = self.fc_hidden_layers('obs_enc_hid', obs, cfg.enc_layer_sizes, act_func_hid)
