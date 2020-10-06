@@ -154,15 +154,41 @@ class ReferenceTrajectories:
             mirred_right_step[negate_indices, :] *= -1
             self.data[i_left_step] = mirred_right_step
 
-    def next(self, increment=2):
+    def next(self):
         """
         Increases the internally managed position
                 on the current step trajectory by a specified amount.
         :param increment number of points to proceed on the ref trajecs
                          increment=2 corresponds to 200Hz sample frequency
         """
-        self._pos += increment
+        self._pos += self.increment
         self.ep_dur += 1
+        # when we reached the trajectory's end of the current step
+        dif = self._pos - (len(self._step[0]) - 1)
+        if dif > 0:
+            # choose the next step
+            self._step = self._get_next_step()
+            # make sure to do the required increment
+            self._pos = dif
+
+    def set_increment(self, increment):
+        """
+        sets how many points to jump over when next() is called.
+        Goal is to simulate the data being collected at a lower sample frequency.
+        Original sampling frequency of the data is 400Hz.
+        Resulting frequency is 400/increment
+         """
+        assert type(increment) == int
+        self.increment = increment
+
+
+    def set_sampling_frequency(self, frequency):
+        """
+        Sampling frequency is controlled by the increment in next().
+        """
+        increment = int(SAMPLE_FREQ/frequency)
+        self.set_increment(increment)
+
 
     def reset(self):
         """ Set all indices and counters to zero."""
@@ -180,10 +206,10 @@ class ReferenceTrajectories:
         return self._get_by_indices(self.qvel_is)
 
     def get_phase_variable(self):
-        trajec_duration = len(self._step[0])+2
+        trajec_duration = len(self._step[0])
         phase = self._pos / trajec_duration
-        assert phase >= 0 and phase <= 1, \
-            f'Phase Variable should be between 0 and 1 but was {phase}'
+        if not (phase >= 0 and phase <= 1):
+           print(f'Phase Variable should be between 0 and 1 but was {phase}')
         return phase
 
     def get_ref_kinmeatics(self):
@@ -266,10 +292,6 @@ class ReferenceTrajectories:
         Kinematics of specified joints at the current position
         on the current step trajectory.
         """
-        # when we reached the trajectory's end of the current step
-        if self._pos >= len(self._step[0]):
-            # choose the next step
-            self._step = self._get_next_step()
         joint_kinematics = self._step[indices, self._pos]
         return joint_kinematics
 
@@ -368,8 +390,6 @@ class ReferenceTrajectories:
 
         # update the so far traveled distance
         self.dist = self._step[COM_POSX, -1]
-        # check how many points on the previous steps were left
-        skipped_pos = self._pos - len(self._step[COM_POSX,:])
         # choose the next step
         # copy to add the com x position only of the current local step variable
         step = np.copy(self.data[self._i_step])
@@ -378,10 +398,6 @@ class ReferenceTrajectories:
             f"but started with {step[COM_POSX, 0]}"
         # add the so far traveled distance to the x pos of the COM
         step[COM_POSX,:] += self.dist
-        # reset the position on the ref trajectory
-        # consider if positions on previous step trajectories were skipped
-        # due to increment in self.next()!
-        self._pos = skipped_pos
         return step
 
     def _add_trunk_euler_rotations(self):

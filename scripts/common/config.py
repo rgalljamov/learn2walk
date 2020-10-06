@@ -123,6 +123,7 @@ MOD_E2E_ENC_OBS = 'e2e_enc_obs'
 # ------------------
 approach = AP_DEEPMIMIC
 modification = mod([MOD_E2E_ENC_OBS,
+CTRL_FREQ = 200
     MOD_CUSTOM_POLICY
     ])
 assert_mod_compatibility()
@@ -153,6 +154,7 @@ wb_run_notes = 'End to End Encoder reduces dim of the observations!' \
                'Adjusted hypers from the 2D walker. ' \
                'Minibatch-Size is already set to 512, which was actually' \
                'an improvement learned later!'
+gamma = {50:0.99, 100: 0.999, 200:0.9983}[CTRL_FREQ]
 # num of times a batch of experiences is used
 noptepochs = 4
 
@@ -182,9 +184,8 @@ lr_start = 1500 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
 lr_final = 0.001
-gamma = 0.99
-_ep_dur_in_k = 3
-ep_dur_max = int(_ep_dur_in_k * 1e3) + 100
+_ep_dur_in_k = {200: 2.65, 100: 1.5, 50: 0.75}[CTRL_FREQ]
+ep_dur_max = int(_ep_dur_in_k * 1.025 * 1e3)
 
 own_hypers = ''
 info = ''

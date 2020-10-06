@@ -34,6 +34,7 @@ class MimicEnv:
         self._sim_freq, self._frame_skip = self.get_sim_freq_and_frameskip()
         self.model.opt.timestep = 1 / self._sim_freq
         self.control_freq = self._sim_freq / self._frame_skip
+        self.refs.set_sampling_frequency(self.control_freq)
         # names of all robot kinematics
         self.kinem_labels = self.refs.get_kinematics_labels()
         # keep the body in the air for testing purposes
@@ -187,7 +188,8 @@ class MimicEnv:
         What is the frequency the simulation is running at
         and how many frames should be skipped during step(action)?
         """
-        return 1000, 5
+        SIM_FREQ = 1000
+        return SIM_FREQ, int(SIM_FREQ/cfg.CTRL_FREQ)
 
     def get_joint_kinematics(self, exclude_com=False, concat=False):
         '''Returns qpos and qvel of the agent.'''

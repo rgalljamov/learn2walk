@@ -32,6 +32,7 @@ def init_wandb(model):
     params = {
         "path": cfg.save_path,
         "mod": cfg.modification,
+        "ctrl_freq": cfg.CTRL_FREQ,
         "lr0": cfg.lr_start,
         "lr1": cfg.lr_final,
         "lr_sched": 'exp' if cfg.is_mod(cfg.MOD_EXP_LR_SCHED) else 'lin',
