@@ -50,7 +50,8 @@ class MimicEnv:
         self.kinem_stds = np.load(cfg.abs_project_path +
                                   'assets/ref_trajecs/distributions/stds_all_steps_const_speed_400hz.npy')
         # self.kinem_stds = self.kinem_stds[self.refs.qpos_is + self.refs.qvel_is]
-
+        # track different reward components
+        self.pos_rew, self.vel_rew, self.com_rew = 0,0,0
 
     def step(self, a):
         """
@@ -610,6 +611,8 @@ class MimicEnv:
         vel_rew = self.get_vel_reward()
         com_rew = self.get_com_reward()
         pow_rew = self.get_energy_reward() if w_pow != 0 else 0
+
+        self.pos_rew, self.vel_rew, self.com_rew = pos_rew, vel_rew, com_rew
 
         if cfg.is_mod(cfg.MOD_REW_MULT):
             imit_rew = np.sqrt(pos_rew) * np.sqrt(com_rew) # * vel_rew**w_vel
