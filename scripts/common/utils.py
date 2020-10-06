@@ -79,13 +79,13 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True,
     def make_env_func(env_name, seed, rank):
         def make_env():
             env = gym.make(env_name)
+            env.seed(seed + rank * 100)
             if isinstance(env, MimicEnv):
                 # wrap a MimicEnv in the EnvMonitor
                 # has to be done before converting into a VecEnv!
                 env = EnvMonitor(env)
                 if deltas:
                     env.set_action_space_deltas()
-            env.seed(seed+rank*100)
             return env
         return make_env
 

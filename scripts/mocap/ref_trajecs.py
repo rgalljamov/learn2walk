@@ -6,7 +6,7 @@ Script to handle reference trajectories.
 
 - handle COM and Joint Kinematics separately
 '''
-
+import random
 import numpy as np
 import scipy.io as spio
 from scripts.common.config import is_mod, MOD_REFS_RAMP, SKIP_N_STEPS, STEPS_PER_VEL
@@ -299,7 +299,7 @@ class ReferenceTrajectories:
         ''' Random State Initialization:
             @returns: qpos and qvel of a random step at a random position'''
         self._step = self._get_random_step()
-        self._pos = np.random.randint(0, len(self._step[0]) - 1)
+        self._pos = random.randint(0, len(self._step[0]) - 1)
         # reset episode duration and so far traveled distance
         self.ep_dur = 0
         self.dist = 0
@@ -359,7 +359,7 @@ class ReferenceTrajectories:
 
     def _get_random_step(self):
         # which of the 250 steps are we looking at
-        self._i_step = np.random.randint(0, len(self.data) - 1)
+        self._i_step = random.randint(0, len(self.data) - 1, )
         return self.data[self._i_step]
 
     def _get_next_step(self):
