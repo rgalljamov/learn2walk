@@ -119,6 +119,7 @@ MOD_SYMMETRIC_WALK = 'sym_walk'
 # reduce input dimensionality with an end-to-end encoder network of the observations
 # e2e means here that we don't separately train the encoder to reconstruct the observations
 MOD_E2E_ENC_OBS = 'e2e_enc_obs'
+MOD_TORQUE_DELTAS = 'trq_delta'
 
 # ------------------
 approach = AP_DEEPMIMIC
@@ -155,6 +156,7 @@ wb_run_notes = 'End to End Encoder reduces dim of the observations!' \
                'Minibatch-Size is already set to 512, which was actually' \
                'an improvement learned later!'
 gamma = {50:0.99, 100: 0.999, 200:0.9983}[CTRL_FREQ]
+trq_delta = 0.25
 # num of times a batch of experiences is used
 noptepochs = 4
 
@@ -166,6 +168,7 @@ env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'walker2dv2', 'walker2d
 env_index = 3
 env_id = envs[env_index]
 env_name = env_names[env_index]
+is_torque_model = env_name in ['mim_trq2d', 'mim_trq3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
 
 # choose hyperparams
 algo = 'ppo2'

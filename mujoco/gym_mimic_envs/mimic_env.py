@@ -113,6 +113,11 @@ class MimicEnv:
                 a *= self.get_max_qpos_deltas()
             a = qpos_act_before_step + a
 
+        if cfg.is_mod(cfg.MOD_TORQUE_DELTAS):
+            last_action = np.copy(self.sim.data.actuator_force)
+            deltas = a * cfg.trq_delta
+            a = last_action + deltas
+
         # execute simulation with desired action for multiple steps
         self.do_simulation(a, self._frame_skip)
 
@@ -395,7 +400,10 @@ class MimicEnv:
         # When we set a desired state during RSI, we suddenly change the current state.
         # Without also changing the target angles, there will be a huge difference
         # between target and current angles and PD Servos will kick in with high torques
-        self.data.ctrl[:] = self._remove_by_indices(qpos, self._get_not_actuated_joint_indices())
+        # todo: not sure we need it. The agent should have the chance to choose a first action
+        # todo: ... and overwrite the zero ctrl!
+        # if not cfg.is_torque_model:
+        #     self.data.ctrl[:] = self._remove_by_indices(qpos, self._get_not_actuated_joint_indices())
 
         self.set_state(qpos, qvel)
         # check reward function
