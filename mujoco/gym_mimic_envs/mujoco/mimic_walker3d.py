@@ -61,8 +61,8 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         """
         return [0,1,2]
 
-    def _get_saggital_trunk_joint_index(self):
-        return 4
+    def _get_trunk_joint_indices(self):
+        return [3, 4, 5]
 
     def _get_not_actuated_joint_indices(self):
         """

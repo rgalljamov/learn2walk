@@ -151,40 +151,45 @@ class MimicEnv:
 
         USE_ET = False or cfg.is_mod(cfg.MOD_REF_STATS_ET)
         USE_REW_ET = True and not cfg.do_run() and not USE_ET
+        walked_distance = qpos_after[0]
+        is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > 20.5
         if self.is_evaluation_on():
-            done = com_z_pos < 0.5 or ep_dur >= cfg.ep_dur_max
+            done = com_z_pos < 0.5 or is_ep_end
         elif USE_ET:
             if cfg.is_mod(cfg.MOD_REF_STATS_ET):
                 done = self.is_out_of_ref_distribution(obs)
             else:
                 done = self.has_exceeded_allowed_deviations()
         elif USE_REW_ET:
-            done = self.do_terminate_early(reward, rew_threshold=cfg.et_rew_thres) \
-                   or ep_dur >= cfg.ep_dur_max
+            done, com_height_too_low, trunk_ang_exceeded, is_drunk, \
+            rew_too_low = self.do_terminate_early(reward, rew_threshold=cfg.et_rew_thres)
+            done = done or is_ep_end
         else:
             done = not (com_z_pos > 0.8 and com_z_pos < 2.0 and
                         ang > -1.0 and ang < 1.0)
-            done = done or ep_dur > cfg.ep_dur_max
+            done = done or is_ep_end
         if DEBUG and done: print('Done')
 
         # punish episode termination
         if done:
             # but don't punish if episode just reached max length
-            if ep_dur < cfg.ep_dur_max:
-                reward = cfg.et_reward
-            else:
-                reward = cfg.ep_end_reward
+            if not is_ep_end:
+                # punish only falling hard
+                if not self.is_evaluation_on():
+                    if rew_too_low:
+                        reward = -1
+                    elif com_height_too_low or trunk_ang_exceeded:
+                        reward = cfg.et_reward
+                    else:
+                        reward = 0.1 * cfg.et_reward
+            # when episode finishes don't increase reward as the actions
+            # before the episode's end might have been quite bad!
+            # else:
+                # reward = cfg.ep_end_reward
                 # print(f'Successfully reached the end of the episode '
                 #       f'after {ep_dur} steps and got reward of ', reward)
             ep_dur = 0
 
-        if step_count % 240000 == 0:
-            print("start rendering, step: ", step_count)
-            # do_render = True
-            # pause_viewer_at_first_step = True
-        elif step_count % 250000 == 0:
-            print("stop rendering, step: ", step_count)
-            # do_render = False
 
         return obs, reward, done, {}
 
@@ -622,22 +627,56 @@ class MimicEnv:
             return False
 
         qpos = self.get_qpos()
-        com_height = qpos[self._get_COM_indices()[-1]]
-        trunk_ang_saggit = qpos[self._get_saggital_trunk_joint_index()]
+        ref_qpos = self.refs.get_qpos()
+        com_indices = self._get_COM_indices()
+        trunk_ang_indices = self._get_trunk_joint_indices()
 
-        # calculate if allowed com height was exceeded (e.g. walker felt down)
-        com_height_des = self.refs.get_com_height()
-        com_delta = np.abs(com_height_des - com_height)
-        com_deviation_prct = com_delta/com_height_des
-        allowed_com_deviation_prct = 0.4
-        com_max_dev_exceeded = com_deviation_prct > allowed_com_deviation_prct
-        if self._FLY: com_max_dev_exceeded = False
+        com_height = qpos[com_indices[-1]]
+        com_y_pos = qpos[com_indices[1]]
+        trunk_angs = qpos[trunk_ang_indices]
+        ref_trunk_angs = ref_qpos[trunk_ang_indices]
 
-        # calculate if trunk angle exceeded limits of 45° (0.785 in rad)
-        trunk_ang_exceeded = np.abs(trunk_ang_saggit) > 0.7
+        # calculate if trunk saggital angle exceeded the limit
+        # trunk_ang_sag has a std of 0.05 rad, allow for 3x the std (about 9° deviation)
+        max_sag_dev = 0.15
+        is2d = len(trunk_ang_indices) == 1
+        if is2d:
+            trunk_ang_saggit = trunk_angs # is the saggital ang
+            sag_dev = np.abs(trunk_ang_saggit - ref_trunk_angs)
+            trunk_ang_sag_exceeded = sag_dev > max_sag_dev
+            trunk_ang_exceeded = trunk_ang_sag_exceeded
+        else:
+            max_front_dev = 0.2
+            max_axial_dev = 0.25
+            trunk_ang_front, trunk_ang_saggit, trunk_ang_axial = trunk_angs
+            front_dev, sag_dev, ax_dev = np.abs(trunk_angs - ref_trunk_angs)
+            trunk_ang_front_exceeded = front_dev > max_front_dev
+            trunk_ang_axial_exceeded = ax_dev > max_axial_dev
+            trunk_ang_sag_exceeded = sag_dev > max_sag_dev
+            trunk_ang_exceeded = trunk_ang_sag_exceeded or trunk_ang_front_exceeded \
+                                 or trunk_ang_axial_exceeded
 
-        rew_too_low = rew < rew_threshold
-        return com_max_dev_exceeded or trunk_ang_exceeded or rew_too_low
+        # check if agent has deviated too much in the y direction
+        is_drunk = np.abs(com_y_pos) > 0.1
+
+        # is com height too low (e.g. walker felt down)?
+        min_com_height = 0.9
+        com_height_too_low = com_height < min_com_height
+        if self._FLY: com_height_too_low = False
+
+        rew_too_low = False # rew < rew_threshold
+        terminate_early = com_height_too_low or trunk_ang_exceeded or is_drunk or rew_too_low
+        if (terminate_early and np.random.randint(low=1, high=100) == 7) \
+                or np.random.randint(low=1, high=50000) == 777:
+             log(("" if terminate_early else "NO ") + "Early Termination",
+                [f'COM Z too low:   \t{com_height_too_low} \t {com_height}',
+                 f'COM Y too high:  \t{is_drunk} \t {com_y_pos}',
+                 f'Trunk Angles:    \t{trunk_ang_exceeded} \t '
+                    f'{sag_dev if is2d else np.round([front_dev, sag_dev, ax_dev], 3)}',
+                 # f'Reward too low:  \t{rew_too_low} \t {rew}',
+                 f'Reward was:      \t {"    "} \t {rew}'
+                 ])
+        return terminate_early, com_height_too_low, trunk_ang_exceeded, is_drunk, rew_too_low
 
 
     def is_out_of_ref_distribution(self, state, scale_pos_std=2, scale_vel_std=10):
@@ -751,7 +790,7 @@ class MimicEnv:
         """
         raise NotImplementedError
 
-    def _get_saggital_trunk_joint_index(self):
+    def _get_trunk_joint_indices(self):
         """ Return the index of the trunk euler rotation in the saggital plane. """
         raise NotImplementedError
 
