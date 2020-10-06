@@ -120,6 +120,7 @@ MOD_SYMMETRIC_WALK = 'sym_walk'
 # e2e means here that we don't separately train the encoder to reconstruct the observations
 MOD_E2E_ENC_OBS = 'e2e_enc_obs'
 MOD_TORQUE_DELTAS = 'trq_delta'
+MOD_L2_REG = 'l2_reg'
 
 # ------------------
 approach = AP_DEEPMIMIC
@@ -138,6 +139,7 @@ MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
 ent_coef = 0 # -0.005
 init_logstd = -0.6
+pi_out_init_scale = 0.001
 cliprange = 0.1
 clip_start = 0.3 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
@@ -157,6 +159,7 @@ wb_run_notes = 'End to End Encoder reduces dim of the observations!' \
                'an improvement learned later!'
 gamma = {50:0.99, 100: 0.999, 200:0.9983}[CTRL_FREQ]
 trq_delta = 0.25
+l2_coef = 5e-2
 # num of times a batch of experiences is used
 noptepochs = 4
 

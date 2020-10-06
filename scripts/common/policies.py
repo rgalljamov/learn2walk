@@ -13,7 +13,10 @@ class CustomPolicy(ActorCriticPolicy):
 
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, **kwargs):
         super(CustomPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse, **kwargs)
-        log("Using CustomPolicy.")
+
+        # log("Using CustomPolicy.")
+
+        self._pdtype = CustomDiagGaussianDistributionType(ac_space.shape[0])
 
         if cfg.is_mod(cfg.MOD_PRETRAIN_PI):
             self._pdtype = CustomDiagGaussianDistributionType(ac_space.shape[0])
@@ -91,12 +94,31 @@ class CustomPolicy(ActorCriticPolicy):
             hid = act_func(self.fc(f'{name}{i}', hid, size))
         return hid
 
+    def linear(self, input_tensor, scope, n_hidden, *, init_scale=1.0, init_bias=0.0):
+        """
+        Creates a fully connected layer for TensorFlow
+
+        :param input_tensor: (TensorFlow Tensor) The input tensor for the fully connected layer
+        :param scope: (str) The TensorFlow variable scope
+        :param n_hidden: (int) The number of hidden neurons
+        :param init_scale: (int) The initialization scale
+        :param init_bias: (int) The initialization offset bias
+        :return: (TensorFlow Tensor) fully connected layer
+        """
+        with tf.variable_scope(scope):
+            n_input = input_tensor.get_shape()[1].value
+            weight = tf.get_variable("w", [n_input, n_hidden], initializer=ortho_init(init_scale),
+                                     regularizer= (tf.keras.regularizers.l2(cfg.l2_coef)
+                                     if cfg.is_mod(cfg.MOD_L2_REG) else None))
+            bias = tf.get_variable("b", [n_hidden], initializer=tf.constant_initializer(init_bias))
+            return tf.matmul(input_tensor, weight) + bias
+
     def fc(self, name, input, size, zero=False):
         """
         Builds a single fully connected layer. Initial values taken from stable-baselines.
         :param zero: if True,
         """
-        return linear(input, name, size, init_scale=0 if zero else np.sqrt(2), init_bias=0)
+        return self.linear(input, name, size, init_scale=0 if zero else np.sqrt(2), init_bias=0)
 
     def load_pretrained_policy_hid_layers(self, scope, input, act_func=tf.nn.relu):
         """

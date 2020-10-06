@@ -7,8 +7,8 @@ from stable_baselines.common.tf_layers import linear
 from stable_baselines.common.distributions import \
     DiagGaussianProbabilityDistribution, DiagGaussianProbabilityDistributionType
 
-LOG_STD_MAX = 2
-LOG_STD_MIN = -20
+LOG_STD_MAX = 0.5
+LOG_STD_MIN = -2
 
 class CustomDiagGaussianDistribution(DiagGaussianProbabilityDistribution):
     """ Used f.ex. to load pretrained weights for the output layer of the policy."""
@@ -39,15 +39,16 @@ class CustomDiagGaussianDistributionType(DiagGaussianProbabilityDistributionType
                 output = tf.matmul(pi_latent_vector, mean_weight) + mean_bias
             mean = output
         else:
-            mean = linear(pi_latent_vector, 'pi', self.size, init_scale=init_scale, init_bias=init_bias)
+            mean = linear(pi_latent_vector, 'pi', self.size, init_scale=cfg.pi_out_init_scale, init_bias=init_bias)
         if cfg.is_mod(cfg.MOD_BOUND_MEAN):
             with tf.variable_scope('pi'):
                 mean = tf.tanh(mean)  # squashing mean only
-        logstd_initializer = tf.constant_initializer(cfg.logstd) \
-            if cfg.is_mod(cfg.MOD_PRETRAIN_PI) else tf.zeros_initializer()
-        logstd = tf.get_variable(name='pi/logstd', shape=[1, self.size], initializer=logstd_initializer)
-        # inspired by sac
+        logstd_initializer = tf.constant_initializer(cfg.init_logstd)
+        # print(f'Initializing all logstds with: {cfg.init_logstd}')
+        logstd = tf.get_variable(name='pi/logstd', shape=(self.size,), initializer=logstd_initializer)
+        # clipping of logstd inspired by sac
         logstd = tf.clip_by_value(logstd, LOG_STD_MIN, LOG_STD_MAX)
+        # log(f'Clipping logstd in range from {LOG_STD_MIN} to {LOG_STD_MAX}')
         pdparam = tf.concat([mean, mean * 0.0 + logstd], axis=1)
         q_values = linear(vf_latent_vector, 'q', self.size, init_scale=init_scale, init_bias=init_bias)
         return self.proba_distribution_from_flat(pdparam), mean, q_values
