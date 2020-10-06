@@ -473,7 +473,7 @@ class MimicEnv:
         dif = qpos - ref_pos
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
-        pose_rew = np.exp(-4 * sum)
+        pose_rew = np.exp(-3 * sum)
         return pose_rew
 
     def get_vel_reward(self):
@@ -497,7 +497,7 @@ class MimicEnv:
             difs = qvel - ref_vel
             dif_sqrd = np.square(difs)
             dif_sum = np.sum(dif_sqrd)
-            vel_rew = np.exp(-0.2 * dif_sum)
+            vel_rew = np.exp(-0.1 * dif_sum)
         return vel_rew
 
     def get_com_reward(self):
@@ -532,7 +532,7 @@ class MimicEnv:
         dif = com_pos - com_ref
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
-        com_rew = np.exp(-12 * sum)
+        com_rew = np.exp(-16 * sum)
         return com_rew
 
     def get_energy_reward(self):
