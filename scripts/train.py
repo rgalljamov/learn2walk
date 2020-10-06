@@ -47,7 +47,7 @@ def init_wandb(model):
         "ent_coef": model.ent_coef,
         "ep_dur": cfg.ep_dur_max,
         "imit_rew": cfg.rew_weights,
-        "logstd": cfg.logstd,
+        "logstd": cfg.init_logstd,
         "et_rew": cfg.et_reward,
         "ep_end_rew": cfg.ep_end_reward,
         "et_rew_thres": cfg.et_rew_thres,

@@ -137,8 +137,8 @@ MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
 ent_coef = 0 # -0.005
-logstd = 0
-cliprange = 0.15
+init_logstd = -0.6
+cliprange = 0.1
 clip_start = 0.3 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 SKIP_N_STEPS = 1
@@ -178,15 +178,16 @@ ep_end_reward = 10
 et_reward = -100
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
-mio_steps = 12 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
+mirr_exps = is_mod(MOD_MIRROR_EXPS)
+mio_steps = (16 if is_torque_model else 6) * (2 if mirr_exps else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 1
-batch_size = (4096 * (2 if not is_mod(MOD_MIRROR_EXPS) else 1)) if not DEBUG else 1024
-minibatch_size = 512
-n_mini_batches = int(batch_size / minibatch_size)
-lr_start = 1500 if is_mod(MOD_EXP_LR_SCHED) else 500
+minibatch_size = 512 * 4
+batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
+n_mini_batches = int(batch_size / minibatch_size) * (2 if mirr_exps else 1)
+lr_start = 1000 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
-lr_final = 0.001
+lr_final = 0.01
 _ep_dur_in_k = {200: 2.65, 100: 1.5, 50: 0.75}[CTRL_FREQ]
 ep_dur_max = int(_ep_dur_in_k * 1.025 * 1e3)
 
