@@ -393,7 +393,7 @@ class MimicEnv:
         '''WARNING: This method seems to be specific to MujocoEnv.
            Other gym environments just use reset().'''
         self.joint_pow_sum_normed = 0
-        qpos, qvel = self.get_init_state(not self.SPEED_CONTROL)
+        qpos, qvel = self.get_init_state(not self.is_evaluation_on() and not self.SPEED_CONTROL)
 
         ### avoid huge joint toqrues from PD servos after RSI
         # Explanation: on reset, ctrl is set to all zeros.

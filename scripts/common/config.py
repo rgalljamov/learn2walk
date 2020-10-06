@@ -160,6 +160,7 @@ wb_run_notes = 'End to End Encoder reduces dim of the observations!' \
 gamma = {50:0.99, 100: 0.999, 200:0.9983}[CTRL_FREQ]
 trq_delta = 0.25
 l2_coef = 5e-2
+EVAL_N_TIMES = 20
 # num of times a batch of experiences is used
 noptepochs = 4
 

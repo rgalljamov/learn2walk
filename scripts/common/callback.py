@@ -59,7 +59,9 @@ class TrainingMonitor(BaseCallback):
                     wandb.log({'log_steps_to_convergence': self.num_timesteps})
                     self.has_reached_stable_walking = True
                 utils.log("WE COULD FINISH TRAINING EARLY!",
-                          [f'Agent learned to stably walk after {self.num_timesteps} steps!'])
+                          [f'Agent learned to stably walk '
+                           f'after {self.num_timesteps} steps'
+                           f'with mean step reward of {self.mean_reward_means}!'])
             if self.num_timesteps > EVAL_MORE_FREQUENT_THRES:
                 EVAL_INTERVAL = EVAL_INTERVAL_FREQUENT
 
@@ -156,7 +158,6 @@ class TrainingMonitor(BaseCallback):
         How far does it walk (in average and at least) without falling?
         @returns: If the training can be stopped as stable walking was achieved.
         """
-        eval_n_times = 10
         moved_distances, mean_rewards = [], []
         # save current model
         checkpoint = f'{int(self.num_timesteps/1e5)}'
@@ -172,8 +173,9 @@ class TrainingMonitor(BaseCallback):
 
         # evaluate deterministically
         utils.log(f'Starting model evaluation, checkpoint {checkpoint}')
+        obs = eval_env.reset()
+        eval_n_times = cfg.EVAL_N_TIMES if self.num_timesteps > EVAL_MORE_FREQUENT_THRES*2/3 else 10
         for i in range(eval_n_times):
-            obs = eval_env.reset()
             ep_dur = 0
             walked_distance = 0
             rewards = []
@@ -196,6 +198,11 @@ class TrainingMonitor(BaseCallback):
         # calculate mean walked distance
         self.mean_walked_distance = np.mean(moved_distances)
         self.min_walked_distance = np.min(moved_distances)
+        # how many times 20m were reached
+        runs_below_20 = np.where(np.array(moved_distances) < 20)[0]
+        if eval_n_times == cfg.EVAL_N_TIMES:
+            self.failed_eval_runs_indices = runs_below_20.tolist()
+        self.count_stable_walks = eval_n_times - len(runs_below_20)
 
         ## delete evaluation model if stable walking was not achieved yet
         # or too many models were saved already

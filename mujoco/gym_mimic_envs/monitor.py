@@ -103,6 +103,8 @@ class Monitor(gym.Wrapper):
 
             self.ep_lens.append(self.ep_len)
             self.ep_len_smoothed = smooth('ep_len', self.ep_len, 0.75)
+            if self.ep_len < self.ep_len_smoothed*0.75:
+                self.difficult_rsi_phases.append(self.init_phase)
             self.ep_len = 0
 
             self.moved_distance_smooth = smooth('dist', self.env.data.qpos[0], 0.25)

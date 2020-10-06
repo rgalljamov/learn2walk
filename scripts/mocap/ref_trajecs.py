@@ -140,6 +140,8 @@ class ReferenceTrajectories:
         self.has_reached_last_step = False
         # count how many steps were taken without skipping steps
         self.count_steps_same_vel = 1
+        # during evaluation we want our agent to start from different positions
+        self.n_deterministic_inits = 0
 
     def _symmetric_walk(self):
         right_step_indices = np.array(self.left_step_indices) - 1
@@ -306,10 +308,32 @@ class ReferenceTrajectories:
         return self.get_qpos(), self.get_qvel()
 
     def get_deterministic_init_state(self, i_step = 0):
-        ''' Random State Initialization:
-            @returns: qpos and qvel of a random step at a random position'''
+        ''' Deterministic State Initialization.
+            @returns: qpos and qvel on a predefined position on the ref trajecs
+                      but choosing another step each time. '''
         self.reset()
-        return self.get_qpos(), self.get_qvel()
+
+        # choose another reference step each time
+        self._i_step = self.n_deterministic_inits
+        self._step = self.data[self._i_step]
+        # desired init position: mid stance
+        self._pos = int(0.85 * len(self._step[0]))
+
+        self.n_deterministic_inits += 1
+        # print(f'{self.n_deterministic_inits} deterministic inits (pos {self._pos}).')
+
+        if self.n_deterministic_inits >= EVAL_N_TIMES:
+            self.n_deterministic_inits = 0
+
+        SAME_INIT = False
+        if SAME_INIT:
+            self._i_step = self.n_deterministic_inits % 2
+            self._step = self.data[self._i_step]
+            self._pos = int(0.85 * len(self._step[0]))
+
+        qpos, qvel = self.get_qpos(), self.get_qvel()
+        # print(qpos, qvel)
+        return qpos, qvel
 
     def get_com_kinematics_full(self):
         """:returns com kinematics for the current steps."""
