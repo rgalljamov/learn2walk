@@ -208,8 +208,8 @@ class TrainingMonitor(BaseCallback):
         # or too many models were saved already
         were_enough_models_saved = self.n_saved_models >= 5
         # or walking was not human-like
-        walks_humanlike = np.mean(mean_rewards) >= 0.5
-        print('Mean rewards during evaluation of the deterministic model: ', mean_rewards)
+        walks_humanlike = self.mean_reward_means >= (0.5 + cfg.alive_bonus) * cfg.rew_scale
+        # print('Mean rewards during evaluation of the deterministic model: ', mean_rewards)
         min_dist = int(self.min_walked_distance)
         mean_dist = int(self.mean_walked_distance)
         # walked 10 times at least 20 meters without falling
@@ -231,16 +231,13 @@ class TrainingMonitor(BaseCallback):
             rename(env_path, new_env_path)
             self.n_saved_models += 1
         else:
-            utils.log('Deleting Model:', distances_report)
+            utils.log('Deleting Model:', distances_report +
+                      [f'Mean step reward: {self.mean_reward_means}',
+                       f'Runs below 20m: {runs_below_20}'])
             remove(model_path)
             remove(env_path)
 
         return is_stable_humanlike_walking
-
-
-
-
-
 
 
 def _save_rews_n_rets(locals):

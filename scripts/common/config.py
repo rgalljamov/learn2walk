@@ -93,7 +93,6 @@ TORQUE_RANGES = get_torque_ranges(300, 300, 300)
 MOD_ENC_DIM_RED_PRETRAINED = 'dim_red'
 # use mocap statistics for ET
 MOD_REF_STATS_ET = 'ref_et'
-et_rew_thres = 0.1
 # mirror experiences
 MOD_MIRROR_EXPS = 'mirr_exps'
 # improve reward function by normalizing individual joints etc.
@@ -124,8 +123,8 @@ MOD_L2_REG = 'l2_reg'
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([MOD_E2E_ENC_OBS,
 CTRL_FREQ = 200
+modification = mod([MOD_GROUND_CONTACT, MOD_3_PHASES,
     MOD_CUSTOM_POLICY
     ])
 assert_mod_compatibility()
@@ -146,17 +145,7 @@ clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 enc_layer_sizes = [512]*2 + [16]
-hid_layer_sizes = [512]*2
-
-
-# add negative ent_coef to counteract growing entropy
-wb_project_name = 'e2enc3d'
-wb_run_name = f'{enc_layer_sizes + hid_layer_sizes}'
-wb_run_notes = 'End to End Encoder reduces dim of the observations!' \
-               'Normalized Actions: 1 -> 300Nm. ' \
-               'Adjusted hypers from the 2D walker. ' \
-               'Minibatch-Size is already set to 512, which was actually' \
-               'an improvement learned later!'
+hid_layer_sizes = [256]*2
 gamma = {50:0.99, 100: 0.999, 200:0.9983}[CTRL_FREQ]
 alive_min_dist = 0
 trq_delta = 0.25
@@ -166,6 +155,24 @@ l2_coef = 5e-2
 et_rew_thres = 0.1 * rew_scale
 alive_bonus = et_rew_thres * 2
 EVAL_N_TIMES = 20
+
+wb_project_name = 'pun_falls'
+# todo: ET punish should be a function of training time or ep dur
+# to punish less hard at beginning, we should better have a smaller lambda...
+# or even better have a reward with a higher amplitude and that can also be negative!
+wb_run_name = 'SYM' if is_mod(MOD_SYMMETRIC_WALK) else '' + \
+              f'GRND contact 3 phases, dif eval 20 x 0.8pos, NO ET for low reward, fallET100, other10'
+wb_run_notes = 'Checking the distribution of difficult RSI phases! ' \
+               'Added ground contact information with three phases!' \
+               'no longer stop the episode based on a minimum reward signal! ' \
+               '-100 reward only if agent was close to falling! ' \
+               'Added hard ET conditions to avoid falling:' \
+               'trunk angles are checked in all three directions, ' \
+               'com height has much higher threshold!' \
+               'Logging reasons for ET! ' \
+               '' \
+               ' ' \
+               'Eval model from 20 different steps at same position in double stance. '
 # num of times a batch of experiences is used
 noptepochs = 4
 

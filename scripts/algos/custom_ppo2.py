@@ -1,4 +1,4 @@
-import time
+import time, traceback
 import numpy as np
 
 from stable_baselines import PPO2
@@ -212,9 +212,11 @@ class CustomPPO2(PPO2):
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
 
-        log('Using CustomPPO2!')
+        # log('Using CustomPPO2!')
 
         self.mirror_experiences = cfg.is_mod(cfg.MOD_MIRROR_EXPS)
+        # to investigate the outputted actions in the monitor env
+        self.last_actions = None
 
         if cfg.is_mod(cfg.MOD_REFS_REPLAY) or cfg.is_mod(cfg.MOD_ONLINE_CLONE):
             # load obs and actions generated from reference trajectories
@@ -276,15 +278,22 @@ class CustomPPO2(PPO2):
 
                 # try getting rollout 3 times
                 tried_rollouts = 0
-                while tried_rollouts < 3:
+                while tried_rollouts < 1:
                     try:
                         # true_reward is the reward without discount
                         rollout = self.runner.run(callback)
                         break
                     except Exception as ex:
-                        log(f'Rollout failed {tried_rollouts+1} times!'
-                            f'Catched exception: {ex}')
                         tried_rollouts += 1
+                        obs, returns, masks, actions, values, neglogpacs, \
+                        states, ep_infos, true_reward = rollout
+                        log(f'Rollout failed {tried_rollouts} times!',
+                            [f'Catched exception: {ex}',
+                             f'obs.shape: {obs.shape}',
+                             f'ret.shape: {returns.shape}'])
+                        traceback.print_exc()
+
+
                         time.sleep(10*tried_rollouts)
 
                 # reset count once, rollout was successful
@@ -298,7 +307,9 @@ class CustomPPO2(PPO2):
                     obs, returns, masks, actions, values, neglogpacs, \
                     states, ep_infos, true_reward = rollout
 
-                if np.random.randint(low=0, high=9, size=1)[0] == 7:
+                self.last_actions = actions
+
+                if np.random.randint(low=1, high=20) == 7:
                     log(f'Values and Returns of collected experiences: ',
                     [f'min returns:\t{np.min(returns)}', f'min values:\t\t{np.min(values)}',
                      f'mean returns:\t{np.mean(returns)}', f'mean values:\t{np.mean(values)}',

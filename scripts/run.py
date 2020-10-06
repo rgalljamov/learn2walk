@@ -17,12 +17,11 @@ RENDER = True
 
 SPEED_CONTROL = False
 
-FROM_PATH = False
-PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
-       "refs_ramp/fixed_skips/skip_after/normd_com_vel/mirr_exps/cstm_pi/" \
-       "pi_deltas/norm_acts/mim2d/8envs/ppo2/32mio/435-evaled"
+FROM_PATH = True
+PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/cstm_pi/" \
+       "50Hz/mim_trq3d/8envs/ppo2/8mio/429"
 if not PATH.endswith('/'): PATH += '/'
-checkpoint = 999 # 'ep_ret2000_7M' #'mean_rew60'
+checkpoint = '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
 
 if FLY: cfg.rew_weights = "6400"
 
@@ -81,6 +80,7 @@ for i in range(10000):
 
     # only stop episode when agent has fallen
     done = env.data.qpos[env.env._get_COM_indices()[-1]] < 0.5
+    # done = i % 300 == 0
 
     if RENDER: env.render()
     if done:

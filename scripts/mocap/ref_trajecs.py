@@ -9,7 +9,8 @@ Script to handle reference trajectories.
 import random
 import numpy as np
 import scipy.io as spio
-from scripts.common.config import is_mod, MOD_REFS_RAMP, SKIP_N_STEPS, STEPS_PER_VEL
+from scripts.common.config import is_mod, MOD_REFS_RAMP, MOD_SYMMETRIC_WALK, \
+    SKIP_N_STEPS, STEPS_PER_VEL, EVAL_N_TIMES
 from scripts.common.utils import log, is_remote, config_pyplot, smooth_exponential
 
 
@@ -127,9 +128,12 @@ class ReferenceTrajectories:
         # some steps are done with left, some with right foot
         self.left_step_indices = self._determine_left_steps_indices()
         # mirror right step and use it as left step
-        # self._symmetric_walk()
+        if is_mod(MOD_SYMMETRIC_WALK): self._symmetric_walk()
         # current step
         self._step = self._get_random_step()
+        # how many points to jump over when next() is called
+        # to get lower sample frequency data
+        self.set_increment(2)
         # position on the reference trajectory of the current step
         self._pos = 0
         # distance walked so far (COM X Position)
@@ -144,6 +148,7 @@ class ReferenceTrajectories:
         self.n_deterministic_inits = 0
 
     def _symmetric_walk(self):
+        # print('Mirroring the mocap data to have symmetric walking!')
         right_step_indices = np.array(self.left_step_indices) - 1
         # replace left steps with right steps
         self.data[self.left_step_indices] = self.data[right_step_indices]
