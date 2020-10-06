@@ -190,6 +190,8 @@ class MimicEnv:
                 #       f'after {ep_dur} steps and got reward of ', reward)
             ep_dur = 0
 
+        if walked_distance > cfg.alive_min_dist and not done:
+            reward += cfg.alive_bonus
 
         return obs, reward, done, {}
 
@@ -413,13 +415,16 @@ class MimicEnv:
         self.set_state(qpos, qvel)
         # check reward function
         rew = self.get_imitation_reward()
-        assert rew > 0.95 if not self._FLY else 0.5, \
+        assert (rew > 0.95 * cfg.rew_scale) if not self._FLY else 0.5, \
             f"Reward should be around 1 after RSI, but was {rew}!"
         # assert not self.has_exceeded_allowed_deviations()
         # set the reference trajectories to the next state,
         # otherwise the first step after initialization has always zero error
         self.refs.next()
-        return self._get_obs()
+        # print(self.refs._i_step, self.refs._pos)
+        obs = self._get_obs()
+        # print(f'init obs: {obs[:8]}')
+        return obs
 
 
     def get_init_state(self, random=True):
@@ -616,7 +621,7 @@ class MimicEnv:
             delta_rew = self.get_angle_deltas_reward(qpos_act, action)
             imit_rew *= delta_rew
 
-        return imit_rew
+        return imit_rew * cfg.rew_scale
 
     def do_terminate_early(self, rew, rew_threshold = 0.05):
         """

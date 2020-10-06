@@ -158,8 +158,13 @@ wb_run_notes = 'End to End Encoder reduces dim of the observations!' \
                'Minibatch-Size is already set to 512, which was actually' \
                'an improvement learned later!'
 gamma = {50:0.99, 100: 0.999, 200:0.9983}[CTRL_FREQ]
+alive_min_dist = 0
 trq_delta = 0.25
+rew_scale = 2
 l2_coef = 5e-2
+# todo reduce et_reward after agents starts walking multiple steps
+et_rew_thres = 0.1 * rew_scale
+alive_bonus = et_rew_thres * 2
 EVAL_N_TIMES = 20
 # num of times a batch of experiences is used
 noptepochs = 4
