@@ -4,7 +4,7 @@ Interface for environments using reference trajectories.
 import gym, mujoco_py
 import numpy as np
 from scripts.common import config as cfg
-from scripts.common.utils import log, is_remote
+from scripts.common.utils import log, is_remote, exponential_running_smoothing as smooth
 from scripts.mocap.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 # double max deltas for better perturbation recovery. To keep balance,
@@ -21,7 +21,7 @@ _play_ref_trajecs = False
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
 pause_viewer_at_first_step = True and not is_remote()
 
-# monitor episode duration
+# monitor episode and training duration
 step_count = 0
 ep_dur = 0
 
@@ -52,6 +52,9 @@ class MimicEnv:
         # self.kinem_stds = self.kinem_stds[self.refs.qpos_is + self.refs.qvel_is]
         # track different reward components
         self.pos_rew, self.vel_rew, self.com_rew = 0,0,0
+        # track running mean of the return and use it for ET reward
+        self.ep_rews = []
+        self.mean_epret_smoothed = 0
 
     def step(self, a):
         """
@@ -144,7 +147,7 @@ class MimicEnv:
         USE_DMM_REW = True and not cfg.do_run()
         if USE_DMM_REW:
             reward = self.get_imitation_reward(qpos_act_before_step, a)
-            if DEBUG: print('Reward ', reward)
+            self.ep_rews.append(reward)
         else:
             reward = (com_x_vel_finite_difs)
             reward += alive_bonus
@@ -173,26 +176,36 @@ class MimicEnv:
 
         # punish episode termination
         if done:
-            # but don't punish if episode just reached max length
+            # calculated a running mean of the ep_return
+            self.mean_epret_smoothed = smooth('mimic_env_epret', np.sum(self.ep_rews), 0.5)
+            self.ep_rews = []
+
+            # don't punish if episode just reached max length
             if not is_ep_end:
                 # punish only falling hard
                 if not self.is_evaluation_on():
+                    et_rew = -1 * self.mean_epret_smoothed
                     if rew_too_low:
                         reward = -1
                     elif com_height_too_low or trunk_ang_exceeded:
-                        reward = cfg.et_reward
+                        reward = et_rew
                     else:
-                        reward = 0.1 * cfg.et_reward
-            # when episode finishes don't increase reward as the actions
-            # before the episode's end might have been quite bad!
-            # else:
+                        reward = 0.5 * et_rew
+            else:
                 # reward = cfg.ep_end_reward
+
+                # estimate mean state value / mean action return
+                mean_step_rew = self.mean_epret_smoothed / ep_dur
+                act_ret_est = np.sum(mean_step_rew * np.power(cfg.gamma, np.arange(ep_dur)))
+                reward = act_ret_est
                 # print(f'Successfully reached the end of the episode '
                 #       f'after {ep_dur} steps and got reward of ', reward)
             ep_dur = 0
 
         if walked_distance > cfg.alive_min_dist and not done:
             reward += cfg.alive_bonus
+            # alive_bonus = 1 * cfg.rew_scale * step_count / (cfg.mio_steps * 1e6)
+            # reward += alive_bonus
 
         return obs, reward, done, {}
 
