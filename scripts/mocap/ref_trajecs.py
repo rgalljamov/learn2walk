@@ -330,6 +330,8 @@ class ReferenceTrajectories:
         if self.n_deterministic_inits >= EVAL_N_TIMES:
             self.n_deterministic_inits = 0
 
+        # initialize the eval episodes always in the same state
+        # (iterate between left and right only)
         SAME_INIT = False
         if SAME_INIT:
             self._i_step = self.n_deterministic_inits % 2

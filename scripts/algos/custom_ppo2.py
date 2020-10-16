@@ -283,18 +283,25 @@ class CustomPPO2(PPO2):
                         # true_reward is the reward without discount
                         rollout = self.runner.run(callback)
                         break
+                    except BrokenPipeError as bpe:
+                        print(f'Catched Broken Pipe Error.')
                     except Exception as ex:
-                        tried_rollouts += 1
-                        obs, returns, masks, actions, values, neglogpacs, \
-                        states, ep_infos, true_reward = rollout
-                        log(f'Rollout failed {tried_rollouts} times!',
-                            [f'Catched exception: {ex}',
-                             f'obs.shape: {obs.shape}',
-                             f'ret.shape: {returns.shape}'])
+                        # tried_rollouts += 1
+                        # obs, returns, masks, actions, values, neglogpacs, \
+                        # states, ep_infos, true_reward = rollout
+                        # log(f'Rollout failed {tried_rollouts} times!',
+                        #     [f'Catched exception: {ex}',
+                        #      f'obs.shape: {obs.shape}',
+                        #      f'ret.shape: {returns.shape}'])
                         traceback.print_exc()
-
-
-                        time.sleep(10*tried_rollouts)
+                        # if isinstance(ex, BrokenPipeError):
+                        #     # copy-pasted from the old blog here:
+                        #     # http://newbebweb.blogspot.com/2012/02/python-head-ioerror-errno-32-broken.html
+                        #     from signal import signal, SIGPIPE, SIG_DFL
+                        #     signal(SIGPIPE, SIG_DFL)
+                        #     print('Executing fix: Importing signal and disabling BrokenPipeError.')
+                        #     for _ in range(10000):
+                        #         print('', end='')
 
                 # reset count once, rollout was successful
                 tried_rollouts = 0
