@@ -120,6 +120,8 @@ MOD_SYMMETRIC_WALK = 'sym_walk'
 MOD_E2E_ENC_OBS = 'e2e_enc_obs'
 MOD_TORQUE_DELTAS = 'trq_delta'
 MOD_L2_REG = 'l2_reg'
+# set a fixed logstd of the policy
+MOD_CONST_EXPLORE = 'const_explor'
 
 # ------------------
 approach = AP_DEEPMIMIC

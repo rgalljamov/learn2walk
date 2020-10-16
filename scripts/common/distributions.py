@@ -43,12 +43,15 @@ class CustomDiagGaussianDistributionType(DiagGaussianProbabilityDistributionType
         if cfg.is_mod(cfg.MOD_BOUND_MEAN):
             with tf.variable_scope('pi'):
                 mean = tf.tanh(mean)  # squashing mean only
-        logstd_initializer = tf.constant_initializer(cfg.init_logstd)
-        # print(f'Initializing all logstds with: {cfg.init_logstd}')
-        logstd = tf.get_variable(name='pi/logstd', shape=(self.size,), initializer=logstd_initializer)
-        # clipping of logstd inspired by sac
-        logstd = tf.clip_by_value(logstd, LOG_STD_MIN, LOG_STD_MAX)
-        # log(f'Clipping logstd in range from {LOG_STD_MIN} to {LOG_STD_MAX}')
+        if cfg.is_mod(cfg.MOD_CONST_EXPLORE):
+            logstd = cfg.init_logstd
+        else:
+            logstd_initializer = tf.constant_initializer(cfg.init_logstd)
+            # print(f'Initializing all logstds with: {cfg.init_logstd}')
+            logstd = tf.get_variable(name='pi/logstd', shape=(self.size,), initializer=logstd_initializer)
+            # clipping of logstd inspired by sac
+            logstd = tf.clip_by_value(logstd, LOG_STD_MIN, LOG_STD_MAX)
+            # log(f'Clipping logstd in range from {LOG_STD_MIN} to {LOG_STD_MAX}')
         pdparam = tf.concat([mean, mean * 0.0 + logstd], axis=1)
         q_values = linear(vf_latent_vector, 'q', self.size, init_scale=init_scale, init_bias=init_bias)
         return self.proba_distribution_from_flat(pdparam), mean, q_values
