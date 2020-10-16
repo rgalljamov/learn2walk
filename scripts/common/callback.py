@@ -8,9 +8,12 @@ from scripts.common import config as cfg, utils
 from stable_baselines.common.callbacks import BaseCallback
 
 # define intervals/criteria for saving the model
-EP_RETURN_THRES = 250 if not cfg.do_run() \
+# save everytime the agent achieved an additional 10% of the max possible return
+MAX_RETURN = cfg.ep_dur_max * 1 * cfg.rew_scale
+EP_RETURN_INCREMENT = 0.1 * MAX_RETURN if not cfg.do_run() \
     else (1000 if cfg.is_mod(cfg.MOD_FLY) else 5000)
-MEAN_REW_THRES = 0.05 if not cfg.do_run() else 2.5
+# 10% of max possible reward
+MEAN_REW_INCREMENT = 0.1 * cfg.rew_scale if not cfg.do_run() else 2.5
 
 # define evaluation interval
 EVAL_MORE_FREQUENT_THRES = 3.2e6
@@ -41,8 +44,8 @@ class TrainingMonitor(BaseCallback):
         # collect the frequency of failed walks during evaluation
         self.failed_eval_runs_indices = []
         # log data less frequently
-        self.skip_n_steps = 40
-        self.skipped_steps = 39
+        self.skip_n_steps = 100
+        self.skipped_steps = 99
 
     def _on_training_start(self) -> None:
         self.env = self.training_env
@@ -54,17 +57,19 @@ class TrainingMonitor(BaseCallback):
         # reset the collection of episode lengths after 1M steps
         # goal: see a distribution of ep lens of last 1M steps,
         # ... not of the whole training so far...
-        if self.num_timesteps % 1e6 < 10:
+        if self.num_timesteps % 2e6 < 10:
             self.env.set_attr('ep_lens', [])
             self.env.set_attr('et_phases', [])
             self.env.set_attr('difficult_rsi_phases', [])
 
         self.n_steps_after_eval += 1 * cfg.n_envs
-        global EVAL_INTERVAL
+
         # skip n steps to reduce logging interval and speed up training
         if self.skipped_steps < self.skip_n_steps:
             self.skipped_steps += 1
             return True
+
+        global EVAL_INTERVAL
 
         if self.n_steps_after_eval >= EVAL_INTERVAL and not cfg.DEBUG:
             self.n_steps_after_eval = 0
@@ -120,22 +125,24 @@ class TrainingMonitor(BaseCallback):
         NEW_LOG_STRUCTURE = True
         if NEW_LOG_STRUCTURE:
             logs = [
-                tf.Summary.Value(tag='_eval/1. stable walks count (deterministic)',
+                tf.Summary.Value(tag='_det_eval/1. AUC stable walks count',
+                                 simple_value=self.auc_stable_walks),
+                tf.Summary.Value(tag='_det_eval/2. stable walks count',
                                  simple_value=self.count_stable_walks),
-                tf.Summary.Value(tag='_eval/3. mean eval distance (deterministic)',
+                tf.Summary.Value(tag='_det_eval/4. mean eval distance',
                                  simple_value=self.mean_walked_distance),
-                tf.Summary.Value(tag='_eval/2. MIN eval distance (deterministic)',
+                tf.Summary.Value(tag='_det_eval/5. MIN eval distance',
                                  simple_value=self.min_walked_distance),
-                tf.Summary.Value(tag='_eval/4. mean step reward (deterministic)',
+                tf.Summary.Value(tag='_det_eval/3. mean step reward',
                                  simple_value=self.mean_reward_means),
-                tf.Summary.Value(tag='_eval/5. mean episode duration (deterministic)',
+                tf.Summary.Value(tag='_det_eval/6. mean episode duration',
                                  simple_value=self.mean_episode_duration),
-                tf.Summary.Value(tag='_eval/6. MIN episode duration (deterministic)',
-                                 simple_value=self.min_episode_duration),
-                tf.Summary.Value(tag='_eval/7. mean walking speed (deterministic)',
+                # tf.Summary.Value(tag='_det_eval/6. MIN episode duration',
+                #                  simple_value=self.min_episode_duration),
+                tf.Summary.Value(tag='_det_eval/7. mean walking speed',
                                  simple_value=self.mean_walking_speed),
-                tf.Summary.Value(tag='_eval/8. MIN walking speed (deterministic)',
-                                 simple_value=self.min_walking_speed),
+                # tf.Summary.Value(tag='_det_eval/8. MIN walking speed',
+                #                  simple_value=self.min_walking_speed),
 
                 # tf.Summary.Value(tag='_monit/1. ',
                 #                  simple_value=),
@@ -146,8 +153,8 @@ class TrainingMonitor(BaseCallback):
                 tf.Summary.Value(tag='_train/3. step reward (smoothed 0.25)', simple_value=mean_rew),
                 tf.Summary.Value(tag='_train/4. episode return (smoothed 0.75)', simple_value=ep_ret),
 
-                tf.Summary.Value(tag='acts/2. mean abs episode joint torques (smoothed 0.75)',
-                                 simple_value=mean_abs_torque_smoothed)
+                # tf.Summary.Value(tag='acts/2. mean abs episode joint torques (smoothed 0.75)',
+                #                  simple_value=mean_abs_torque_smoothed)
             ]
 
             wandb.log({"_det_eval/1. walked distances": wandb.Histogram(
@@ -189,13 +196,13 @@ class TrainingMonitor(BaseCallback):
                 sat_acts_indices = np.where(abs_actions > 0.95)
                 sat_acts_percentage = np.size(sat_acts_indices[0]) / np.size(actions)
                 # std_actions = np.std(abs_actions)
-                logs += [tf.Summary.Value(tag='acts/1. mean abs action (over batch and all dims)',
+                logs += [tf.Summary.Value(tag='acts/2. mean abs action (over batch and all dims)',
                                  simple_value=mean_action),
-                         tf.Summary.Value(tag='acts/a. mean action (over batch and all dims)',
-                                          simple_value=np.mean(actions)),
-                         tf.Summary.Value(tag='acts/b. mean POS action (over batch and all dims)',
+                         # tf.Summary.Value(tag='acts/a. mean action (over batch and all dims)',
+                         #                  simple_value=np.mean(actions)),
+                         tf.Summary.Value(tag='acts/4. mean POS action (over batch and all dims)',
                                  simple_value=np.mean(pos_actions)),
-                         tf.Summary.Value(tag='acts/c. mean NEG action (over batch and all dims)',
+                         tf.Summary.Value(tag='acts/5. mean NEG action (over batch and all dims)',
                                  simple_value=np.mean(neg_actions)),
 
                          tf.Summary.Value(tag='acts/3. saturated actions percentage (all acts in a batch)',
@@ -204,31 +211,33 @@ class TrainingMonitor(BaseCallback):
                          #         simple_value=std_actions)
                          ]
                 wandb.log({"_hist/actions": wandb.Histogram(
-                    np_histogram=np.histogram(actions, bins=25))}, step=self.num_timesteps)
+                    np_histogram=np.histogram(actions, bins=200))}, step=self.num_timesteps)
 
                 # get ET and RSI phases
                 et_phases = self.env.get_attr('et_phases')
                 et_phases_flat = [phase for env in et_phases for phase in env]
-                rsi_phases = self.env.get_attr('rsi_phases')
-                rsi_phases_flat = [phase for env in rsi_phases for phase in env]
+                # rsi_phases = self.env.get_attr('rsi_phases')
+                # rsi_phases_flat = [phase for env in rsi_phases for phase in env]
 
                 wandb.log({"_hist/ET_phases": wandb.Histogram(
-                    np_histogram=np.histogram(et_phases_flat, bins=200))}, step=self.num_timesteps)
-                wandb.log({"_hist/RSI_phases": wandb.Histogram(
-                    np_histogram=np.histogram(rsi_phases_flat, bins=200))}, step=self.num_timesteps)
+                    np_histogram=np.histogram(et_phases_flat, bins=250))}, step=self.num_timesteps)
+                # wandb.log({"_hist/RSI_phases": wandb.Histogram(
+                #     np_histogram=np.histogram(rsi_phases_flat, bins=200))}, step=self.num_timesteps)
                 if len(self.failed_eval_runs_indices) > 0:
                     wandb.log({"_hist/trials_below_20m": wandb.Histogram(
-                        np_histogram=np.histogram(self.failed_eval_runs_indices, bins=18))}, step=self.num_timesteps)
+                        np_histogram=np.histogram(self.failed_eval_runs_indices,
+                                                  bins=20, range=(0,19)))},
+                        step=self.num_timesteps)
 
                 ep_lens = self.env.get_attr('ep_lens')
                 ep_lens = [ep_len for env_lens in ep_lens for ep_len in env_lens]
                 wandb.log({"_hist/ep_lens": wandb.Histogram(
-                    np_histogram=np.histogram(ep_lens, bins=25))}, step=self.num_timesteps)
+                    np_histogram=np.histogram(ep_lens, bins=40))}, step=self.num_timesteps)
 
                 difficult_rsi_phases = self.env.get_attr('difficult_rsi_phases')
                 difficult_rsi_phases = [phase for env_phases in difficult_rsi_phases for phase in env_phases]
                 wandb.log({"_hist/difficult_rsi_phases": wandb.Histogram(
-                    np_histogram=np.histogram(difficult_rsi_phases, bins=200, range=(0,1)))},
+                    np_histogram=np.histogram(difficult_rsi_phases, bins=250, range=(0,1)))},
                     step=self.num_timesteps)
 
             if np.random.randint(low=1, high=500) == 77:
@@ -237,18 +246,6 @@ class TrainingMonitor(BaseCallback):
 
             summary = tf.Summary(value=logs)
             self.locals['writer'].add_summary(summary, self.num_timesteps)
-            return
-
-        summary = tf.Summary(value=[
-            tf.Summary.Value(tag='_own_data/0. mean eval distance (deterministic)', simple_value=self.mean_walked_distance),
-            tf.Summary.Value(tag='_own_data/0. MIN eval distance (deterministic)', simple_value=self.min_walked_distance),
-            tf.Summary.Value(tag='_own_data/1. moved distance (smoothed 0.25)', simple_value=moved_distance),
-            tf.Summary.Value(tag='_own_data/2. step reward (smoothed 0.25)', simple_value=mean_rew),
-            tf.Summary.Value(tag='_own_data/3. episode return (smoothed 0.75)', simple_value=ep_ret),
-            tf.Summary.Value(tag='_own_data/4. episode length (smoothed 0.75)', simple_value=ep_len),
-            tf.Summary.Value(tag='_own_data/5. mean normed episode joint power sum (smoothed 0.75)', simple_value=mean_ep_joint_pow_sum)
-        ])
-        self.locals['writer'].add_summary(summary, self.num_timesteps)
 
 
     def save_model_if_good(self, mean_rew, ep_ret):
@@ -256,7 +253,8 @@ class TrainingMonitor(BaseCallback):
         def get_mio_timesteps():
             return int(self.num_timesteps/1e6)
 
-        ep_ret_thres = 2000 + int(EP_RETURN_THRES * (self.times_surpassed_ep_return_threshold + 1))
+        ep_ret_thres = 0.6 * MAX_RETURN \
+                       + int(EP_RETURN_INCREMENT * (self.times_surpassed_ep_return_threshold + 1))
         if ep_ret > ep_ret_thres:
             utils.save_model(self.model, cfg.save_path,
                              'ep_ret' + str(ep_ret_thres) + f'_{get_mio_timesteps()}M')
@@ -264,7 +262,10 @@ class TrainingMonitor(BaseCallback):
             print(f'Saving model after surpassing EPISODE RETURN of {ep_ret_thres}.')
             print('Model Path: ', cfg.save_path)
 
-        mean_rew_thres = 0.5 + MEAN_REW_THRES * (self.times_surpassed_mean_reward_threshold + 1)
+        # normalize reward
+        mean_rew = (mean_rew - cfg.alive_bonus)/cfg.rew_scale
+        mean_rew_thres = 0.4 * cfg.rew_scale \
+                         + MEAN_REW_INCREMENT * (self.times_surpassed_mean_reward_threshold + 1)
         if mean_rew > (mean_rew_thres):
             utils.save_model(self.model, cfg.save_path,
                              'mean_rew' + str(int(100*mean_rew_thres)) + f'_{get_mio_timesteps()}M')
