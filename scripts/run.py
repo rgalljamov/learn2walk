@@ -18,10 +18,10 @@ RENDER = True
 SPEED_CONTROL = False
 
 FROM_PATH = True
-PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/cstm_pi/" \
-       "50Hz/mim_trq3d/8envs/ppo2/8mio/429"
+PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
+       "cstm_pi/mim_trq3d/8envs/ppo2/16mio/658-evaled-ret78"
 if not PATH.endswith('/'): PATH += '/'
-checkpoint = '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
+checkpoint = 'final' # '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
 
 if FLY: cfg.rew_weights = "6400"
 

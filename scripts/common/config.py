@@ -179,12 +179,12 @@ noptepochs = 4
 # ----------------------------------------------------------------------------------
 
 # choose environment
-envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
-env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 3
+envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
+env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
+env_index = 4
 env_id = envs[env_index]
 env_name = env_names[env_index]
-is_torque_model = env_name in ['mim_trq2d', 'mim_trq3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
+is_torque_model = env_name in ['mim_trq2d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
 
 # choose hyperparams
 algo = 'ppo2'
