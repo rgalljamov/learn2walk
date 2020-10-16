@@ -156,8 +156,9 @@ class MimicEnv:
         USE_ET = False or cfg.is_mod(cfg.MOD_REF_STATS_ET)
         USE_REW_ET = True and not cfg.do_run() and not USE_ET
         walked_distance = qpos_after[0]
-        is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > 20.5
+        is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > 22.05
         if self.is_evaluation_on():
+            # is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > 22.05
             done = com_z_pos < 0.5 or is_ep_end
         elif USE_ET:
             if cfg.is_mod(cfg.MOD_REF_STATS_ET):
@@ -408,6 +409,9 @@ class MimicEnv:
         if cfg.is_mod(cfg.MOD_GROUND_CONTACT):
             has_contact = np.array(self.has_ground_contact()).astype(np.float)
             obs = np.concatenate([has_contact, obs]).ravel()
+
+        # round obs
+        # obs = np.round(obs, decimals=3)
         return obs
 
     def reset_model(self):
@@ -510,7 +514,7 @@ class MimicEnv:
             difs = qvel - ref_vel
             dif_sqrd = np.square(difs)
             dif_sum = np.sum(dif_sqrd)
-            vel_rew = np.exp(-0.1 * dif_sum)
+            vel_rew = np.exp(-0.05 * dif_sum)
         return vel_rew
 
     def get_com_reward(self):
@@ -657,38 +661,38 @@ class MimicEnv:
         trunk_angs = qpos[trunk_ang_indices]
         ref_trunk_angs = ref_qpos[trunk_ang_indices]
 
-        # calculate if trunk saggital angle exceeded the limit
-        # trunk_ang_sag has a std of 0.05 rad, allow for 3x the std (about 9° deviation)
-        max_sag_dev = 0.15
+        # calculate if trunk saggital angle is out of allowed range
+        max_pos_sag = 0.3
+        max_neg_sag = -0.05
         is2d = len(trunk_ang_indices) == 1
         if is2d:
             trunk_ang_saggit = trunk_angs # is the saggital ang
             sag_dev = np.abs(trunk_ang_saggit - ref_trunk_angs)
-            trunk_ang_sag_exceeded = sag_dev > max_sag_dev
+            trunk_ang_sag_exceeded = trunk_ang_saggit > max_pos_sag or trunk_ang_saggit < max_neg_sag
             trunk_ang_exceeded = trunk_ang_sag_exceeded
         else:
             max_front_dev = 0.2
-            max_axial_dev = 0.25
+            max_axial_dev = 0.5 # should be much smaller but actually doesn't really hurt performance
             trunk_ang_front, trunk_ang_saggit, trunk_ang_axial = trunk_angs
             front_dev, sag_dev, ax_dev = np.abs(trunk_angs - ref_trunk_angs)
             trunk_ang_front_exceeded = front_dev > max_front_dev
             trunk_ang_axial_exceeded = ax_dev > max_axial_dev
-            trunk_ang_sag_exceeded = sag_dev > max_sag_dev
+            trunk_ang_sag_exceeded = trunk_ang_saggit > max_pos_sag or trunk_ang_saggit < max_neg_sag
             trunk_ang_exceeded = trunk_ang_sag_exceeded or trunk_ang_front_exceeded \
                                  or trunk_ang_axial_exceeded
 
         # check if agent has deviated too much in the y direction
-        is_drunk = np.abs(com_y_pos) > 0.1
+        is_drunk = np.abs(com_y_pos) > 0.15
 
         # is com height too low (e.g. walker felt down)?
-        min_com_height = 0.9
+        min_com_height = 0.95
         com_height_too_low = com_height < min_com_height
         if self._FLY: com_height_too_low = False
 
         rew_too_low = False # rew < rew_threshold
         terminate_early = com_height_too_low or trunk_ang_exceeded or is_drunk or rew_too_low
-        if (terminate_early and np.random.randint(low=1, high=100) == 7) \
-                or np.random.randint(low=1, high=50000) == 777:
+        if (terminate_early and np.random.randint(low=1, high=500) == 7) \
+                or np.random.randint(low=1, high=77700) == 777:
              log(("" if terminate_early else "NO ") + "Early Termination",
                 [f'COM Z too low:   \t{com_height_too_low} \t {com_height}',
                  f'COM Y too high:  \t{is_drunk} \t {com_y_pos}',
