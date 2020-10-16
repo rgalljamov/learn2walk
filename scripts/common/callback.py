@@ -27,6 +27,7 @@ class TrainingMonitor(BaseCallback):
         # control evaluation
         self.n_steps_after_eval = EVAL_INTERVAL
         self.n_saved_models = 0
+        self.moved_distances = []
         self.mean_walked_distance = 0
         self.min_walked_distance = 0
         self.mean_episode_duration = 0
@@ -35,6 +36,7 @@ class TrainingMonitor(BaseCallback):
         self.min_walking_speed = 0
         self.mean_reward_means = 0
         self.count_stable_walks = 0
+        self.auc_stable_walks = 0
         self.has_reached_stable_walking = False
         # collect the frequency of failed walks during evaluation
         self.failed_eval_runs_indices = []
@@ -148,6 +150,9 @@ class TrainingMonitor(BaseCallback):
                                  simple_value=mean_abs_torque_smoothed)
             ]
 
+            wandb.log({"_det_eval/1. walked distances": wandb.Histogram(
+                np_histogram=np.histogram(self.moved_distances, bins=20))}, step=self.num_timesteps)
+
             # log reward components
             mean_ep_pos_rew = self.get_mean('mean_ep_pos_rew_smoothed')
             mean_ep_vel_rew = self.get_mean('mean_ep_vel_rew_smoothed')
@@ -163,13 +168,16 @@ class TrainingMonitor(BaseCallback):
             model = self.model
             parameters = model.get_parameter_list()
             parameters = [param for param in parameters if 'logstd' in param.name]
-            logstd = np.array(model.sess.run(parameters))[0]
+            if cfg.is_mod(cfg.MOD_CONST_EXPLORE):
+                logstd = cfg.init_logstd
+            else:
+                logstd = np.array(model.sess.run(parameters))[0]
             std = np.exp(logstd)
             mean_std = np.mean(std)
             std_of_stds = np.std(std)
 
             logs += [tf.Summary.Value(
-                tag='acts/4. mean std of 8 action distributions', simple_value=mean_std)]
+                tag='acts/1. mean std of 8 action distributions', simple_value=mean_std)]
 
             actions = model.last_actions
             if actions is not None:
@@ -312,9 +320,10 @@ class TrainingMonitor(BaseCallback):
                     rewards.append(reward[0])
 
         # calculate min and mean walked distance
+        self.moved_distances = moved_distances
         self.mean_walked_distance = np.mean(moved_distances)
         self.min_walked_distance = np.min(moved_distances)
-        self.mean_episode_duration = np.mean(ep_durs)
+        self.mean_episode_duration = np.mean(ep_durs)/cfg.ep_dur_max
         self.min_episode_duration = np.min(ep_durs)
 
         # calculate mean walking speed
@@ -328,15 +337,20 @@ class TrainingMonitor(BaseCallback):
 
         # how many times 20m were reached
         runs_below_20 = np.where(np.array(moved_distances) < 20)[0]
+        runs_20m = eval_n_times - len(runs_below_20)
+        runs_no_falling = np.where(
+            (np.array(ep_durs) == cfg.ep_dur_max)
+            & (np.array(moved_distances) >= 18))[0]
         if eval_n_times == cfg.EVAL_N_TIMES:
             self.failed_eval_runs_indices = runs_below_20.tolist()
-        self.count_stable_walks = eval_n_times - len(runs_below_20)
+        self.count_stable_walks = max(runs_20m, len(runs_no_falling))
+        self.auc_stable_walks += 4*self.mean_reward_means**2 * (self.count_stable_walks/cfg.EVAL_N_TIMES)**4
 
         ## delete evaluation model if stable walking was not achieved yet
         # or too many models were saved already
         were_enough_models_saved = self.n_saved_models >= 5
         # or walking was not human-like
-        walks_humanlike = self.mean_reward_means >= (0.5 + cfg.alive_bonus) * cfg.rew_scale
+        walks_humanlike = self.mean_reward_means >= 0.5 * (1+self.n_saved_models/10)
         # print('Mean rewards during evaluation of the deterministic model: ', mean_rewards)
         min_dist = int(self.min_walked_distance)
         mean_dist = int(self.mean_walked_distance)
