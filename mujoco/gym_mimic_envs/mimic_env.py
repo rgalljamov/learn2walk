@@ -48,7 +48,7 @@ class MimicEnv:
         self.SPEED_CONTROL = False
         # load kinematic stds for deviation normalization and better reward signal
         self.kinem_stds = np.load(cfg.abs_project_path +
-                                  'assets/ref_trajecs/distributions/stds_all_steps_const_speed_400hz.npy')
+                                  'assets/ref_trajecs/distributions/3d_mocap_stds_const_speed_400hz.npy')
         # self.kinem_stds = self.kinem_stds[self.refs.qpos_is + self.refs.qvel_is]
         # track different reward components
         self.pos_rew, self.vel_rew, self.com_rew = 0,0,0
@@ -698,7 +698,7 @@ class MimicEnv:
             # load trajectory distributions if not done already
             if self.left_step_distrib is None:
                 npz = np.load(cfg.abs_project_path +
-                                   'assets/ref_trajecs/distributions/const_speed_400hz.npz')
+                                   'assets/ref_trajecs/distributions/2d_distributions_const_speed_400hz.npz')
                 self.left_step_distrib = [npz['means_left'], npz['stds_left']]
                 self.right_step_distrib = [npz['means_right'], npz['stds_right']]
                 self.step_len = min(self.left_step_distrib[0].shape[1], self.right_step_distrib[0].shape[1])
