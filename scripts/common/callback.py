@@ -148,10 +148,13 @@ class TrainingMonitor(BaseCallback):
                 #                  simple_value=),
 
                 tf.Summary.Value(tag='_train/1. moved distance (stochastic, smoothed 0.25)',
-                                 simple_value=moved_distance),
-                tf.Summary.Value(tag='_train/2. episode length (smoothed 0.75)', simple_value=ep_len),
-                tf.Summary.Value(tag='_train/3. step reward (smoothed 0.25)', simple_value=mean_rew),
-                tf.Summary.Value(tag='_train/4. episode return (smoothed 0.75)', simple_value=ep_ret),
+                                 simple_value=moved_distance/cfg.max_distance),
+                tf.Summary.Value(tag='_train/2. episode length (smoothed 0.75)',
+                                 simple_value=ep_len/cfg.ep_dur_max),
+                tf.Summary.Value(tag='_train/3. step reward (smoothed 0.25)',
+                                 simple_value=(mean_rew-cfg.alive_bonus)/cfg.rew_scale),
+                tf.Summary.Value(tag='_train/4. episode return (smoothed 0.75)',
+                                 simple_value=(ep_ret-ep_len*cfg.alive_bonus)/(cfg.ep_dur_max*cfg.rew_scale)),
 
                 # tf.Summary.Value(tag='acts/2. mean abs episode joint torques (smoothed 0.75)',
                 #                  simple_value=mean_abs_torque_smoothed)
@@ -240,7 +243,7 @@ class TrainingMonitor(BaseCallback):
                     np_histogram=np.histogram(difficult_rsi_phases, bins=250, range=(0,1)))},
                     step=self.num_timesteps)
 
-            if np.random.randint(low=1, high=500) == 77:
+            if False: # np.random.randint(low=1, high=500) == 77:
                 utils.log(f'Logstd after {int(self.num_timesteps/1e3)}k timesteps:',
                           [f'mean std: {mean_std}', f'std of stds: {std_of_stds}'])
 

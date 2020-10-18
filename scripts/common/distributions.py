@@ -7,8 +7,8 @@ from stable_baselines.common.tf_layers import linear
 from stable_baselines.common.distributions import \
     DiagGaussianProbabilityDistribution, DiagGaussianProbabilityDistributionType
 
-LOG_STD_MAX = 0.5
-LOG_STD_MIN = -2
+LOG_STD_MAX = 0
+LOG_STD_MIN = -2.3
 
 class CustomDiagGaussianDistribution(DiagGaussianProbabilityDistribution):
     """ Used f.ex. to load pretrained weights for the output layer of the policy."""

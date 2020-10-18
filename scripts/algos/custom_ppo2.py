@@ -62,7 +62,7 @@ def mirror_experiences(rollout, ppo2=None):
         obs_mirred[:, negate_obs_indices] *= -1
         acts_mirred[:, negate_act_indices] *= -1
 
-    QUERY_NETS = True
+    QUERY_NETS = cfg.is_mod(cfg.MOD_MIRR_QUERY_NETS)
     if QUERY_NETS:
         parameters = ppo2.get_parameter_list()
         parameter_values = np.array(ppo2.sess.run(parameters))
@@ -284,7 +284,7 @@ class CustomPPO2(PPO2):
                         rollout = self.runner.run(callback)
                         break
                     except BrokenPipeError as bpe:
-                        print(f'Catched Broken Pipe Error.')
+                        raise BrokenPipeError(f'Catched Broken Pipe Error.')
                     except Exception as ex:
                         # tried_rollouts += 1
                         # obs, returns, masks, actions, values, neglogpacs, \

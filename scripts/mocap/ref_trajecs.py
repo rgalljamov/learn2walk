@@ -322,7 +322,7 @@ class ReferenceTrajectories:
         self._i_step = self.n_deterministic_inits
         self._step = self.data[self._i_step]
         # desired init position: mid stance
-        self._pos = int(0.85 * len(self._step[0]))
+        self._pos = int(0.75 * len(self._step[0]))
 
         self.n_deterministic_inits += 1
         # print(f'{self.n_deterministic_inits} deterministic inits (pos {self._pos}).')

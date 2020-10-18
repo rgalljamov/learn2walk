@@ -126,7 +126,7 @@ MOD_CONST_EXPLORE = 'const_explor'
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([MOD_GROUND_CONTACT, MOD_3_PHASES,
+modification = mod([
     MOD_CUSTOM_POLICY
     ])
 assert_mod_compatibility()
@@ -138,43 +138,52 @@ DEBUG = False or not sys.gettrace() is None or not utils.is_remote()
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
-ent_coef = 0 # -0.005
-init_logstd = -0.6
+ent_coef = -0.0075
+init_logstd = -0.7
 pi_out_init_scale = 0.001
-cliprange = 0.1
+cliprange = 0.15
 clip_start = 0.3 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 enc_layer_sizes = [512]*2 + [16]
-hid_layer_sizes = [256]*2
-gamma = {50:0.99, 100: 0.999, 200:0.9983}[CTRL_FREQ]
+hid_layer_sizes = [512]*2
+gamma = {50:0.99, 100: 0.999, 200:0.995}[CTRL_FREQ]
 alive_min_dist = 0
 trq_delta = 0.25
-rew_scale = 2
-l2_coef = 5e-2
+rew_scale = 1
+l2_coef = 5e-4
 # todo reduce et_reward after agents starts walking multiple steps
 et_rew_thres = 0.1 * rew_scale
 alive_bonus = et_rew_thres * 2
 EVAL_N_TIMES = 20
 
-wb_project_name = 'pun_falls'
+wb_project_name = 'bsln_ablation'
 # todo: ET punish should be a function of training time or ep dur
 # to punish less hard at beginning, we should better have a smaller lambda...
 # or even better have a reward with a higher amplitude and that can also be negative!
-wb_run_name = 'SYM' if is_mod(MOD_SYMMETRIC_WALK) else '' + \
-              f'GRND contact 3 phases, dif eval 20 x 0.8pos, NO ET for low reward, fallET100, other10'
-wb_run_notes = 'Checking the distribution of difficult RSI phases! ' \
-               'Added ground contact information with three phases!' \
+wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
+              f'eval50, no LR decay, no rewScale, lr1=1, Min logstd2.3, 10Mio, FlatFeet frict09, smart ep_end_rew, epret ET pun100, gam{gamma}'
+wb_run_notes = 'Evaluate the agent always starting at 50% of the step cycle. ' \
+               'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \
+               'Increased the minimum learning rate to 1e-6, was -8 before. ' \
+               'Reduced the minimum logstd to -2.3, ' \
+               'Estimate mean return of an action based on gamma and mean ep rew. ' \
+               'Get a big positive reward on episode end to avoid punishing good actions ' \
+               'at the end of the episode due to small return. ' \
+               'Flat feet. ' \
+               'extended epdur to have enough time to reach episode end and stop episode only after 22m. ' \
+               'softened ET by allowing more trunk rotation in the axial plane axial_dev0.5. ' \
+               '' \
                'no longer stop the episode based on a minimum reward signal! ' \
-               '-100 reward only if agent was close to falling! ' \
-               'Added hard ET conditions to avoid falling:' \
+               '' \
+               'Added hard ET conditions to avoid falling: ' \
                'trunk angles are checked in all three directions, ' \
                'com height has much higher threshold!' \
-               'Logging reasons for ET! ' \
+               '' \
                '' \
                ' ' \
-               'Eval model from 20 different steps at same position in double stance. '
+               'Eval model from 20 different steps at same position. '
 # num of times a batch of experiences is used
 noptepochs = 4
 
@@ -197,17 +206,18 @@ et_reward = -100
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mirr_exps = is_mod(MOD_MIRROR_EXPS)
-mio_steps = (16 if is_torque_model else 6) * (2 if mirr_exps else 1)
-n_envs = 8 if utils.is_remote() and not DEBUG else 1
+mio_steps = (10 if is_torque_model else 6) * (2 if mirr_exps else 1)
+n_envs = 8 if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
 batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
 n_mini_batches = int(batch_size / minibatch_size) * (2 if mirr_exps else 1)
 lr_start = 1000 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
-lr_final = 0.01
-_ep_dur_in_k = {200: 2.65, 100: 1.5, 50: 0.75}[CTRL_FREQ]
-ep_dur_max = int(_ep_dur_in_k * 1.025 * 1e3)
+_ep_dur_in_k = {200: 3, 100: 1.5, 50: 0.75}[CTRL_FREQ]
+lr_final = 1
+ep_dur_max = int(_ep_dur_in_k * 1e3)
+max_distance = 22
 
 own_hypers = ''
 info = ''

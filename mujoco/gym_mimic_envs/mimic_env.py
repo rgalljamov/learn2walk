@@ -156,7 +156,7 @@ class MimicEnv:
         USE_ET = False or cfg.is_mod(cfg.MOD_REF_STATS_ET)
         USE_REW_ET = True and not cfg.do_run() and not USE_ET
         walked_distance = qpos_after[0]
-        is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > 22.05
+        is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > cfg.max_distance + 0.01
         if self.is_evaluation_on():
             # is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > 22.05
             done = com_z_pos < 0.5 or is_ep_end
@@ -691,8 +691,8 @@ class MimicEnv:
 
         rew_too_low = False # rew < rew_threshold
         terminate_early = com_height_too_low or trunk_ang_exceeded or is_drunk or rew_too_low
-        if (terminate_early and np.random.randint(low=1, high=500) == 7) \
-                or np.random.randint(low=1, high=77700) == 777:
+        if False: #(terminate_early and np.random.randint(low=1, high=500) == 7) \
+                # or np.random.randint(low=1, high=77700) == 777:
              log(("" if terminate_early else "NO ") + "Early Termination",
                 [f'COM Z too low:   \t{com_height_too_low} \t {com_height}',
                  f'COM Y too high:  \t{is_drunk} \t {com_y_pos}',
