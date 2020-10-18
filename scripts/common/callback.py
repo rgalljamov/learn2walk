@@ -94,7 +94,7 @@ class TrainingMonitor(BaseCallback):
         mean_rew = self.get_mean('mean_reward_smoothed')
 
         # avoid logging data during first episode
-        if ep_len < {200:30, 50:8, 100:15}[cfg.CTRL_FREQ]:
+        if ep_len < {400: 60, 200:30, 50:8, 100:15}[cfg.CTRL_FREQ]:
             return True
 
         if not cfg.DEBUG: self.log_to_tb(mean_rew, ep_len, ep_ret)
