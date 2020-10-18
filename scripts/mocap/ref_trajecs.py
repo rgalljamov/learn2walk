@@ -10,7 +10,7 @@ import random
 import numpy as np
 import scipy.io as spio
 from scripts.common.config import is_mod, MOD_REFS_RAMP, MOD_SYMMETRIC_WALK, \
-    SKIP_N_STEPS, STEPS_PER_VEL, EVAL_N_TIMES
+    SKIP_N_STEPS, STEPS_PER_VEL, EVAL_N_TIMES, CTRL_FREQ
 from scripts.common.utils import log, is_remote, config_pyplot, smooth_exponential
 
 
@@ -133,7 +133,7 @@ class ReferenceTrajectories:
         self._step = self._get_random_step()
         # how many points to jump over when next() is called
         # to get lower sample frequency data
-        self.set_increment(2)
+        self.set_increment(int(400/CTRL_FREQ))
         # position on the reference trajectory of the current step
         self._pos = 0
         # distance walked so far (COM X Position)

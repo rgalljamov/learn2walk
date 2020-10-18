@@ -138,7 +138,7 @@ DEBUG = False or not sys.gettrace() is None or not utils.is_remote()
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
-ent_coef = -0.0075
+ent_coef = {200: -0.0075, 400: -0.00375}[CTRL_FREQ]
 init_logstd = -0.7
 pi_out_init_scale = 0.001
 cliprange = 0.15
@@ -148,7 +148,7 @@ SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 enc_layer_sizes = [512]*2 + [16]
 hid_layer_sizes = [512]*2
-gamma = {50:0.99, 100: 0.999, 200:0.995}[CTRL_FREQ]
+gamma = {50:0.99, 100: 0.999, 200:0.995, 400:0.998}[CTRL_FREQ]
 alive_min_dist = 0
 trq_delta = 0.25
 rew_scale = 1
@@ -214,8 +214,8 @@ n_mini_batches = int(batch_size / minibatch_size) * (2 if mirr_exps else 1)
 lr_start = 1000 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
-_ep_dur_in_k = {200: 3, 100: 1.5, 50: 0.75}[CTRL_FREQ]
 lr_final = 1
+_ep_dur_in_k = {400: 6, 200: 3, 100: 1.5, 50: 0.75}[CTRL_FREQ]
 ep_dur_max = int(_ep_dur_in_k * 1e3)
 max_distance = 22
 
