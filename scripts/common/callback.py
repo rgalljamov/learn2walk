@@ -17,9 +17,10 @@ MEAN_REW_INCREMENT = 0.1 * cfg.rew_scale if not cfg.do_run() else 2.5
 
 # define evaluation interval
 EVAL_MORE_FREQUENT_THRES = 3.2e6
-EVAL_INTERVAL_BEGINNING = 400e3 if not cfg.DEBUG else 10e3
+EVAL_INTERVAL_RARE = 400e3 if not cfg.DEBUG else 10e3
 EVAL_INTERVAL_FREQUENT = 200e3
-EVAL_INTERVAL = EVAL_INTERVAL_BEGINNING
+EVAL_INTERVAL_MOST_FREQUENT = 100e3
+EVAL_INTERVAL = EVAL_INTERVAL_RARE
 
 class TrainingMonitor(BaseCallback):
     def __init__(self, verbose=0):
@@ -86,7 +87,13 @@ class TrainingMonitor(BaseCallback):
                           [f'Agent learned to stably walk '
                            f'after {self.num_timesteps} steps'
                            f'with mean step reward of {self.mean_reward_means}!'])
-            if self.num_timesteps > EVAL_MORE_FREQUENT_THRES:
+
+            if self.mean_walked_distance >= 20:
+                EVAL_INTERVAL = EVAL_INTERVAL_RARE
+                # todo: think to scale dt in auc calculatioin /400
+            elif self.mean_walked_distance >= 10:
+                EVAL_INTERVAL = EVAL_INTERVAL_MOST_FREQUENT
+            elif self.mean_walked_distance >= 5:
                 EVAL_INTERVAL = EVAL_INTERVAL_FREQUENT
 
         ep_len = self.get_mean('ep_len_smoothed')
@@ -348,7 +355,9 @@ class TrainingMonitor(BaseCallback):
         if eval_n_times == cfg.EVAL_N_TIMES:
             self.failed_eval_runs_indices = runs_below_20.tolist()
         self.count_stable_walks = max(runs_20m, len(runs_no_falling))
-        self.auc_stable_walks += 4*self.mean_reward_means**2 * (self.count_stable_walks/cfg.EVAL_N_TIMES)**4
+        self.auc_stable_walks += 4*self.mean_reward_means**2 \
+                                 * (self.count_stable_walks/cfg.EVAL_N_TIMES)**4 \
+                                 * EVAL_INTERVAL / 400e3
 
         ## delete evaluation model if stable walking was not achieved yet
         # or too many models were saved already
