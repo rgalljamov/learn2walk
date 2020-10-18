@@ -102,7 +102,7 @@ def train():
         learning_rate_schedule = ExponentialSchedule(lr_start, lr_end).value
     else:
         learning_rate_schedule = LinearSchedule(lr_start, lr_end).value
-    clip_schedule = LinearSchedule(cfg.clip_start, cfg.clip_end).value
+    clip_schedule = ExponentialSchedule(cfg.clip_start, cfg.clip_end, cfg.clip_exp_slope).value
     network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
                     'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else {}
 
