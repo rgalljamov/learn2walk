@@ -1,12 +1,11 @@
-<mujoco model="walker3pd">
+<mujoco model="walker3d">
   <compiler angle="radian" coordinate="local" inertiafromgeom="false"/>
   <visual>
 	    <scale framelength='0.5' framewidth='0.0075' forcewidth='0.0075' contactwidth='0.1' contactheight='0.01'/>
   </visual>
   <default>
     <joint armature="0.01" limited="true" />
-    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100"/>
-    <position ctrllimited="true" forcelimited="true" forcerange="-300 300" gear="1"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="300" forcelimited="true" forcerange="-300 300"/>
     <geom conaffinity="0" condim="3" contype="1" density="1000" friction=".7 .1 .1" rgba="0.8 0.6 .4 1"/>
   </default>
   <option integrator="RK4" timestep="0.001"/>
@@ -36,8 +35,8 @@
           <body name="right_foot" pos="0 0 -0.5">
             <inertial pos="0.06 0 -0.07" mass="1.5" diaginertia="0.003 0.006 0.005"/>
             <joint axis="0 1 0" name="ankle_joint_right" damping="20"  range="-0.3491 0.6981" type="hinge"/>
-<!--            <geom friction="0.9" fromto="0 0 -0.04 0.2 0 -0.04" name="foot_geom" size="0.05" type="capsule"/>-->
             <geom friction="0.9" axisangle="0 0 1 -.05" name="right_foot" size="0.11 0.05 0.04" pos="0.0675 -0.005 -0.04" type="box"/>
+<!--            <geom friction="0.9" fromto="0 0 -0.04 0.2 0 -0.04" name="foot_geom" size="0.05" type="capsule"/>-->
           </body>
         </body>
       </body>
@@ -55,21 +54,29 @@
             <inertial pos="0.06 0 -0.07" mass="1.5" diaginertia="0.003 0.006 0.005"/>
             <joint axis="0 1 0" name="ankle_left_joint" damping="20" range="-0.3491 0.6981" type="hinge"/>
             <geom friction="0.9" axisangle="0 0 1 .05" name="left_foot" size="0.11 0.05 0.04" pos="0.0675 0.005 -0.04" rgba=".7 .3 .6 1" type="box"/>
-<!--            <geom friction="0.9" fromto="0 0 -0.04 0.2 0 -0.04" name="foot_left_geom" rgba=".7 .3 .6 1" size="0.05" type="capsule"/>-->
+<!--            <geom friction="1.9" fromto="0 0 -0.04 0.2 0 -0.04" name="foot_left_geom" rgba=".7 .3 .6 1" size="0.05" type="capsule"/>-->
           </body>
         </body>
       </body>
     </body>
   </worldbody>
   <actuator>
-    <position joint="hip_joint_saggital_right"   kp="3200"  ctrlrange="-0.8727 0.8727"/>
-    <position joint="hip_joint_frontal_right"    kp="3200"  ctrlrange="-0.7854 0.0873"/>
-    <position joint="knee_joint_right"  kp="1600"  ctrlrange="0.0 2.6180"/>
-    <position joint="ankle_joint_right" kp="2800"  ctrlrange="-0.3491 0.6981"/> 
-    <position joint="hip_joint_saggital_left"    kp="3200"  ctrlrange="-0.8727 0.8727"/>
-    <position joint="hip_joint_frontal_left"     kp="3200"  ctrlrange="-0.0873 0.7854"/>
-    <position joint="knee_left_joint"   kp="1600"  ctrlrange="0.0 2.6180"/>
-    <position joint="ankle_left_joint"  kp="2800"  ctrlrange="-0.3491 0.6981"/> 
+    <motor joint="hip_joint_saggital_right"/>
+    <motor joint="hip_joint_frontal_right"/>
+    <motor joint="knee_joint_right"/>
+    <motor joint="ankle_joint_right"/>
+    <motor joint="hip_joint_saggital_left"/>
+    <motor joint="hip_joint_frontal_left"/>
+    <motor joint="knee_left_joint"/>
+    <motor joint="ankle_left_joint"/>
+<!--    <position joint="hip_joint_saggital_right"   kp="3200"  ctrlrange="-0.8727 0.8727"/>-->
+<!--    <position joint="hip_joint_frontal_right"    kp="3200"  ctrlrange="-0.7854 0.0873"/>-->
+<!--    <position joint="knee_joint_right"  kp="1600"  ctrlrange="0.0 2.6180"/>-->
+<!--    <position joint="ankle_joint_right" kp="2800"  ctrlrange="-0.3491 0.6981"/> -->
+<!--    <position joint="hip_joint_saggital_left"    kp="3200"  ctrlrange="-0.8727 0.8727"/>-->
+<!--    <position joint="hip_joint_frontal_left"     kp="3200"  ctrlrange="-0.0873 0.7854"/>-->
+<!--    <position joint="knee_left_joint"   kp="1600"  ctrlrange="0.0 2.6180"/>-->
+<!--    <position joint="ankle_left_joint"  kp="2800"  ctrlrange="-0.3491 0.6981"/> -->
   </actuator>
     <asset>
         <texture type="skybox" builtin="gradient" rgb1=".4 .5 .6" rgb2="0 0 0"

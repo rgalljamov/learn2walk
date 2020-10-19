@@ -25,6 +25,7 @@ qvel_indices = [refs.COM_VELX, refs.COM_VELY, refs.COM_VELZ,
                 refs.HIP_SAG_ANGVEL_L, refs.HIP_FRONT_ANGVEL_L,
                 refs.KNEE_ANGVEL_L, refs.ANKLE_ANGVEL_L]
 
+ref_trajec_adapts = {}
 
 class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
     '''
@@ -33,8 +34,11 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
     '''
 
     def __init__(self):
+        walker_xml = {'mim3d': 'walker3pd.xml',
+                      'mim_trq3d': 'walker3d.xml',
+                      'mim_trq_ff3d': 'walker3d_flat_feet.xml'}[cfg.env_name]
         mujoco_env.MujocoEnv.__init__(self,
-                                      join(dirname(__file__), "assets", "walker3pd.xml"), 4)
+                                      join(dirname(__file__), "assets", walker_xml), 4)
         utils.EzPickle.__init__(self)
         # init the mimic environment, automatically loads and inits ref trajectories
         global qpos_indices, qvel_indices
@@ -59,8 +63,8 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         """
         return [0,1,2]
 
-    def _get_saggital_trunk_joint_index(self):
-        return 4
+    def _get_trunk_joint_indices(self):
+        return [3, 4, 5]
 
     def _get_not_actuated_joint_indices(self):
         """
@@ -75,8 +79,7 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
 
     def _get_max_actuator_velocities(self):
         """Maximum joint velocities approximated from the reference data."""
-        # todo: Warning('Determine max actuator velocities for hip in the frontal plane!')
-        return np.array([5, 5, 10, 10, 5, 5, 10, 10])
+        return np.array([5, 1, 10, 10, 5, 1, 10, 10])
 
     def has_ground_contact(self):
         has_contact = [False, False]
@@ -87,6 +90,21 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
             elif contact.geom1 == 0 and contact.geom2 == 7:
                 # left foot has ground contact
                 has_contact[0] = True
+
         if cfg.is_mod(cfg.MOD_3_PHASES):
-            has_contact += [all(has_contact)]
+            double_stance = all(has_contact)
+            if cfg.is_mod(cfg.MOD_GRND_CONTACT_ONE_HOT):
+                if double_stance:
+                    return [False, False, True]
+                else:
+                    has_contact += [False]
+            else: has_contact + [double_stance]
+
+        # when both feet have no ground contact
+        if cfg.is_mod(cfg.MOD_GROUND_CONTACT_NNS) and not any(has_contact):
+            # print('Both feet without ground contact!')
+            # let the left and right foot network handle this situation
+            has_contact = np.array(has_contact)
+            has_contact[:2] = True
+
         return has_contact

@@ -28,3 +28,18 @@ class LinearSchedule(Schedule):
 
     def __repr__(self):
         return f'LinearSchedule: {self.start} -> {self.end}'
+
+
+class ExponentialSchedule(Schedule):
+    def __init__(self, start_value, final_value, slope=5):
+        """@param slope: determines how fast the scheduled value decreases.
+           The higher the slope, the stronger is the exponential decay."""
+        self.start = start_value
+        self.end = final_value
+        self.slope = slope
+        self.difference = start_value - final_value
+
+    def value(self, fraction_timesteps_left):
+        fraction_passed = 1 - fraction_timesteps_left
+        val = self.end + np.exp(-self.slope * fraction_passed) * self.difference
+        return val

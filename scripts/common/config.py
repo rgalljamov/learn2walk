@@ -3,6 +3,9 @@ import warnings, sys
 warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
+# workaround to start scripts from cmd on remote server
+sys.path.append('/home/rustam/code/remote/')
+
 import numpy as np
 from scripts.common import utils
 
@@ -87,12 +90,13 @@ MOD_VF_ZERO = 'vf_zero'
 MOD_MAX_TORQUE = 'max_torque'
 TORQUE_RANGES = get_torque_ranges(300, 300, 300)
 # Reduce dimensionality of the state with a pretrained encoder
-MOD_ENC_DIM_RED = 'dim_red'
+MOD_ENC_DIM_RED_PRETRAINED = 'dim_red'
 # use mocap statistics for ET
 MOD_REF_STATS_ET = 'ref_et'
-et_rew_thres = 0.1
 # mirror experiences
 MOD_MIRROR_EXPS = 'mirr_exps'
+# query the policy and the value functions to get neglogpacs and values
+MOD_MIRR_QUERY_NETS = 'query_nets'
 # improve reward function by normalizing individual joints etc.
 MOD_IMPROVE_REW = 'improve_rew'
 # use linear instead of exponential reward to have better gradient away from trajecs
@@ -105,16 +109,27 @@ MOD_REFS_REPLAY = 'ref_replay'
 MOD_ONLINE_CLONE = 'online_clone'
 # input ground contact information
 MOD_GROUND_CONTACT = 'grnd_contact'
+# double stance results in 0, 0, 1
+MOD_GRND_CONTACT_ONE_HOT = 'grnd_1hot'
 # train multiple networks for different phases (left/right step, double stance)
 MOD_GROUND_CONTACT_NNS = 'grnd_contact_nns'
 MOD_3_PHASES = '3_phases'
-
-
+MOD_CLIPRANGE_SCHED = 'clip_sched'
+MOD_EXP_LR_SCHED = 'expLRdec'
+MOD_SYMMETRIC_WALK = 'sym_walk'
+# reduce input dimensionality with an end-to-end encoder network of the observations
+# e2e means here that we don't separately train the encoder to reconstruct the observations
+MOD_E2E_ENC_OBS = 'e2e_enc_obs'
+MOD_TORQUE_DELTAS = 'trq_delta'
+MOD_L2_REG = 'l2_reg'
+# set a fixed logstd of the policy
+MOD_CONST_EXPLORE = 'const_explor'
 
 # ------------------
 approach = AP_DEEPMIMIC
-modification = mod([
-    MOD_CUSTOM_POLICY, MOD_PI_OUT_DELTAS, MOD_NORM_ACTS
+CTRL_FREQ = 200
+modification = mod([MOD_MIRROR_EXPS,
+    MOD_CUSTOM_POLICY
     ])
 assert_mod_compatibility()
 
@@ -125,30 +140,66 @@ DEBUG = False or not sys.gettrace() is None or not utils.is_remote()
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
-ent_coef = 0 # 0.002 # -0.002
-logstd = 0
+ent_coef = {200: -0.0075, 400: -0.00375}[CTRL_FREQ]
+init_logstd = -0.7
+pi_out_init_scale = 0.001
 cliprange = 0.15
+clip_start = 0.5 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
+clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
+clip_exp_slope = 5
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
+enc_layer_sizes = [512]*2 + [16]
+hid_layer_sizes = [512]*2
+gamma = {50:0.99, 100: 0.999, 200:0.995, 400:0.998}[CTRL_FREQ]
+alive_min_dist = 0
+trq_delta = 0.25
+rew_scale = 1
+l2_coef = 5e-4
+# todo reduce et_reward after agents starts walking multiple steps
+et_rew_thres = 0.1 * rew_scale
+alive_bonus = et_rew_thres * 2
+EVAL_N_TIMES = 20
 
-wb_project_name = 'walk3d'
-wb_run_name = f'normed deltas rew811'
-wb_run_notes = 'Use better reward weighting! Outputing normed angle deltas! ' \
-               'Deep Mimic with hypers from the 2D walker. ' \
-               'Minibatch-Size is already set to 512, which was actually' \
-               'an improvement learned later!'
-               # 'Actions are normalized angle deltas.'
+wb_project_name = 'final3d_trq'
+# todo: ET punish should be a function of training time or ep dur
+# to punish less hard at beginning, we should better have a smaller lambda...
+# or even better have a reward with a higher amplitude and that can also be negative!
+wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
+              f'mirr exps - no query nets'
+wb_run_notes = ''\
+               'Evaluate the agent starting at 75% of the step cycle. ' \
+               'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \
+               'Increased the minimum learning rate to 1e-6, was -8 before. ' \
+               'Reduced the minimum logstd to -2.3, ' \
+               'Estimate mean return of an action based on gamma and mean ep rew. ' \
+               'Get a big positive reward on episode end to avoid punishing good actions ' \
+               'at the end of the episode due to small return. ' \
+               'Flat feet. ' \
+               'extended epdur to have enough time to reach episode end and stop episode only after 22m. ' \
+               'softened ET by allowing more trunk rotation in the axial plane axial_dev0.5. ' \
+               '' \
+               'no longer stop the episode based on a minimum reward signal! ' \
+               '' \
+               'Added hard ET conditions to avoid falling: ' \
+               'trunk angles are checked in all three directions, ' \
+               'com height has much higher threshold!' \
+               '' \
+               '' \
+               ' ' \
+               'Eval model from 20 different steps at same position. '
 # num of times a batch of experiences is used
 noptepochs = 4
 
 # ----------------------------------------------------------------------------------
 
 # choose environment
-envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
-env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 2
+envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
+env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
+env_index = 4
 env_id = envs[env_index]
 env_name = env_names[env_index]
+is_torque_model = env_name in ['mim_trq2d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
 
 # choose hyperparams
 algo = 'ppo2'
@@ -158,19 +209,19 @@ ep_end_reward = 10
 et_reward = -100
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
-mio_steps = 20 * (2 if is_mod(MOD_MIRROR_EXPS) else 1)
-n_envs = 8 if utils.is_remote() and not DEBUG else 1
-batch_size = 8192 if utils.is_remote() else 1024
-minibatch_size = 512
-n_mini_batches = int(batch_size / minibatch_size)
-hid_layer_sizes = [128, 128]
-lr_start = 1500
+mirr_exps = is_mod(MOD_MIRROR_EXPS)
+mio_steps = (8 if is_torque_model else 16) * (2 if mirr_exps else 1)
+n_envs = 8 if utils.is_remote() and not DEBUG else 2
+minibatch_size = 512 * 4
+batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
+n_mini_batches = int(batch_size / minibatch_size) * (2 if mirr_exps else 1)
+lr_start = 1000 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
-lr_final = 0 # int((lr_start*(1-slope))) # 1125 after 4M, 937.5 after 6M steps, should be 0 after 16M steps
-gamma = 0.99
-_ep_dur_in_k = 4
-ep_dur_max = int(_ep_dur_in_k * 1e3) + 100
+lr_final = 1
+_ep_dur_in_k = {400: 6, 200: 3, 100: 1.5, 50: 0.75}[CTRL_FREQ]
+ep_dur_max = int(_ep_dur_in_k * 1e3)
+max_distance = 22
 
 own_hypers = ''
 info = ''
@@ -202,8 +253,8 @@ if len(wb_project_name) == 0:
     wb_project_name = _mod_path.replace('/', '_')[:-1]
 
 # names of saved model before and after training
-init_checkpoint = s(0)
-final_checkpoint = s(999)
+init_checkpoint = 'init'
+final_checkpoint = 'final'
 
 if __name__ == '__main__':
     from scripts.train import train

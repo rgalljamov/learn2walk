@@ -1,4 +1,4 @@
-import time
+import time, traceback
 import numpy as np
 
 from stable_baselines import PPO2
@@ -14,34 +14,165 @@ from stable_baselines.common.tf_util import total_episode_reward_logger
 from stable_baselines.common import explained_variance, SetVerbosity, TensorboardWriter
 
 
-def mirror_experiences(rollout):
+def mirror_experiences(rollout, ppo2=None):
     obs, returns, masks, actions, values, neglogpacs, states, ep_infos, true_reward = rollout
-    assert obs.shape == (cfg.batch_size, 19)
-    assert actions.shape == (cfg.batch_size, 6)
+    assert obs.shape[0] == cfg.batch_size
     assert states is None
     assert len(ep_infos) == 0
-    # obs indices: 0: phase, 1: des_vel, 2: com_z, 3: trunk_rot,
-    #              4: hip_ang_r, 5: knee_ang_r, 6: ankle_ang_r,
-    #              7: hip_ang_l, 8: knee_ang_l, 9: ankle_ang_l,
-    #              10: com_x_vel, 11:com_z_vel, 12: trunk_ang_vel,
-    #              13: hip_vel_r, 14: knee_vel_r, 15: ankle_vel_r,
-    #              16: hip_vel_l, 17: knee_vel_l, 18: ankle_vel_l
-    mirred_obs_indices = [0, 1, 2, 3, 7, 8, 9, 4, 5, 6,
-                          10, 11, 12, 16, 17, 18, 13, 14, 15]
+
+    is3d = '3d' in cfg.env_name or '3pd' in cfg.env_name
+    if is3d:
+        # 3D Walker obs indices:
+        #           0: phase, 1: des_vel, 2: com_y, 3: com_z,
+        #           4: trunk_rot_x, 5: trunk_rot_y, 6: trunk_rot_z,
+        #           7: hip_ang_r_sag, 8: hip_ang_r_front, 9: knee_ang_r, 10: ankle_ang_r,
+        #           11: hip_ang_l_sag, 12: hip_ang_l_front 13: knee_ang_l, 14: ankle_ang_l,
+        #           15: com_x_vel, 16: com_y_vel, 17:com_z_vel,
+        #           18: trunk_x_ang_vel, 19: trunk_y_ang_vel, 20: trunk_z_ang_vel,
+        #           21: hip_sag_vel_r, 22: hip_front_vel_r, 23: knee_vel_r, 24: ankle_vel_r,
+        #           25: hip_sag_vel_l, 26: hip_front_vel_l, 27: knee_vel_l, 28: ankle_vel_l
+        mirred_obs_indices = [0, 1, 2, 3,
+                              4, 5, 6,
+                              11, 12, 13, 14,
+                              7, 8, 9, 10,
+                              15, 16, 17,
+                              18, 19, 20,
+                              25, 26, 27, 28,
+                              21, 22, 23, 24]
+        mirred_acts_indices = [4, 5, 6, 7, 0, 1, 2, 3]
+        # some observations and actions retain the same absolute value but change the sign
+        negate_obs_indices = [2, 4, 6, 8, 12, 16, 18, 20, 22, 26]
+        negate_act_indices = [1, 5]
+    else:
+        # 2D Walker obs indices:
+        #           0: phase, 1: des_vel, 2: com_z, 3: trunk_rot,
+        #           4: hip_ang_r, 5: knee_ang_r, 6: ankle_ang_r,
+        #           7: hip_ang_l, 8: knee_ang_l, 9: ankle_ang_l,
+        #           10: com_x_vel, 11:com_z_vel, 12: trunk_ang_vel,
+        #           13: hip_vel_r, 14: knee_vel_r, 15: ankle_vel_r,
+        #           16: hip_vel_l, 17: knee_vel_l, 18: ankle_vel_l
+        mirred_acts_indices = [3, 4, 5, 0, 1, 2]
+        mirred_obs_indices = [0, 1, 2, 3, 7, 8, 9, 4, 5, 6,
+                              10, 11, 12, 16, 17, 18, 13, 14, 15]
+
     obs_mirred = obs[:, mirred_obs_indices]
-    acts_mirred = actions[:, [3, 4, 5, 0, 1, 2]]
+    acts_mirred = actions[:, mirred_acts_indices]
+
+    if is3d:
+        obs_mirred[:, negate_obs_indices] *= -1
+        acts_mirred[:, negate_act_indices] *= -1
+
+    QUERY_NETS = cfg.is_mod(cfg.MOD_MIRR_QUERY_NETS)
+    if QUERY_NETS:
+        parameters = ppo2.get_parameter_list()
+        parameter_values = np.array(ppo2.sess.run(parameters))
+        pi_w0, pi_w1, pi_w2 = parameter_values[[0, 2, 8]]
+        pi_b0, pi_b1, pi_b2 = parameter_values[[1, 3, 9]]
+        vf_w0, vf_w1, vf_w2 = parameter_values[[4, 6, 13]]
+        vf_b0, vf_b1, vf_b2 = parameter_values[[5, 7, 14]]
+        pi_logstd = parameter_values[10]
+        pi_std = np.exp(pi_logstd)
+        def relu(x): return np.maximum(x, 0)
+        # get values of the mirrored observations
+        def get_value(obs):
+            vf_hid1 = relu(np.matmul(obs,vf_w0) + vf_b0)
+            vf_hid2 = relu(np.matmul(vf_hid1, vf_w1) + vf_b1)
+            values = np.matmul(vf_hid2, vf_w2) + vf_b2
+            return values.flatten()
+
+        def get_action_means(obs):
+            pi_hid1 = relu(np.matmul(obs,pi_w0) + pi_b0)
+            pi_hid2 = relu(np.matmul(pi_hid1, pi_w1) + pi_b1)
+            means = np.matmul(pi_hid2, pi_w2) + pi_b2
+            return means
+
+        values_test = get_value(obs)
+        values_mirred_obs = get_value(obs_mirred)
+
+        def neglogp(acts, mean, logstd):
+            std = np.exp(logstd)
+            return 0.5 * np.sum(np.square((acts - mean) / std), axis=-1) \
+                   + 0.5 * np.log(2.0 * np.pi) * np.array(acts.shape[-1], dtype=np.float) \
+                   + np.sum(logstd, axis=-1)
+
+        act_means = get_action_means(obs)
+        act_means_mirred = get_action_means(obs_mirred)
+
+        neglogpacs_test = neglogp(actions, act_means, pi_logstd)
+        neglogpacs_mirred = neglogp(acts_mirred, act_means_mirred, pi_logstd)
+
+        log('Logstd', [f'logstd = {pi_logstd}', f'std = {pi_std}'])
+
+        percentiles = [50, 75, 90, 95, 99, 100]
+        log('Neglogpacs Comparison (before clipping!)',
+            [f'neglogpacs orig: min {np.min(neglogpacs)}, '
+              f'mean {np.mean(neglogpacs)}, max {np.max(neglogpacs)}',
+              f'neglogpacs mirred: min {np.min(neglogpacs_mirred)}, '
+              f'mean {np.mean(neglogpacs_mirred)}, '
+              f'max {np.max(neglogpacs_mirred)}',
+              f'---\npercentiles {percentiles}:',
+              f'orig percentiles: {np.percentile(neglogpacs, percentiles)}',
+              f'mirred percentiles: {np.percentile(neglogpacs_mirred, percentiles)}',
+              ])
+
+        CLIP_NEGLOGPACS = False
+        if CLIP_NEGLOGPACS:
+            # limit neglogpacs_mirred to be not bigger than the max neglogpacs
+            # otherwise the action distribution stay too wide
+            max_allowed_neglogpac = np.percentile(neglogpacs, 99)
+            min_allowed_neglogpac = np.percentile(neglogpacs, 1)
+            neglogpacs_mirred = np.clip(neglogpacs_mirred,
+                                        min_allowed_neglogpac, max_allowed_neglogpac)
+
+        residuals_neglogpacs = neglogpacs - neglogpacs_test
+        residuals_values = values - values_test
+
+        difs_neglogpacs = neglogpacs_mirred - neglogpacs
+        difs_values = values_mirred_obs - values
+
+        log('Differences between original and mirrored experiences',
+            [f'neglogpacs: min {np.min(difs_neglogpacs)} max {np.max(difs_neglogpacs)}\n'
+             f'values: min {np.min(difs_values)} max {np.max(difs_values)}'])
+
+        if not ( (residuals_neglogpacs < 0.01).all() and (residuals_values < 0.01).all() ):
+            log('WARNING!', ['Residuals exceeded allowed amplitude of 0.01',
+                             f'Neglogpacs: mean {np.mean(residuals_neglogpacs)}, max {np.max(residuals_neglogpacs)}',
+                             f'Values: mean {np.mean(residuals_values)}, max {np.max(residuals_values)}',
+                             ])
+
     obs = np.concatenate((obs, obs_mirred), axis=0)
     actions = np.concatenate((actions, acts_mirred), axis=0)
+
+    if QUERY_NETS:
+        values = np.concatenate((values, values_mirred_obs.flatten()))
+        neglogpacs = np.concatenate((neglogpacs, neglogpacs_mirred.flatten()))
+    else:
+        values = np.concatenate((values, values))
+        neglogpacs = np.concatenate((neglogpacs, neglogpacs))
 
     # the other values should stay the same for the mirrored experiences
     returns = np.concatenate((returns, returns))
     masks = np.concatenate((masks, masks))
-    values = np.concatenate((values, values))
-    neglogpacs = np.concatenate((neglogpacs, neglogpacs))
     true_reward = np.concatenate((true_reward, true_reward))
 
-    assert true_reward.shape[0] == cfg.batch_size*2
-    assert obs.shape == (cfg.batch_size*2, 19)
+    # remove mirrored experiences with too high neglogpacs
+    FILTER_MIRRED_EXPS = False
+    if FILTER_MIRRED_EXPS:
+        n_mirred_exps = int(len(neglogpacs) / 2)
+        max_allowed_neglogpac = np.percentile(neglogpacs[:n_mirred_exps], 99)
+        delete_act_indices = np.where(neglogpacs[n_mirred_exps:] > max_allowed_neglogpac)[0] + n_mirred_exps
+        log(f'Deleted {len(delete_act_indices)} mirrored actions with neglogpac > {max_allowed_neglogpac}')
+
+        obs = np.delete(obs, delete_act_indices, axis=0)
+        actions = np.delete(actions, delete_act_indices, axis=0)
+        returns = np.delete(returns, delete_act_indices, axis=0)
+        masks = np.delete(masks, delete_act_indices, axis=0)
+        values = np.delete(values, delete_act_indices, axis=0)
+        true_reward = np.delete(true_reward, delete_act_indices, axis=0)
+        neglogpacs = np.delete(neglogpacs, delete_act_indices, axis=0)
+
+    # assert true_reward.shape[0] == cfg.batch_size*2
+    # assert obs.shape[0] == cfg.batch_size*2
 
     return obs, returns, masks, actions, values, \
            neglogpacs, states, ep_infos, true_reward
@@ -81,9 +212,11 @@ class CustomPPO2(PPO2):
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
 
-        log('Using CustomPPO2!')
+        # log('Using CustomPPO2!')
 
         self.mirror_experiences = cfg.is_mod(cfg.MOD_MIRROR_EXPS)
+        # to investigate the outputted actions in the monitor env
+        self.last_actions = None
 
         if cfg.is_mod(cfg.MOD_REFS_REPLAY) or cfg.is_mod(cfg.MOD_ONLINE_CLONE):
             # load obs and actions generated from reference trajectories
@@ -134,7 +267,7 @@ class CustomPPO2(PPO2):
                     log("The number of minibatches (`nminibatches`) "
                         "is not a factor of the total number of samples "
                         "collected per rollout (`n_batch`), "
-                        "some samples won't be used.")
+                        "which is ok, as still all experiences will be used!")
                 t_start = time.time()
                 frac = 1.0 - (update - 1.0) / n_updates
                 lr_now = self.learning_rate(frac)
@@ -142,17 +275,48 @@ class CustomPPO2(PPO2):
                 cliprange_vf_now = cliprange_vf(frac)
 
                 callback.on_rollout_start()
-                # true_reward is the reward without discount
-                rollout = self.runner.run(callback)
+
+                # try getting rollout 3 times
+                tried_rollouts = 0
+                while tried_rollouts < 1:
+                    try:
+                        # true_reward is the reward without discount
+                        rollout = self.runner.run(callback)
+                        break
+                    except BrokenPipeError as bpe:
+                        raise BrokenPipeError(f'Catched Broken Pipe Error.')
+                    except Exception as ex:
+                        # tried_rollouts += 1
+                        # obs, returns, masks, actions, values, neglogpacs, \
+                        # states, ep_infos, true_reward = rollout
+                        # log(f'Rollout failed {tried_rollouts} times!',
+                        #     [f'Catched exception: {ex}',
+                        #      f'obs.shape: {obs.shape}',
+                        #      f'ret.shape: {returns.shape}'])
+                        traceback.print_exc()
+                        # if isinstance(ex, BrokenPipeError):
+                        #     # copy-pasted from the old blog here:
+                        #     # http://newbebweb.blogspot.com/2012/02/python-head-ioerror-errno-32-broken.html
+                        #     from signal import signal, SIGPIPE, SIG_DFL
+                        #     signal(SIGPIPE, SIG_DFL)
+                        #     print('Executing fix: Importing signal and disabling BrokenPipeError.')
+                        #     for _ in range(10000):
+                        #         print('', end='')
+
+                # reset count once, rollout was successful
+                tried_rollouts = 0
+
                 # Unpack
                 if self.mirror_experiences:
                     obs, returns, masks, actions, values, neglogpacs, \
-                    states, ep_infos, true_reward = mirror_experiences(rollout)
+                    states, ep_infos, true_reward = mirror_experiences(rollout, self)
                 else:
                     obs, returns, masks, actions, values, neglogpacs, \
                     states, ep_infos, true_reward = rollout
 
-                if np.random.randint(low=0, high=9, size=1)[0] == 7:
+                self.last_actions = actions
+
+                if np.random.randint(low=1, high=20) == 7:
                     log(f'Values and Returns of collected experiences: ',
                     [f'min returns:\t{np.min(returns)}', f'min values:\t\t{np.min(values)}',
                      f'mean returns:\t{np.mean(returns)}', f'mean values:\t{np.mean(values)}',
@@ -173,7 +337,8 @@ class CustomPPO2(PPO2):
                 mb_loss_vals = []
                 if states is None:  # nonrecurrent version
                     update_fac = self.n_batch // self.nminibatches // self.noptepochs + 1
-                    inds = np.arange(self.n_batch)
+                    # inds = np.arange(self.n_batch)
+                    inds = np.arange(obs.shape[0])
                     n_epochs = self.noptepochs \
                         if not cfg.is_mod(cfg.MOD_ONLINE_CLONE) or update > 9 else 200
                     for epoch_num in range(n_epochs):

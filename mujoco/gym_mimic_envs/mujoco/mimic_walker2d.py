@@ -43,9 +43,6 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         if reset: refs.reset()
         return refs
 
-    def reset_model(self):
-        return MimicEnv.reset_model(self)
-
     def viewer_setup(self):
         self.viewer.cam.trackbodyid = 2
         self.viewer.cam.distance = self.model.stat.extent * 0.5
@@ -59,7 +56,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
     def _get_COM_indices(self):
         return [0,1] # x, z
 
-    def _get_saggital_trunk_joint_index(self):
+    def _get_trunk_joint_indices(self):
         return 2
 
     def _get_not_actuated_joint_indices(self):

@@ -6,10 +6,11 @@ Script to handle reference trajectories.
 
 - handle COM and Joint Kinematics separately
 '''
-
+import random
 import numpy as np
 import scipy.io as spio
-from scripts.common.config import is_mod, MOD_REFS_RAMP, SKIP_N_STEPS, STEPS_PER_VEL
+from scripts.common.config import is_mod, MOD_REFS_RAMP, MOD_SYMMETRIC_WALK, \
+    SKIP_N_STEPS, STEPS_PER_VEL, EVAL_N_TIMES, CTRL_FREQ
 from scripts.common.utils import log, is_remote, config_pyplot, smooth_exponential
 
 
@@ -73,20 +74,37 @@ TRUNK_ROT_Q1, TRUNK_ROT_Q2, TRUNK_ROT_Q3, TRUNK_ROT_Q4 = range(3,7)
 HIP_FRONT_ANG_R, HIP_SAG_ANG_R, KNEE_ANG_R, ANKLE_ANG_R = range(7,11)
 HIP_FRONT_ANG_L, HIP_SAG_ANG_L, KNEE_ANG_L, ANKLE_ANG_L = range(11,15)
 
+
 # reference trajectory: joint velocity indices
 COM_VELX, COM_VELY, COM_VELZ = range(15,18)
 TRUNK_ANGVEL_X, TRUNK_ANGVEL_Y, TRUNK_ANGVEL_Z = range(18,21)
 HIP_FRONT_ANGVEL_R, HIP_SAG_ANGVEL_R, KNEE_ANGVEL_R, ANKLE_ANGVEL_R = range(21,25)
 HIP_FRONT_ANGVEL_L, HIP_SAG_ANGVEL_L, KNEE_ANGVEL_L, ANKLE_ANGVEL_L = range(25,29)
 
+# mirror right step to get left step
+mirred_indices = [COM_POSX, COM_POSY, COM_POSZ,
+                  TRUNK_ROT_Q1, TRUNK_ROT_Q2, TRUNK_ROT_Q3, TRUNK_ROT_Q4,
+                  HIP_FRONT_ANG_L, HIP_SAG_ANG_L, KNEE_ANG_L, ANKLE_ANG_L,
+                  HIP_FRONT_ANG_R, HIP_SAG_ANG_R, KNEE_ANG_R, ANKLE_ANG_R,
+                  COM_VELX, COM_VELY, COM_VELZ,
+                  TRUNK_ANGVEL_X, TRUNK_ANGVEL_Y, TRUNK_ANGVEL_Z,
+                  HIP_FRONT_ANGVEL_L, HIP_SAG_ANGVEL_L, KNEE_ANGVEL_L, ANKLE_ANGVEL_L,
+                  HIP_FRONT_ANGVEL_R, HIP_SAG_ANGVEL_R, KNEE_ANGVEL_R, ANKLE_ANGVEL_R]
+
+
 # reference trajectory: foot position and GRF indices
 FOOT_POSX_L, FOOT_POSY_L, FOOT_POSZ_L, FOOT_POSX_R, FOOT_POSY_R, FOOT_POSZ_R = range(29,35)
+mirred_indices += [FOOT_POSX_R, FOOT_POSY_R, FOOT_POSZ_R, FOOT_POSX_L, FOOT_POSY_L, FOOT_POSZ_L]
 if _is_constant_speed:
     TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z = range(35, 38)
+    mirred_indices += [TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z]
 else:
     GRF_R, GRF_L = range(35, 37)
     TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z = range(37, 40)
+    mirred_indices += [GRF_L, GRF_R, TRUNK_ROT_X, TRUNK_ROT_Y, TRUNK_ROT_Z]
 
+negate_indices = [COM_POSY, TRUNK_ROT_X, TRUNK_ROT_Z, HIP_FRONT_ANG_R, HIP_FRONT_ANG_L,
+                  COM_VELY, TRUNK_ANGVEL_X, TRUNK_ANGVEL_Z, HIP_FRONT_ANGVEL_R, HIP_FRONT_ANGVEL_L]
 
 class ReferenceTrajectories:
 
@@ -108,9 +126,14 @@ class ReferenceTrajectories:
         # calculated and added trunk euler rotations
         # self._add_trunk_euler_rotations()
         # some steps are done with left, some with right foot
-        self.left_leg_indices = self._determine_left_steps_indices()
+        self.left_step_indices = self._determine_left_steps_indices()
+        # mirror right step and use it as left step
+        if is_mod(MOD_SYMMETRIC_WALK): self._symmetric_walk()
         # current step
         self._step = self._get_random_step()
+        # how many points to jump over when next() is called
+        # to get lower sample frequency data
+        self.set_increment(int(400/CTRL_FREQ))
         # position on the reference trajectory of the current step
         self._pos = 0
         # distance walked so far (COM X Position)
@@ -121,17 +144,58 @@ class ReferenceTrajectories:
         self.has_reached_last_step = False
         # count how many steps were taken without skipping steps
         self.count_steps_same_vel = 1
+        # during evaluation we want our agent to start from different positions
+        self.n_deterministic_inits = 0
 
+    def _symmetric_walk(self):
+        # print('Mirroring the mocap data to have symmetric walking!')
+        right_step_indices = np.array(self.left_step_indices) - 1
+        # replace left steps with right steps
+        self.data[self.left_step_indices] = self.data[right_step_indices]
+        test = True
+        for i_left_step in self.left_step_indices:
+            # steps at left index are right steps, but not mirrored yet
+            right_step = self.data[i_left_step]
+            mirred_right_step = right_step[mirred_indices, :]
+            # some trajectories maintain their value but have to be negated
+            mirred_right_step[negate_indices, :] *= -1
+            self.data[i_left_step] = mirred_right_step
 
-    def next(self, increment=2):
+    def next(self):
         """
         Increases the internally managed position
                 on the current step trajectory by a specified amount.
         :param increment number of points to proceed on the ref trajecs
                          increment=2 corresponds to 200Hz sample frequency
         """
-        self._pos += increment
+        self._pos += self.increment
         self.ep_dur += 1
+        # when we reached the trajectory's end of the current step
+        dif = self._pos - (len(self._step[0]) - 1)
+        if dif > 0:
+            # choose the next step
+            self._step = self._get_next_step()
+            # make sure to do the required increment
+            self._pos = dif
+
+    def set_increment(self, increment):
+        """
+        sets how many points to jump over when next() is called.
+        Goal is to simulate the data being collected at a lower sample frequency.
+        Original sampling frequency of the data is 400Hz.
+        Resulting frequency is 400/increment
+         """
+        assert type(increment) == int
+        self.increment = increment
+
+
+    def set_sampling_frequency(self, frequency):
+        """
+        Sampling frequency is controlled by the increment in next().
+        """
+        increment = int(SAMPLE_FREQ/frequency)
+        self.set_increment(increment)
+
 
     def reset(self):
         """ Set all indices and counters to zero."""
@@ -149,10 +213,10 @@ class ReferenceTrajectories:
         return self._get_by_indices(self.qvel_is)
 
     def get_phase_variable(self):
-        trajec_duration = len(self._step[0])+2
+        trajec_duration = len(self._step[0])
         phase = self._pos / trajec_duration
-        assert phase >= 0 and phase <= 1, \
-            f'Phase Variable should be between 0 and 1 but was {phase}'
+        if not (phase >= 0 and phase <= 1):
+           print(f'Phase Variable should be between 0 and 1 but was {phase}')
         return phase
 
     def get_ref_kinmeatics(self):
@@ -214,7 +278,7 @@ class ReferenceTrajectories:
 
 
     def is_step_left(self):
-        return self._i_step in self.left_leg_indices
+        return self._i_step in self.left_step_indices
 
     def _get_by_indices(self, indices):
         """
@@ -235,10 +299,6 @@ class ReferenceTrajectories:
         Kinematics of specified joints at the current position
         on the current step trajectory.
         """
-        # when we reached the trajectory's end of the current step
-        if self._pos >= len(self._step[0]):
-            # choose the next step
-            self._step = self._get_next_step()
         joint_kinematics = self._step[indices, self._pos]
         return joint_kinematics
 
@@ -246,17 +306,41 @@ class ReferenceTrajectories:
         ''' Random State Initialization:
             @returns: qpos and qvel of a random step at a random position'''
         self._step = self._get_random_step()
-        self._pos = np.random.randint(0, len(self._step[0]) - 1)
+        self._pos = random.randint(0, len(self._step[0]) - 1)
         # reset episode duration and so far traveled distance
         self.ep_dur = 0
         self.dist = 0
         return self.get_qpos(), self.get_qvel()
 
     def get_deterministic_init_state(self, i_step = 0):
-        ''' Random State Initialization:
-            @returns: qpos and qvel of a random step at a random position'''
+        ''' Deterministic State Initialization.
+            @returns: qpos and qvel on a predefined position on the ref trajecs
+                      but choosing another step each time. '''
         self.reset()
-        return self.get_qpos(), self.get_qvel()
+
+        # choose another reference step each time
+        self._i_step = self.n_deterministic_inits
+        self._step = self.data[self._i_step]
+        # desired init position: mid stance
+        self._pos = int(0.75 * len(self._step[0]))
+
+        self.n_deterministic_inits += 1
+        # print(f'{self.n_deterministic_inits} deterministic inits (pos {self._pos}).')
+
+        if self.n_deterministic_inits >= EVAL_N_TIMES:
+            self.n_deterministic_inits = 0
+
+        # initialize the eval episodes always in the same state
+        # (iterate between left and right only)
+        SAME_INIT = False
+        if SAME_INIT:
+            self._i_step = self.n_deterministic_inits % 2
+            self._step = self.data[self._i_step]
+            self._pos = int(0.85 * len(self._step[0]))
+
+        qpos, qvel = self.get_qpos(), self.get_qvel()
+        # print(qpos, qvel)
+        return qpos, qvel
 
     def get_com_kinematics_full(self):
         """:returns com kinematics for the current steps."""
@@ -306,7 +390,7 @@ class ReferenceTrajectories:
 
     def _get_random_step(self):
         # which of the 250 steps are we looking at
-        self._i_step = np.random.randint(0, len(self.data) - 1)
+        self._i_step = random.randint(0, len(self.data) - 1, )
         return self.data[self._i_step]
 
     def _get_next_step(self):
@@ -320,7 +404,7 @@ class ReferenceTrajectories:
         if self._i_step >= len(self.data)-SKIP_N_STEPS-STEPS_PER_VEL:
             self.has_reached_last_step = True
             # reset to the step with the correct foot
-            self._i_step = 0 if self._i_step in self.left_leg_indices else 1
+            self._i_step = 0 if self._i_step in self.left_step_indices else 1
         else:
             # do multiple steps at the same velocity before skipping to a higher vel
             if self.count_steps_same_vel < STEPS_PER_VEL:
@@ -337,8 +421,6 @@ class ReferenceTrajectories:
 
         # update the so far traveled distance
         self.dist = self._step[COM_POSX, -1]
-        # check how many points on the previous steps were left
-        skipped_pos = self._pos - len(self._step[COM_POSX,:])
         # choose the next step
         # copy to add the com x position only of the current local step variable
         step = np.copy(self.data[self._i_step])
@@ -347,10 +429,6 @@ class ReferenceTrajectories:
             f"but started with {step[COM_POSX, 0]}"
         # add the so far traveled distance to the x pos of the COM
         step[COM_POSX,:] += self.dist
-        # reset the position on the ref trajectory
-        # consider if positions on previous step trajectories were skipped
-        # due to increment in self.next()!
-        self._pos = skipped_pos
         return step
 
     def _add_trunk_euler_rotations(self):

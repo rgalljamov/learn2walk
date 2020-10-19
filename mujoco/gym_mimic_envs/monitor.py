@@ -60,10 +60,20 @@ class Monitor(gym.Wrapper):
         self.grfs_left = []
         self.grfs_right = []
         self.moved_distance_smooth = 0
+        # track phases during initialization and ET
+        self.et_phases = []
+        self.rsi_phases = []
+        # which phases lead to episode lengths smaller than the running average
+        self.difficult_rsi_phases = []
+        # track reward components
+        self.ep_pos_rews, self.ep_vel_rews, self.ep_com_rews = [], [], []
+        self.mean_ep_pos_rew_smoothed, self.mean_ep_vel_rew_smoothed, \
+        self.mean_ep_com_rew_smoothed = 0,0,0
 
         # monitor energy efficiency
         self.ep_torques_abs = []
-        self.mean_abs_torque_smoothed = 0
+        self.mean_abs_ep_torque_smoothed = 0
+        self.median_abs_torque_smoothed = 0
         self.ep_joint_pow_sum_normed = []
         self.mean_ep_joint_pow_sum_normed_smoothed = 0
 
@@ -85,16 +95,31 @@ class Monitor(gym.Wrapper):
     def step(self, action):
         obs, reward, done, _ = self.env.step(action)
 
-        self.reward = reward
+        if self.ep_len == 0:
+            self.init_phase = self.env.refs.get_phase_variable()
+            self.rsi_phases.append(self.init_phase)
         self.ep_len += 1
+
+        self.reward = reward
         self.rewards.append(reward)
+        self.ep_pos_rews.append(self.env.pos_rew)
+        self.ep_vel_rews.append(self.env.vel_rew)
+        self.ep_com_rews.append(self.env.com_rew)
+
         self.ep_joint_pow_sum_normed.append(self.env.joint_pow_sum_normed)
         self.ep_torques_abs.append(self.env.get_actuator_torques(True))
 
         if done:
+            # get phase ET was detected at
+            et_phase = self.env.refs.get_phase_variable()
+            self.et_phases.append(et_phase)
+
             ep_rewards = self.rewards[-self.ep_len:]
             mean_reward = np.mean(ep_rewards[:-1])
             self.mean_reward_smoothed = smooth('rew', mean_reward)
+            self.mean_ep_pos_rew_smoothed = smooth('ep_pos_rew', np.mean(self.ep_pos_rews))
+            self.mean_ep_vel_rew_smoothed = smooth('ep_vel_rew', np.mean(self.ep_vel_rews))
+            self.mean_ep_com_rew_smoothed = smooth('ep_com_rew', np.mean(self.ep_com_rews))
 
             ep_return = np.sum(ep_rewards)
             self.returns.append(ep_return)
@@ -102,13 +127,20 @@ class Monitor(gym.Wrapper):
 
             self.ep_lens.append(self.ep_len)
             self.ep_len_smoothed = smooth('ep_len', self.ep_len, 0.75)
+            if self.ep_len < self.ep_len_smoothed*0.75:
+                self.difficult_rsi_phases.append(self.init_phase)
             self.ep_len = 0
+
 
             self.moved_distance_smooth = smooth('dist', self.env.data.qpos[0], 0.25)
 
-            self.mean_abs_torque_smoothed = \
-                smooth('mean_ep_tor', np.mean(self.ep_torques_abs), 0.1)
+            self.mean_abs_ep_torque_smoothed = \
+                smooth('mean_ep_tor', np.mean(self.ep_torques_abs), 0.75)
+            self.median_abs_torque_smoothed = \
+                smooth('med_ep_tor', np.median(self.ep_torques_abs), 0.75)
             self.ep_torques_abs = []
+
+
 
             self.mean_ep_joint_pow_sum_normed_smoothed = \
                 smooth('joint_pow', np.mean(self.ep_joint_pow_sum_normed), 0.75)
@@ -129,7 +161,7 @@ class Monitor(gym.Wrapper):
                 if self.left_step_distrib is None:
                     from scripts.common import config as cfg
                     npz = np.load(cfg.abs_project_path +
-                                  'assets/ref_trajecs/distributions/const_speed_400hz.npz')
+                                  'assets/ref_trajecs/distributions/2d_distributions_const_speed_400hz.npz')
                     self.left_step_distrib = [npz['means_left'], npz['stds_left']]
                     self.right_step_distrib = [npz['means_right'], npz['stds_right']]
                     self.step_len = min(self.left_step_distrib[0].shape[1], self.right_step_distrib[0].shape[1])
@@ -210,7 +242,7 @@ class Monitor(gym.Wrapper):
             if self.SPEED_CONTROL:
                 plt.ylabel(y_labels[i_joint])
             else:
-                plt.title(self.kinem_labels[i_joint])
+                plt.title(f'{i_joint}. ' + self.kinem_labels[i_joint])
         lines.append(line[0])
 
         # plot ref trajec distributions (mean + 2std)
@@ -265,6 +297,11 @@ class Monitor(gym.Wrapper):
         if PLOT_ACTIONS:
             plot_actions(self.action_buf, 'PD Target', '#ff0000')
 
+        # remove x ticks from upper graphs
+        for i_graph in range(len(axes) - cols + 1):
+            axes[i_graph].tick_params(axis='x', which='both',
+                                      labelbottom=False)
+
         if self.SPEED_CONTROL:
             plt.subplot(rows, cols, 3, sharex=axes[-1])
             plt.plot(self.speed_buf)
@@ -281,9 +318,14 @@ class Monitor(gym.Wrapper):
                     1.2 if PLOT_REF_DISTRIB else 1, 1.075 if PLOT_REF_DISTRIB else 1))
 
             # add rewards and returns
+            from scripts.common.config import rew_scale, alive_bonus
+            rews = np.copy(self.rewards[-_trajec_buffer_length:])
+            rews -= alive_bonus
+            rews /= rew_scale
+
             rew_plot = plt.subplot(rows, cols, len(axes) + 1, sharex=axes[-1])
-            rew_plot.plot(self.rewards[-_trajec_buffer_length:])
-            rew_plot.set_ylim([-0.075, 1.025])
+            rew_plot.plot(rews)
+            # rew_plot.set_ylim(np.array([-0.075, 1.025]))
             # plot episode terminations
             plt.vlines(np.argwhere(self.dones_buf).flatten() + 1,
                        0, 1, colors='#cccccc')
@@ -296,8 +338,8 @@ class Monitor(gym.Wrapper):
             plt.title('Rewards & Returns')
 
         # fix title overlapping when tight_layout is true
-        plt.gcf().tight_layout(rect=[0, 0, 1, 0.95])
-        plt.subplots_adjust(wspace=0.55, hspace=0.5)
+        plt.gcf().tight_layout() # rect=[0, 0, 1, 0.95])
+        plt.subplots_adjust(wspace=0.25, hspace=0.4)
         PD_TUNING = False
         if PD_TUNING:
             rew_plot.set_xlim([-5, 250])
@@ -305,9 +347,8 @@ class Monitor(gym.Wrapper):
             kps = self.env.model.actuator_gainprm[:,0].astype(int).tolist()
             mean_rew = int(1000 * np.mean(self.rewards[-_trajec_buffer_length:]))
             plt.suptitle(f'PD Gains Tuning:   rew={mean_rew}    kp={kps}    kd={dampings}')
-        else:
-            plt.suptitle('Simulation and Reference Joint Kinematics over Time ' + \
-                         '' if self.SPEED_CONTROL else '(Angles in [rad], Angular Velocities in [rad/s])')
+        elif self.SPEED_CONTROL:
+            plt.suptitle('Simulation and Reference Joint Kinematics over Time')
 
         plt.show()
         if self.env.is_evaluation_on() or PD_TUNING:

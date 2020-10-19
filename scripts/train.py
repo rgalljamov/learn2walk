@@ -2,9 +2,10 @@ import os.path
 import wandb
 from scripts import eval
 from scripts.common import config as cfg, utils
-from scripts.common.schedules import LinearSchedule
+from scripts.common.schedules import LinearSchedule, ExponentialSchedule
 from scripts.common.callback import TrainingMonitor
 from scripts.common.policies import CustomPolicy
+from scripts.common.distributions import LOG_STD_MIN, LOG_STD_MAX
 
 # to decrease the amount of deprecation warnings
 import tensorflow as tf
@@ -32,8 +33,11 @@ def init_wandb(model):
     params = {
         "path": cfg.save_path,
         "mod": cfg.modification,
+        "ctrl_freq": cfg.CTRL_FREQ,
         "lr0": cfg.lr_start,
         "lr1": cfg.lr_final,
+        "lr_sched": 'exp' if cfg.is_mod(cfg.MOD_EXP_LR_SCHED) else 'lin',
+        'hid_sizes': cfg.hid_layer_sizes,
         "noptepochs": cfg.noptepochs,
         "batch_size": batch_size,
         "n_mini_batches": model.nminibatches,
@@ -44,7 +48,9 @@ def init_wandb(model):
         "ent_coef": model.ent_coef,
         "ep_dur": cfg.ep_dur_max,
         "imit_rew": cfg.rew_weights,
-        "logstd": cfg.logstd,
+        "logstd": cfg.init_logstd,
+        "min_logstd": LOG_STD_MIN,
+        "max_logstd": LOG_STD_MAX,
         "et_rew": cfg.et_reward,
         "ep_end_rew": cfg.ep_end_reward,
         "et_rew_thres": cfg.et_rew_thres,
@@ -58,14 +64,17 @@ def init_wandb(model):
         "vf_coef": model.vf_coef,
         "max_grad_norm": model.max_grad_norm,
         "nminibatches": model.nminibatches,
-        "noptepochs": model.noptepochs,
-        "cliprange": model.cliprange,
+        "clip0": cfg.clip_start,
+        "clip1": cfg.clip_end,
         "cliprange_vf": model.cliprange_vf,
         "n_cpu_tf_sess": model.n_cpu_tf_sess}
 
     if cfg.is_mod(cfg.MOD_REFS_RAMP):
         params['skip_n_steps'] = cfg.SKIP_N_STEPS
         params['steps_per_vel'] = cfg.STEPS_PER_VEL
+
+    if cfg.is_mod(cfg.MOD_E2E_ENC_OBS):
+        params['enc_layers'] = cfg.enc_layer_sizes
 
     wandb.init(config=params, sync_tensorboard=True, name=cfg.get_wb_run_name(),
                project=cfg.wb_project_name, notes=cfg.wb_run_notes)
@@ -86,8 +95,14 @@ def train():
                         deltas=cfg.is_mod(cfg.MOD_PI_OUT_DELTAS))
 
     # setup model/algorithm
-    training_timesteps = int(cfg.mio_steps * 1e6 * 1.05)
-    learning_rate_schedule = LinearSchedule(cfg.lr_start*(1e-6), cfg.lr_final*(1e-6)).value
+    training_timesteps = int(cfg.mio_steps * 1e6)
+    lr_start = cfg.lr_start * (1e-6)
+    lr_end = cfg.lr_final * (1e-6)
+    if cfg.is_mod(cfg.MOD_EXP_LR_SCHED):
+        learning_rate_schedule = ExponentialSchedule(lr_start, lr_end).value
+    else:
+        learning_rate_schedule = LinearSchedule(lr_start, lr_end).value
+    clip_schedule = ExponentialSchedule(cfg.clip_start, cfg.clip_end, cfg.clip_exp_slope).value
     network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
                     'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else {}
 
@@ -95,7 +110,8 @@ def train():
                        env, verbose=1, n_steps=int(cfg.batch_size/cfg.n_envs),
                        policy_kwargs=network_args, nminibatches=cfg.n_mini_batches,
                        learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
-                       gamma=cfg.gamma, cliprange=cfg.cliprange, noptepochs=cfg.noptepochs,
+                       gamma=cfg.gamma, noptepochs=cfg.noptepochs, cliprange_vf=cfg.cliprange,
+                       cliprange=clip_schedule if cfg.is_mod(cfg.MOD_CLIPRANGE_SCHED) else cfg.cliprange,
                        tensorboard_log=cfg.save_path + 'tb_logs/')
 
     # init wandb
