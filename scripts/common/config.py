@@ -95,6 +95,8 @@ MOD_ENC_DIM_RED_PRETRAINED = 'dim_red'
 MOD_REF_STATS_ET = 'ref_et'
 # mirror experiences
 MOD_MIRROR_EXPS = 'mirr_exps'
+# query the policy and the value functions to get neglogpacs and values
+MOD_MIRR_QUERY_NETS = 'query_nets'
 # improve reward function by normalizing individual joints etc.
 MOD_IMPROVE_REW = 'improve_rew'
 # use linear instead of exponential reward to have better gradient away from trajecs
@@ -126,7 +128,7 @@ MOD_CONST_EXPLORE = 'const_explor'
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([
+modification = mod([MOD_MIRROR_EXPS,
     MOD_CUSTOM_POLICY
     ])
 assert_mod_compatibility()
@@ -159,13 +161,14 @@ et_rew_thres = 0.1 * rew_scale
 alive_bonus = et_rew_thres * 2
 EVAL_N_TIMES = 20
 
-wb_project_name = 'bsln_ablation'
+wb_project_name = 'final3d_trq'
 # todo: ET punish should be a function of training time or ep dur
 # to punish less hard at beginning, we should better have a smaller lambda...
 # or even better have a reward with a higher amplitude and that can also be negative!
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-              f'eval50, no LR decay, no rewScale, lr1=1, Min logstd2.3, 10Mio, FlatFeet frict09, smart ep_end_rew, epret ET pun100, gam{gamma}'
-wb_run_notes = 'Evaluate the agent always starting at 50% of the step cycle. ' \
+              f'mirr exps - no query nets'
+wb_run_notes = ''\
+               'Evaluate the agent starting at 75% of the step cycle. ' \
                'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \
                'Increased the minimum learning rate to 1e-6, was -8 before. ' \
                'Reduced the minimum logstd to -2.3, ' \
@@ -207,7 +210,7 @@ et_reward = -100
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mirr_exps = is_mod(MOD_MIRROR_EXPS)
-mio_steps = (10 if is_torque_model else 16) * (2 if mirr_exps else 1)
+mio_steps = (8 if is_torque_model else 16) * (2 if mirr_exps else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
 batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size

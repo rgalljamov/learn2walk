@@ -159,7 +159,7 @@ def mirror_experiences(rollout, ppo2=None):
     FILTER_MIRRED_EXPS = False
     if FILTER_MIRRED_EXPS:
         n_mirred_exps = int(len(neglogpacs) / 2)
-        max_allowed_neglogpac = np.percentile(neglogpacs[:n_mirred_exps], 95)
+        max_allowed_neglogpac = np.percentile(neglogpacs[:n_mirred_exps], 99)
         delete_act_indices = np.where(neglogpacs[n_mirred_exps:] > max_allowed_neglogpac)[0] + n_mirred_exps
         log(f'Deleted {len(delete_act_indices)} mirrored actions with neglogpac > {max_allowed_neglogpac}')
 

@@ -90,7 +90,6 @@ class TrainingMonitor(BaseCallback):
 
             if self.mean_walked_distance >= 20:
                 EVAL_INTERVAL = EVAL_INTERVAL_RARE
-                # todo: think to scale dt in auc calculatioin /400
             elif self.mean_walked_distance >= 10:
                 EVAL_INTERVAL = EVAL_INTERVAL_MOST_FREQUENT
             elif self.mean_walked_distance >= 5:
@@ -306,7 +305,7 @@ class TrainingMonitor(BaseCallback):
         # evaluate deterministically
         utils.log(f'Starting model evaluation, checkpoint {checkpoint}')
         obs = eval_env.reset()
-        eval_n_times = cfg.EVAL_N_TIMES if self.num_timesteps > EVAL_MORE_FREQUENT_THRES*2/3 else 10
+        eval_n_times = cfg.EVAL_N_TIMES if self.num_timesteps > 1e6 else 10
         for i in range(eval_n_times):
             ep_dur = 0
             walked_distance = 0
@@ -355,9 +354,11 @@ class TrainingMonitor(BaseCallback):
         if eval_n_times == cfg.EVAL_N_TIMES:
             self.failed_eval_runs_indices = runs_below_20.tolist()
         self.count_stable_walks = max(runs_20m, len(runs_no_falling))
-        self.auc_stable_walks += 4*self.mean_reward_means**2 \
-                                 * (self.count_stable_walks/cfg.EVAL_N_TIMES)**4 \
-                                 * EVAL_INTERVAL / 400e3
+        dt = EVAL_INTERVAL / (
+            EVAL_INTERVAL_RARE if self.num_timesteps < EVAL_MORE_FREQUENT_THRES else
+            EVAL_INTERVAL_FREQUENT)
+        self.auc_stable_walks += dt * 4 * self.mean_reward_means ** 2 \
+                                 * (self.count_stable_walks / cfg.EVAL_N_TIMES) ** 4 \
 
         ## delete evaluation model if stable walking was not achieved yet
         # or too many models were saved already
