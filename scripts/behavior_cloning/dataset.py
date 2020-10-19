@@ -66,7 +66,7 @@ def get_data(refs:rt.ReferenceTrajectories=None, fly=False, debug=False):
         refs.reset()
         assert refs._i_step == 0 and refs._pos == 0
         # first iteration, start at pos 0, second at pos 1
-        refs.next(increment=i)
+        refs._pos = i
         while not refs.has_reached_last_step:
             ### prepare x data
             qpos, qvel = refs.get_ref_kinmeatics()

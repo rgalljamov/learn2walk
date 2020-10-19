@@ -1,4 +1,4 @@
-import time
+import time, traceback
 import numpy as np
 
 from stable_baselines import PPO2
@@ -62,7 +62,7 @@ def mirror_experiences(rollout, ppo2=None):
         obs_mirred[:, negate_obs_indices] *= -1
         acts_mirred[:, negate_act_indices] *= -1
 
-    QUERY_NETS = True
+    QUERY_NETS = cfg.is_mod(cfg.MOD_MIRR_QUERY_NETS)
     if QUERY_NETS:
         parameters = ppo2.get_parameter_list()
         parameter_values = np.array(ppo2.sess.run(parameters))
@@ -159,7 +159,7 @@ def mirror_experiences(rollout, ppo2=None):
     FILTER_MIRRED_EXPS = False
     if FILTER_MIRRED_EXPS:
         n_mirred_exps = int(len(neglogpacs) / 2)
-        max_allowed_neglogpac = np.percentile(neglogpacs[:n_mirred_exps], 95)
+        max_allowed_neglogpac = np.percentile(neglogpacs[:n_mirred_exps], 99)
         delete_act_indices = np.where(neglogpacs[n_mirred_exps:] > max_allowed_neglogpac)[0] + n_mirred_exps
         log(f'Deleted {len(delete_act_indices)} mirrored actions with neglogpac > {max_allowed_neglogpac}')
 
@@ -212,9 +212,11 @@ class CustomPPO2(PPO2):
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=None):
 
-        log('Using CustomPPO2!')
+        # log('Using CustomPPO2!')
 
         self.mirror_experiences = cfg.is_mod(cfg.MOD_MIRROR_EXPS)
+        # to investigate the outputted actions in the monitor env
+        self.last_actions = None
 
         if cfg.is_mod(cfg.MOD_REFS_REPLAY) or cfg.is_mod(cfg.MOD_ONLINE_CLONE):
             # load obs and actions generated from reference trajectories
@@ -276,16 +278,30 @@ class CustomPPO2(PPO2):
 
                 # try getting rollout 3 times
                 tried_rollouts = 0
-                while tried_rollouts < 3:
+                while tried_rollouts < 1:
                     try:
                         # true_reward is the reward without discount
                         rollout = self.runner.run(callback)
                         break
+                    except BrokenPipeError as bpe:
+                        raise BrokenPipeError(f'Catched Broken Pipe Error.')
                     except Exception as ex:
-                        log(f'Rollout failed {tried_rollouts+1} times!'
-                            f'Catched exception: {ex}')
-                        tried_rollouts += 1
-                        time.sleep(10*tried_rollouts)
+                        # tried_rollouts += 1
+                        # obs, returns, masks, actions, values, neglogpacs, \
+                        # states, ep_infos, true_reward = rollout
+                        # log(f'Rollout failed {tried_rollouts} times!',
+                        #     [f'Catched exception: {ex}',
+                        #      f'obs.shape: {obs.shape}',
+                        #      f'ret.shape: {returns.shape}'])
+                        traceback.print_exc()
+                        # if isinstance(ex, BrokenPipeError):
+                        #     # copy-pasted from the old blog here:
+                        #     # http://newbebweb.blogspot.com/2012/02/python-head-ioerror-errno-32-broken.html
+                        #     from signal import signal, SIGPIPE, SIG_DFL
+                        #     signal(SIGPIPE, SIG_DFL)
+                        #     print('Executing fix: Importing signal and disabling BrokenPipeError.')
+                        #     for _ in range(10000):
+                        #         print('', end='')
 
                 # reset count once, rollout was successful
                 tried_rollouts = 0
@@ -298,7 +314,9 @@ class CustomPPO2(PPO2):
                     obs, returns, masks, actions, values, neglogpacs, \
                     states, ep_infos, true_reward = rollout
 
-                if np.random.randint(low=0, high=9, size=1)[0] == 7:
+                self.last_actions = actions
+
+                if np.random.randint(low=1, high=20) == 7:
                     log(f'Values and Returns of collected experiences: ',
                     [f'min returns:\t{np.min(returns)}', f'min values:\t\t{np.min(values)}',
                      f'mean returns:\t{np.mean(returns)}', f'mean values:\t{np.mean(values)}',

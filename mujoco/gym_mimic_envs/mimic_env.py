@@ -4,7 +4,7 @@ Interface for environments using reference trajectories.
 import gym, mujoco_py
 import numpy as np
 from scripts.common import config as cfg
-from scripts.common.utils import log, is_remote
+from scripts.common.utils import log, is_remote, exponential_running_smoothing as smooth
 from scripts.mocap.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 # double max deltas for better perturbation recovery. To keep balance,
@@ -21,7 +21,7 @@ _play_ref_trajecs = False
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
 pause_viewer_at_first_step = True and not is_remote()
 
-# monitor episode duration
+# monitor episode and training duration
 step_count = 0
 ep_dur = 0
 
@@ -34,6 +34,7 @@ class MimicEnv:
         self._sim_freq, self._frame_skip = self.get_sim_freq_and_frameskip()
         self.model.opt.timestep = 1 / self._sim_freq
         self.control_freq = self._sim_freq / self._frame_skip
+        self.refs.set_sampling_frequency(self.control_freq)
         # names of all robot kinematics
         self.kinem_labels = self.refs.get_kinematics_labels()
         # keep the body in the air for testing purposes
@@ -47,9 +48,13 @@ class MimicEnv:
         self.SPEED_CONTROL = False
         # load kinematic stds for deviation normalization and better reward signal
         self.kinem_stds = np.load(cfg.abs_project_path +
-                                  'assets/ref_trajecs/distributions/stds_all_steps_const_speed_400hz.npy')
+                                  'assets/ref_trajecs/distributions/3d_mocap_stds_const_speed_400hz.npy')
         # self.kinem_stds = self.kinem_stds[self.refs.qpos_is + self.refs.qvel_is]
-
+        # track different reward components
+        self.pos_rew, self.vel_rew, self.com_rew = 0,0,0
+        # track running mean of the return and use it for ET reward
+        self.ep_rews = []
+        self.mean_epret_smoothed = 0
 
     def step(self, a):
         """
@@ -112,6 +117,11 @@ class MimicEnv:
                 a *= self.get_max_qpos_deltas()
             a = qpos_act_before_step + a
 
+        if cfg.is_mod(cfg.MOD_TORQUE_DELTAS):
+            last_action = np.copy(self.sim.data.actuator_force)
+            deltas = a * cfg.trq_delta
+            a = last_action + deltas
+
         # execute simulation with desired action for multiple steps
         self.do_simulation(a, self._frame_skip)
 
@@ -137,7 +147,7 @@ class MimicEnv:
         USE_DMM_REW = True and not cfg.do_run()
         if USE_DMM_REW:
             reward = self.get_imitation_reward(qpos_act_before_step, a)
-            if DEBUG: print('Reward ', reward)
+            self.ep_rews.append(reward)
         else:
             reward = (com_x_vel_finite_difs)
             reward += alive_bonus
@@ -145,40 +155,58 @@ class MimicEnv:
 
         USE_ET = False or cfg.is_mod(cfg.MOD_REF_STATS_ET)
         USE_REW_ET = True and not cfg.do_run() and not USE_ET
+        walked_distance = qpos_after[0]
+        is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > cfg.max_distance + 0.01
         if self.is_evaluation_on():
-            done = com_z_pos < 0.5 or ep_dur >= cfg.ep_dur_max
+            # is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > 22.05
+            done = com_z_pos < 0.5 or is_ep_end
         elif USE_ET:
             if cfg.is_mod(cfg.MOD_REF_STATS_ET):
                 done = self.is_out_of_ref_distribution(obs)
             else:
                 done = self.has_exceeded_allowed_deviations()
         elif USE_REW_ET:
-            done = self.do_terminate_early(reward, rew_threshold=cfg.et_rew_thres) \
-                   or ep_dur >= cfg.ep_dur_max
+            done, com_height_too_low, trunk_ang_exceeded, is_drunk, \
+            rew_too_low = self.do_terminate_early(reward, rew_threshold=cfg.et_rew_thres)
+            done = done or is_ep_end
         else:
             done = not (com_z_pos > 0.8 and com_z_pos < 2.0 and
                         ang > -1.0 and ang < 1.0)
-            done = done or ep_dur > cfg.ep_dur_max
+            done = done or is_ep_end
         if DEBUG and done: print('Done')
 
         # punish episode termination
         if done:
-            # but don't punish if episode just reached max length
-            if ep_dur < cfg.ep_dur_max:
-                reward = cfg.et_reward
+            # calculated a running mean of the ep_return
+            self.mean_epret_smoothed = smooth('mimic_env_epret', np.sum(self.ep_rews), 0.5)
+            self.ep_rews = []
+
+            # don't punish if episode just reached max length
+            if not is_ep_end:
+                # punish only falling hard
+                if not self.is_evaluation_on():
+                    et_rew = -1 * self.mean_epret_smoothed
+                    if rew_too_low:
+                        reward = -1
+                    elif com_height_too_low or trunk_ang_exceeded:
+                        reward = et_rew
+                    else:
+                        reward = 0.5 * et_rew
             else:
-                reward = cfg.ep_end_reward
+                # reward = cfg.ep_end_reward
+
+                # estimate mean state value / mean action return
+                mean_step_rew = self.mean_epret_smoothed / ep_dur
+                act_ret_est = np.sum(mean_step_rew * np.power(cfg.gamma, np.arange(ep_dur)))
+                reward = act_ret_est
                 # print(f'Successfully reached the end of the episode '
                 #       f'after {ep_dur} steps and got reward of ', reward)
             ep_dur = 0
 
-        if step_count % 240000 == 0:
-            print("start rendering, step: ", step_count)
-            # do_render = True
-            # pause_viewer_at_first_step = True
-        elif step_count % 250000 == 0:
-            print("stop rendering, step: ", step_count)
-            # do_render = False
+        if walked_distance > cfg.alive_min_dist and not done:
+            reward += cfg.alive_bonus
+            # alive_bonus = 1 * cfg.rew_scale * step_count / (cfg.mio_steps * 1e6)
+            # reward += alive_bonus
 
         return obs, reward, done, {}
 
@@ -187,7 +215,8 @@ class MimicEnv:
         What is the frequency the simulation is running at
         and how many frames should be skipped during step(action)?
         """
-        return 1000, 5
+        SIM_FREQ = 1000
+        return SIM_FREQ, int(SIM_FREQ/cfg.CTRL_FREQ)
 
     def get_joint_kinematics(self, exclude_com=False, concat=False):
         '''Returns qpos and qvel of the agent.'''
@@ -380,31 +409,40 @@ class MimicEnv:
         if cfg.is_mod(cfg.MOD_GROUND_CONTACT):
             has_contact = np.array(self.has_ground_contact()).astype(np.float)
             obs = np.concatenate([has_contact, obs]).ravel()
+
+        # round obs
+        # obs = np.round(obs, decimals=3)
         return obs
 
     def reset_model(self):
         '''WARNING: This method seems to be specific to MujocoEnv.
            Other gym environments just use reset().'''
         self.joint_pow_sum_normed = 0
-        qpos, qvel = self.get_init_state(not self.SPEED_CONTROL)
+        qpos, qvel = self.get_init_state(not self.is_evaluation_on() and not self.SPEED_CONTROL)
 
         ### avoid huge joint toqrues from PD servos after RSI
         # Explanation: on reset, ctrl is set to all zeros.
         # When we set a desired state during RSI, we suddenly change the current state.
         # Without also changing the target angles, there will be a huge difference
         # between target and current angles and PD Servos will kick in with high torques
-        self.data.ctrl[:] = self._remove_by_indices(qpos, self._get_not_actuated_joint_indices())
+        # todo: not sure we need it. The agent should have the chance to choose a first action
+        # todo: ... and overwrite the zero ctrl!
+        # if not cfg.is_torque_model:
+        #     self.data.ctrl[:] = self._remove_by_indices(qpos, self._get_not_actuated_joint_indices())
 
         self.set_state(qpos, qvel)
         # check reward function
         rew = self.get_imitation_reward()
-        assert rew > 0.95 if not self._FLY else 0.5, \
+        assert (rew > 0.95 * cfg.rew_scale) if not self._FLY else 0.5, \
             f"Reward should be around 1 after RSI, but was {rew}!"
         # assert not self.has_exceeded_allowed_deviations()
         # set the reference trajectories to the next state,
         # otherwise the first step after initialization has always zero error
         self.refs.next()
-        return self._get_obs()
+        # print(self.refs._i_step, self.refs._pos)
+        obs = self._get_obs()
+        # print(f'init obs: {obs[:8]}')
+        return obs
 
 
     def get_init_state(self, random=True):
@@ -452,7 +490,7 @@ class MimicEnv:
         dif = qpos - ref_pos
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
-        pose_rew = np.exp(-4 * sum)
+        pose_rew = np.exp(-3 * sum)
         return pose_rew
 
     def get_vel_reward(self):
@@ -476,7 +514,7 @@ class MimicEnv:
             difs = qvel - ref_vel
             dif_sqrd = np.square(difs)
             dif_sum = np.sum(dif_sqrd)
-            vel_rew = np.exp(-0.2 * dif_sum)
+            vel_rew = np.exp(-0.05 * dif_sum)
         return vel_rew
 
     def get_com_reward(self):
@@ -511,7 +549,7 @@ class MimicEnv:
         dif = com_pos - com_ref
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
-        com_rew = np.exp(-12 * sum)
+        com_rew = np.exp(-16 * sum)
         return com_rew
 
     def get_energy_reward(self):
@@ -591,6 +629,8 @@ class MimicEnv:
         com_rew = self.get_com_reward()
         pow_rew = self.get_energy_reward() if w_pow != 0 else 0
 
+        self.pos_rew, self.vel_rew, self.com_rew = pos_rew, vel_rew, com_rew
+
         if cfg.is_mod(cfg.MOD_REW_MULT):
             imit_rew = np.sqrt(pos_rew) * np.sqrt(com_rew) # * vel_rew**w_vel
         else:
@@ -601,7 +641,7 @@ class MimicEnv:
             delta_rew = self.get_angle_deltas_reward(qpos_act, action)
             imit_rew *= delta_rew
 
-        return imit_rew
+        return imit_rew * cfg.rew_scale
 
     def do_terminate_early(self, rew, rew_threshold = 0.05):
         """
@@ -612,22 +652,56 @@ class MimicEnv:
             return False
 
         qpos = self.get_qpos()
-        com_height = qpos[self._get_COM_indices()[-1]]
-        trunk_ang_saggit = qpos[self._get_saggital_trunk_joint_index()]
+        ref_qpos = self.refs.get_qpos()
+        com_indices = self._get_COM_indices()
+        trunk_ang_indices = self._get_trunk_joint_indices()
 
-        # calculate if allowed com height was exceeded (e.g. walker felt down)
-        com_height_des = self.refs.get_com_height()
-        com_delta = np.abs(com_height_des - com_height)
-        com_deviation_prct = com_delta/com_height_des
-        allowed_com_deviation_prct = 0.4
-        com_max_dev_exceeded = com_deviation_prct > allowed_com_deviation_prct
-        if self._FLY: com_max_dev_exceeded = False
+        com_height = qpos[com_indices[-1]]
+        com_y_pos = qpos[com_indices[1]]
+        trunk_angs = qpos[trunk_ang_indices]
+        ref_trunk_angs = ref_qpos[trunk_ang_indices]
 
-        # calculate if trunk angle exceeded limits of 45° (0.785 in rad)
-        trunk_ang_exceeded = np.abs(trunk_ang_saggit) > 0.7
+        # calculate if trunk saggital angle is out of allowed range
+        max_pos_sag = 0.3
+        max_neg_sag = -0.05
+        is2d = len(trunk_ang_indices) == 1
+        if is2d:
+            trunk_ang_saggit = trunk_angs # is the saggital ang
+            sag_dev = np.abs(trunk_ang_saggit - ref_trunk_angs)
+            trunk_ang_sag_exceeded = trunk_ang_saggit > max_pos_sag or trunk_ang_saggit < max_neg_sag
+            trunk_ang_exceeded = trunk_ang_sag_exceeded
+        else:
+            max_front_dev = 0.2
+            max_axial_dev = 0.5 # should be much smaller but actually doesn't really hurt performance
+            trunk_ang_front, trunk_ang_saggit, trunk_ang_axial = trunk_angs
+            front_dev, sag_dev, ax_dev = np.abs(trunk_angs - ref_trunk_angs)
+            trunk_ang_front_exceeded = front_dev > max_front_dev
+            trunk_ang_axial_exceeded = ax_dev > max_axial_dev
+            trunk_ang_sag_exceeded = trunk_ang_saggit > max_pos_sag or trunk_ang_saggit < max_neg_sag
+            trunk_ang_exceeded = trunk_ang_sag_exceeded or trunk_ang_front_exceeded \
+                                 or trunk_ang_axial_exceeded
 
-        rew_too_low = rew < rew_threshold
-        return com_max_dev_exceeded or trunk_ang_exceeded or rew_too_low
+        # check if agent has deviated too much in the y direction
+        is_drunk = np.abs(com_y_pos) > 0.15
+
+        # is com height too low (e.g. walker felt down)?
+        min_com_height = 0.95
+        com_height_too_low = com_height < min_com_height
+        if self._FLY: com_height_too_low = False
+
+        rew_too_low = False # rew < rew_threshold
+        terminate_early = com_height_too_low or trunk_ang_exceeded or is_drunk or rew_too_low
+        if False: #(terminate_early and np.random.randint(low=1, high=500) == 7) \
+                # or np.random.randint(low=1, high=77700) == 777:
+             log(("" if terminate_early else "NO ") + "Early Termination",
+                [f'COM Z too low:   \t{com_height_too_low} \t {com_height}',
+                 f'COM Y too high:  \t{is_drunk} \t {com_y_pos}',
+                 f'Trunk Angles:    \t{trunk_ang_exceeded} \t '
+                    f'{sag_dev if is2d else np.round([front_dev, sag_dev, ax_dev], 3)}',
+                 # f'Reward too low:  \t{rew_too_low} \t {rew}',
+                 f'Reward was:      \t {"    "} \t {rew}'
+                 ])
+        return terminate_early, com_height_too_low, trunk_ang_exceeded, is_drunk, rew_too_low
 
 
     def is_out_of_ref_distribution(self, state, scale_pos_std=2, scale_vel_std=10):
@@ -641,7 +715,7 @@ class MimicEnv:
             # load trajectory distributions if not done already
             if self.left_step_distrib is None:
                 npz = np.load(cfg.abs_project_path +
-                                   'assets/ref_trajecs/distributions/const_speed_400hz.npz')
+                                   'assets/ref_trajecs/distributions/2d_distributions_const_speed_400hz.npz')
                 self.left_step_distrib = [npz['means_left'], npz['stds_left']]
                 self.right_step_distrib = [npz['means_right'], npz['stds_right']]
                 self.step_len = min(self.left_step_distrib[0].shape[1], self.right_step_distrib[0].shape[1])
@@ -741,7 +815,7 @@ class MimicEnv:
         """
         raise NotImplementedError
 
-    def _get_saggital_trunk_joint_index(self):
+    def _get_trunk_joint_indices(self):
         """ Return the index of the trunk euler rotation in the saggital plane. """
         raise NotImplementedError
 
