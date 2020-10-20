@@ -101,10 +101,11 @@ def mirror_experiences(rollout, ppo2=None):
         neglogpacs_test = neglogp(actions, act_means, pi_logstd)
         neglogpacs_mirred = neglogp(acts_mirred, act_means_mirred, pi_logstd)
 
-        log('Logstd', [f'logstd = {pi_logstd}', f'std = {pi_std}'])
+        # log('Logstd', [f'logstd = {pi_logstd}', f'std = {pi_std}'])
 
         percentiles = [50, 75, 90, 95, 99, 100]
-        log('Neglogpacs Comparison (before clipping!)',
+        if np.random.randint(0, 100, 1) == 77:
+            log('Neglogpacs Comparison (before clipping!)',
             [f'neglogpacs orig: min {np.min(neglogpacs)}, '
               f'mean {np.mean(neglogpacs)}, max {np.max(neglogpacs)}',
               f'neglogpacs mirred: min {np.min(neglogpacs_mirred)}, '
@@ -119,8 +120,8 @@ def mirror_experiences(rollout, ppo2=None):
         if CLIP_NEGLOGPACS:
             # limit neglogpacs_mirred to be not bigger than the max neglogpacs
             # otherwise the action distribution stay too wide
-            max_allowed_neglogpac = np.percentile(neglogpacs, 99)
-            min_allowed_neglogpac = np.percentile(neglogpacs, 1)
+            max_allowed_neglogpac = 50 # np.percentile(neglogpacs, 99)
+            min_allowed_neglogpac = -15 # np.percentile(neglogpacs, 1)
             neglogpacs_mirred = np.clip(neglogpacs_mirred,
                                         min_allowed_neglogpac, max_allowed_neglogpac)
 
@@ -156,12 +157,14 @@ def mirror_experiences(rollout, ppo2=None):
     true_reward = np.concatenate((true_reward, true_reward))
 
     # remove mirrored experiences with too high neglogpacs
-    FILTER_MIRRED_EXPS = False
+    FILTER_MIRRED_EXPS = True
     if FILTER_MIRRED_EXPS:
         n_mirred_exps = int(len(neglogpacs) / 2)
-        max_allowed_neglogpac = np.percentile(neglogpacs[:n_mirred_exps], 99)
+        max_allowed_neglogpac = 50 # np.percentile(neglogpacs[:n_mirred_exps], 99)
         delete_act_indices = np.where(neglogpacs[n_mirred_exps:] > max_allowed_neglogpac)[0] + n_mirred_exps
-        log(f'Deleted {len(delete_act_indices)} mirrored actions with neglogpac > {max_allowed_neglogpac}')
+        if np.random.randint(0, 100, 1) == 77:
+            log(f'Deleted {len(delete_act_indices)} mirrored actions '
+                f'with neglogpac > {max_allowed_neglogpac}')
 
         obs = np.delete(obs, delete_act_indices, axis=0)
         actions = np.delete(actions, delete_act_indices, axis=0)

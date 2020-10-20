@@ -122,6 +122,9 @@ class MimicEnv:
             deltas = a * cfg.trq_delta
             a = last_action + deltas
 
+        if cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
+            a = self.mirror_acts(a)
+
         # execute simulation with desired action for multiple steps
         self.do_simulation(a, self._frame_skip)
 
@@ -410,9 +413,70 @@ class MimicEnv:
             has_contact = np.array(self.has_ground_contact()).astype(np.float)
             obs = np.concatenate([has_contact, obs]).ravel()
 
+        if _rsinitialized and cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
+            assert not cfg.is_mod(cfg.MOD_GROUND_CONTACT)
+            obs = self.mirror_obs(obs)
         # round obs
         # obs = np.round(obs, decimals=3)
         return obs
+
+
+    def mirror_obs(self, obs):
+        is3d = '3d' in cfg.env_name or '3pd' in cfg.env_name
+        if is3d:
+            # 3D Walker obs indices:
+            #           0: phase, 1: des_vel, 2: com_y, 3: com_z,
+            #           4: trunk_rot_x, 5: trunk_rot_y, 6: trunk_rot_z,
+            #           7: hip_ang_r_sag, 8: hip_ang_r_front, 9: knee_ang_r, 10: ankle_ang_r,
+            #           11: hip_ang_l_sag, 12: hip_ang_l_front 13: knee_ang_l, 14: ankle_ang_l,
+            #           15: com_x_vel, 16: com_y_vel, 17:com_z_vel,
+            #           18: trunk_x_ang_vel, 19: trunk_y_ang_vel, 20: trunk_z_ang_vel,
+            #           21: hip_sag_vel_r, 22: hip_front_vel_r, 23: knee_vel_r, 24: ankle_vel_r,
+            #           25: hip_sag_vel_l, 26: hip_front_vel_l, 27: knee_vel_l, 28: ankle_vel_l
+            mirred_obs_indices = [0, 1, 2, 3,
+                                  4, 5, 6,
+                                  11, 12, 13, 14,
+                                  7, 8, 9, 10,
+                                  15, 16, 17,
+                                  18, 19, 20,
+                                  25, 26, 27, 28,
+                                  21, 22, 23, 24]
+            # some observations and actions retain the same absolute value but change the sign
+            negate_obs_indices = [2, 4, 6, 8, 12, 16, 18, 20, 22, 26]
+        else:
+            # 2D Walker obs indices:
+            #           0: phase, 1: des_vel, 2: com_z, 3: trunk_rot,
+            #           4: hip_ang_r, 5: knee_ang_r, 6: ankle_ang_r,
+            #           7: hip_ang_l, 8: knee_ang_l, 9: ankle_ang_l,
+            #           10: com_x_vel, 11:com_z_vel, 12: trunk_ang_vel,
+            #           13: hip_vel_r, 14: knee_vel_r, 15: ankle_vel_r,
+            #           16: hip_vel_l, 17: knee_vel_l, 18: ankle_vel_l
+            mirred_obs_indices = [0, 1, 2, 3, 7, 8, 9, 4, 5, 6,
+                                  10, 11, 12, 16, 17, 18, 13, 14, 15]
+
+        obs_mirred = obs[mirred_obs_indices]
+
+        if is3d:
+            obs_mirred[negate_obs_indices] *= -1
+
+        return obs_mirred
+
+
+    def mirror_acts(self, acts):
+        is3d = '3d' in cfg.env_name or '3pd' in cfg.env_name
+        if is3d:
+            mirred_acts_indices = [4, 5, 6, 7, 0, 1, 2, 3]
+            # some observations and actions retain the same absolute value but change the sign
+            negate_act_indices = [1, 5]
+        else:
+            mirred_acts_indices = [3, 4, 5, 0, 1, 2]
+
+        acts_mirred = acts[mirred_acts_indices]
+        if is3d:
+            acts_mirred[negate_act_indices] *= -1
+
+        return acts_mirred
+
 
     def reset_model(self):
         '''WARNING: This method seems to be specific to MujocoEnv.
