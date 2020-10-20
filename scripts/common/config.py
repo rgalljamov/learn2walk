@@ -128,8 +128,9 @@ MOD_CONST_EXPLORE = 'const_explor'
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([MOD_MIRROR_EXPS,
-    MOD_CUSTOM_POLICY
+modification = mod([MOD_SYMMETRIC_WALK,
+                    MOD_MIRROR_EXPS, MOD_MIRR_QUERY_NETS, 'del_pacs',
+    MOD_CUSTOM_POLICY,
     ])
 assert_mod_compatibility()
 
@@ -144,7 +145,7 @@ ent_coef = {200: -0.0075, 400: -0.00375}[CTRL_FREQ]
 init_logstd = -0.7
 pi_out_init_scale = 0.001
 cliprange = 0.15
-clip_start = 0.5 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
+clip_start = 0.55 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_exp_slope = 5
 SKIP_N_STEPS = 1
@@ -166,8 +167,10 @@ wb_project_name = 'final3d_trq'
 # to punish less hard at beginning, we should better have a smaller lambda...
 # or even better have a reward with a higher amplitude and that can also be negative!
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-              f'mirr exps - no query nets'
-wb_run_notes = ''\
+              f'MRR query nets, delete pacs outside of -15 to 50'
+wb_run_notes = 'Delete mirrored experiences with neglogpacs exceeding a limit! ' \
+               'Increased the allowed range for neglogpacs! ' \
+               'Mirror experiences, query the nets and clip neglogpacs to avoid nans during training! '\
                'Evaluate the agent starting at 75% of the step cycle. ' \
                'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \
                'Increased the minimum learning rate to 1e-6, was -8 before. ' \
@@ -215,10 +218,10 @@ n_envs = 8 if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
 batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
 n_mini_batches = int(batch_size / minibatch_size) * (2 if mirr_exps else 1)
-lr_start = 1000 if is_mod(MOD_EXP_LR_SCHED) else 500
+lr_start = 2000 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
-lr_final = 1
+lr_final = 50 if is_mod(MOD_EXP_LR_SCHED) else 1
 _ep_dur_in_k = {400: 6, 200: 3, 100: 1.5, 50: 0.75}[CTRL_FREQ]
 ep_dur_max = int(_ep_dur_in_k * 1e3)
 max_distance = 22

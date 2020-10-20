@@ -66,7 +66,6 @@ def init_wandb(model):
         "nminibatches": model.nminibatches,
         "clip0": cfg.clip_start,
         "clip1": cfg.clip_end,
-        "cliprange_vf": model.cliprange_vf,
         "n_cpu_tf_sess": model.n_cpu_tf_sess}
 
     if cfg.is_mod(cfg.MOD_REFS_RAMP):
@@ -110,7 +109,8 @@ def train():
                        env, verbose=1, n_steps=int(cfg.batch_size/cfg.n_envs),
                        policy_kwargs=network_args, nminibatches=cfg.n_mini_batches,
                        learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
-                       gamma=cfg.gamma, noptepochs=cfg.noptepochs, cliprange_vf=cfg.cliprange,
+                       gamma=cfg.gamma, noptepochs=cfg.noptepochs,
+                       cliprange_vf=clip_schedule if cfg.is_mod(cfg.MOD_CLIPRANGE_SCHED) else cfg.cliprange,
                        cliprange=clip_schedule if cfg.is_mod(cfg.MOD_CLIPRANGE_SCHED) else cfg.cliprange,
                        tensorboard_log=cfg.save_path + 'tb_logs/')
 
