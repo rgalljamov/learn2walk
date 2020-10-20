@@ -124,12 +124,13 @@ MOD_TORQUE_DELTAS = 'trq_delta'
 MOD_L2_REG = 'l2_reg'
 # set a fixed logstd of the policy
 MOD_CONST_EXPLORE = 'const_explor'
+# learn policy for right step only, mirror states and actions for the left step
+MOD_MIRR_STEPS = 'steps_mirr'
 
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([MOD_SYMMETRIC_WALK,
-                    MOD_MIRROR_EXPS, MOD_MIRR_QUERY_NETS, 'del_pacs',
+modification = mod([MOD_SYMMETRIC_WALK, MOD_MIRR_STEPS,
     MOD_CUSTOM_POLICY,
     ])
 assert_mod_compatibility()
@@ -167,10 +168,8 @@ wb_project_name = 'final3d_trq'
 # to punish less hard at beginning, we should better have a smaller lambda...
 # or even better have a reward with a higher amplitude and that can also be negative!
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-              f'MRR query nets, delete pacs outside of -15 to 50'
-wb_run_notes = 'Delete mirrored experiences with neglogpacs exceeding a limit! ' \
-               'Increased the allowed range for neglogpacs! ' \
-               'Mirror experiences, query the nets and clip neglogpacs to avoid nans during training! '\
+              f'MRR steps'
+wb_run_notes = 'PHASE approach from Peng 19. '\
                'Evaluate the agent starting at 75% of the step cycle. ' \
                'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \
                'Increased the minimum learning rate to 1e-6, was -8 before. ' \
