@@ -126,11 +126,13 @@ MOD_L2_REG = 'l2_reg'
 MOD_CONST_EXPLORE = 'const_explor'
 # learn policy for right step only, mirror states and actions for the left step
 MOD_MIRR_STEPS = 'steps_mirr'
+MOD_MIRR_QUERY_VF_ONLY = 'query_vf_only'
 
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([MOD_SYMMETRIC_WALK, MOD_MIRR_STEPS,
+modification = mod([MOD_SYMMETRIC_WALK,
+                    MOD_MIRROR_EXPS, MOD_MIRR_QUERY_NETS, 'dlt_rare_pacs',
     MOD_CUSTOM_POLICY,
     ])
 assert_mod_compatibility()
@@ -168,8 +170,11 @@ wb_project_name = 'final3d_trq'
 # to punish less hard at beginning, we should better have a smaller lambda...
 # or even better have a reward with a higher amplitude and that can also be negative!
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-              f'MRR steps'
-wb_run_notes = 'PHASE approach from Peng 19. '\
+              f'MRR query - dlt neglogpacs > 5*99quant '
+wb_run_notes = '' \
+               'Start querying both networks... after stable walking is reached (20x20m), only query VF! ' \
+               'Mirror both, the policy and the vf and delete mirrored experiences ' \
+               'with neglogpacs bigger than 2 x 99 quantile of original neglogpacs! '\
                'Evaluate the agent starting at 75% of the step cycle. ' \
                'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \
                'Increased the minimum learning rate to 1e-6, was -8 before. ' \

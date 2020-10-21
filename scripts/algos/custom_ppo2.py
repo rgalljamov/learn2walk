@@ -146,7 +146,10 @@ def mirror_experiences(rollout, ppo2=None):
 
     if QUERY_NETS:
         values = np.concatenate((values, values_mirred_obs.flatten()))
-        neglogpacs = np.concatenate((neglogpacs, neglogpacs_mirred.flatten()))
+        neglogpacs = np.concatenate((neglogpacs,
+                                     neglogpacs_mirred.flatten()
+                                     if not cfg.is_mod(cfg.MOD_MIRR_QUERY_VF_ONLY)
+                                     else neglogpacs))
     else:
         values = np.concatenate((values, values))
         neglogpacs = np.concatenate((neglogpacs, neglogpacs))
@@ -160,9 +163,9 @@ def mirror_experiences(rollout, ppo2=None):
     FILTER_MIRRED_EXPS = True
     if FILTER_MIRRED_EXPS:
         n_mirred_exps = int(len(neglogpacs) / 2)
-        max_allowed_neglogpac = 50 # np.percentile(neglogpacs[:n_mirred_exps], 99)
+        max_allowed_neglogpac = 5 * np.percentile(neglogpacs[:n_mirred_exps], 99)
         delete_act_indices = np.where(neglogpacs[n_mirred_exps:] > max_allowed_neglogpac)[0] + n_mirred_exps
-        if np.random.randint(0, 100, 1) == 77:
+        if np.random.randint(0, 10, 1)[0] == 7:
             log(f'Deleted {len(delete_act_indices)} mirrored actions '
                 f'with neglogpac > {max_allowed_neglogpac}')
 
