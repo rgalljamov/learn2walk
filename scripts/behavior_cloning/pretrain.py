@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     # construct save paths
     model_path = dirname(dirname(dirname(__file__))) \
-                 + '/scripts/behavior_cloning/models/'
+                 + '/models/behav_clone/models/'
     model_name = 'ZERO_MAE_const_ortho_l2_actnorm' \
                  + ('FLY' if FLY else '') + f'_ep{EPOCHS}'
 

@@ -244,9 +244,9 @@ _mod_path = ('debug/' if DEBUG else '') + \
 hyp_path = (f'{own_hypers + info}/' if len(own_hypers + info) > 0 else '')
 save_path_norun= abs_project_path + 'models/' + _mod_path + hyp_path
 save_path = save_path_norun + f'{run_id}/'
-init_obs_rms_path = abs_project_path + 'scripts/behavior_cloning/models/rms/env_999'
+init_obs_rms_path = abs_project_path + 'models/behav_clone/models/rms/env_999'
 if is_mod(MOD_FLY):
-    init_obs_rms_path = abs_project_path + 'scripts/behavior_cloning/models/' \
+    init_obs_rms_path = abs_project_path + 'models/behav_clone/models/' \
                                            'rms/env_rms_fly_const_speed'
 
 print('Model: ', save_path)

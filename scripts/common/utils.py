@@ -104,7 +104,7 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True,
             if not is_mod(MOD_LOAD_OBS_RMS): raise Exception
             # load the obs_rms from a previously trained model
             init_obs_rms_path = abs_project_path + \
-                                'scripts/behavior_cloning/models/rms/env_999'
+                                'models/behav_clone/models/rms/env_999'
             vec_normed = VecNormalize.load(init_obs_rms_path, vec_env)
             log('Successfully loaded OBS_RMS from a previous model:',
                 [f'file:\t {init_obs_rms_path}',

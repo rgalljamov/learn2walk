@@ -10,23 +10,24 @@ def load_weights():
     import h5py
     if cfg.is_mod(cfg.MOD_FLY):
         weights_file = h5py.File(cfg.abs_project_path
-                                 + 'scripts/behavior_cloning/models/best/'
+                                 + 'models/behav_clone/models/best/'
                                    'MAE_const_ortho_l2_actnormFLY_ep200', 'r')
     else:
         weights_file = h5py.File(cfg.abs_project_path
-                                 +'scripts/behavior_cloning/models/'
-                                  'weights/MAE_ramp_ortho_l2_actnorm_ep200', 'r')
+                                 +'models/behav_clone/models/'
+                                  'weights/PI_MAE_const_ortho_l2_actnorm_ep200.h5', 'r')
+        # /home/rustam/code/remote/models/behav_clone/models/weights/PI_MAE_const_ortho_l2_actnorm_ep200.h5
     keys = list(weights_file.keys())
     if 'model_weights' in keys:
         weights_file = weights_file['model_weights']
         keys = list(weights_file.keys())
     assert keys == ['hid1', 'hid2', 'output'], f'Layer names were: {keys}'
     hid_keys = list(weights_file['hid1'].keys())
-    hid1 = weights_file['hid1']['hid1']
+    hid1 = weights_file['hid1']#['hid1']
     # output of weights_file['hid1']['hid1_1'].keys():
     b_key, w_key = ['bias:0', 'kernel:0']
-    ws = [weights_file[key][key][w_key].value for key in keys]
-    bs = [weights_file[key][key][b_key].value for key in keys]
+    ws = [weights_file[key][f'{key}_1'][w_key].value for key in keys]
+    bs = [weights_file[key][f'{key}_1'][b_key].value for key in keys]
     return ws, bs
 
     model = load_model()
@@ -36,7 +37,7 @@ def load_weights():
 
 def load_model():
     model_path = cfg.abs_project_path \
-                 + 'scripts/behavior_cloning/models/best/deltas_norm_obs_MAE_ep200'
+                 + 'models/behav_clone/models/best/deltas_norm_obs_MAE_ep200'
     model = keras.models.load_model(model_path)
     return model
 
