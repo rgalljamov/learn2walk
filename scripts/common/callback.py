@@ -378,7 +378,7 @@ class TrainingMonitor(BaseCallback):
         has_achieved_stable_walking = min_dist > 20
         # in average stable for 20 meters but not all 20 trials were over 20m
         has_reached_high_mean_distance = mean_dist > 20
-        is_stable_humanlike_walking = min_dist >= 20 and walks_humanlike
+        is_stable_humanlike_walking = self.count_stable_walks == eval_n_times and walks_humanlike
         # retain the model if it is good else delete it
         retain_model = is_stable_humanlike_walking and not were_enough_models_saved
         distances_report = [f'Min walked distance: {min_dist}m',
