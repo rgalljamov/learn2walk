@@ -127,6 +127,7 @@ MOD_CONST_EXPLORE = 'const_explor'
 # learn policy for right step only, mirror states and actions for the left step
 MOD_MIRR_STEPS = 'steps_mirr'
 MOD_MIRR_QUERY_VF_ONLY = 'query_vf_only'
+MOD_REW_DELTA = 'rew_delta'
 
 # ------------------
 approach = AP_DEEPMIMIC
@@ -161,8 +162,9 @@ rew_scale = 1
 l2_coef = 5e-4
 # todo reduce et_reward after agents starts walking multiple steps
 et_rew_thres = 0.1 * rew_scale
-alive_bonus = et_rew_thres * 2
+alive_bonus = 0.2 * rew_scale
 EVAL_N_TIMES = 20
+rew_delta_scale = 20
 
 wb_project_name = 'pd_approaches'
 # todo: ET punish should be a function of training time or ep dur

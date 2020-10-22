@@ -517,6 +517,7 @@ class MimicEnv:
         self.set_state(qpos, qvel)
         # check reward function
         rew = self.get_imitation_reward()
+        self.last_reward = rew
         assert (rew > 0.95 * cfg.rew_scale) if not self._FLY else 0.5, \
             f"Reward should be around 1 after RSI, but was {rew}!"
         # assert not self.has_exceeded_allowed_deviations()
