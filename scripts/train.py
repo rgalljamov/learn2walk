@@ -91,7 +91,7 @@ def train():
 
     # setup environment
     env = utils.vec_env(cfg.env_id, norm_rew=True, num_envs=cfg.n_envs,
-                        deltas=cfg.is_mod(cfg.MOD_PI_OUT_DELTAS))
+                        deltas=cfg.is_mod(cfg.MOD_PI_OUT_DELTAS) or cfg.is_mod(cfg.MOD_NORM_ACTS))
 
     # setup model/algorithm
     training_timesteps = int(cfg.mio_steps * 1e6)

@@ -31,7 +31,7 @@ def assert_mod_compatibility():
     this function throws an exception and provides explanations.
     """
     if is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
-        raise TypeError("Normalized actions (ctrlrange [-1,1] for all joints) " \
+        print("Normalized actions (ctrlrange [-1,1] for all joints) " \
                         "currently only work when policy outputs delta angles.")
     if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_POLICY):
         raise TypeError("Using sac and tanh actions is only possible in combination"
@@ -131,8 +131,7 @@ MOD_MIRR_QUERY_VF_ONLY = 'query_vf_only'
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([MOD_SYMMETRIC_WALK,
-                    MOD_MIRROR_EXPS, MOD_MIRR_QUERY_NETS, 'dlt_rare_pacs',
+modification = mod([MOD_NORM_ACTS,
     MOD_CUSTOM_POLICY,
     ])
 assert_mod_compatibility()
@@ -165,16 +164,14 @@ et_rew_thres = 0.1 * rew_scale
 alive_bonus = et_rew_thres * 2
 EVAL_N_TIMES = 20
 
-wb_project_name = 'final3d_trq'
+wb_project_name = 'pd_approaches'
 # todo: ET punish should be a function of training time or ep dur
 # to punish less hard at beginning, we should better have a smaller lambda...
 # or even better have a reward with a higher amplitude and that can also be negative!
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-              f'MRR query - dlt neglogpacs > 5*99quant '
+              f'BSLN - normed target angles'
 wb_run_notes = '' \
-               'Start querying both networks... after stable walking is reached (20x20m), only query VF! ' \
-               'Mirror both, the policy and the vf and delete mirrored experiences ' \
-               'with neglogpacs bigger than 2 x 99 quantile of original neglogpacs! '\
+               'Changed evaluation of stable walks to consider 18m without falling as stable. '\
                'Evaluate the agent starting at 75% of the step cycle. ' \
                'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \
                'Increased the minimum learning rate to 1e-6, was -8 before. ' \
@@ -203,7 +200,7 @@ noptepochs = 4
 # choose environment
 envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
 env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 4
+env_index = 2
 env_id = envs[env_index]
 env_name = env_names[env_index]
 is_torque_model = env_name in ['mim_trq2d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']

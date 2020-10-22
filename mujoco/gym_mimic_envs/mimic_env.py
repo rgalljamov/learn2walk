@@ -116,6 +116,11 @@ class MimicEnv:
                 # rescale actions to actual bounds
                 a *= self.get_max_qpos_deltas()
             a = qpos_act_before_step + a
+        elif cfg.is_mod(cfg.MOD_NORM_ACTS):
+            qpos_min, qpos_max = self.get_qpos_ranges()
+            act_prct = (a + 1) / 2
+            qpos_ranges = (qpos_max - qpos_min)
+            a = qpos_min + act_prct * qpos_ranges
 
         if cfg.is_mod(cfg.MOD_TORQUE_DELTAS):
             last_action = np.copy(self.sim.data.actuator_force)
@@ -206,6 +211,15 @@ class MimicEnv:
                 #       f'after {ep_dur} steps and got reward of ', reward)
             ep_dur = 0
 
+        if cfg.is_mod(cfg.MOD_REW_DELTA):
+            rew_delta = reward - self.last_reward
+            # print(f'cur. reward: \t {reward}\n'
+            #       f'last reward: \t {self.last_reward}\n'
+            #       f'reward delta:\t {rew_delta}\n')
+            self.last_reward = reward
+            reward = reward + cfg.rew_delta_scale * rew_delta
+            if reward < 0: reward = 0
+
         if walked_distance > cfg.alive_min_dist and not done:
             reward += cfg.alive_bonus
             # alive_bonus = 1 * cfg.rew_scale * step_count / (cfg.mio_steps * 1e6)
@@ -273,6 +287,12 @@ class MimicEnv:
 
     def get_force_ranges(self):
         return np.copy(self.model.actuator_forcerange)
+
+    def get_qpos_ranges(self):
+        ctrl_ranges = np.copy(self.model.actuator_ctrlrange)
+        low = ctrl_ranges[:, 0]
+        high = ctrl_ranges[:, 1]
+        return low, high
 
     def get_max_qpos_deltas(self):
         """Returns the scalars needed to rescale the normalized actions from the agent."""
