@@ -229,7 +229,7 @@ class CustomPPO2(PPO2):
             self.ref_obs, self.ref_acts = get_obs_and_delta_actions(norm_obs=True, norm_acts=True, fly=False)
 
         if cfg.is_mod(cfg.MOD_EXP_REPLAY):
-            self.prev_obs = None
+            self.replay_buf = np.ndarray((cfg.replay_buf_size,), dtype=object)
 
         super(CustomPPO2, self).__init__(policy, env, gamma, n_steps, ent_coef, learning_rate, vf_coef,
                                          max_grad_norm, lam, nminibatches, noptepochs, cliprange, cliprange_vf,
@@ -240,39 +240,44 @@ class CustomPPO2(PPO2):
         obs, returns, masks, actions, values, neglogpacs, \
         states, ep_infos, true_reward = rollout
 
-        if self.prev_obs is not None:
-            parameters = self.get_parameter_list()
-            parameter_values = np.array(self.sess.run(parameters))
-            pi_w0, pi_w1, pi_w2 = parameter_values[[0, 2, 8]]
-            pi_b0, pi_b1, pi_b2 = parameter_values[[1, 3, 9]]
-            vf_w0, vf_w1, vf_w2 = parameter_values[[4, 6, 13]]
-            vf_b0, vf_b1, vf_b2 = parameter_values[[5, 7, 14]]
-            pi_logstd = parameter_values[10]
-            pi_std = np.exp(pi_logstd)
+        # get current PI and VF network parameters
+        parameters = self.get_parameter_list()
+        parameter_values = np.array(self.sess.run(parameters))
+        pi_w0, pi_w1, pi_w2 = parameter_values[[0, 2, 8]]
+        pi_b0, pi_b1, pi_b2 = parameter_values[[1, 3, 9]]
+        vf_w0, vf_w1, vf_w2 = parameter_values[[4, 6, 13]]
+        vf_b0, vf_b1, vf_b2 = parameter_values[[5, 7, 14]]
+        pi_logstd = parameter_values[10]
 
-            def relu(x): return np.maximum(x, 0)
+        def relu(x): return np.maximum(x, 0)
 
-            # get values of the mirrored observations
-            def get_value(obs):
-                vf_hid1 = relu(np.matmul(obs, vf_w0) + vf_b0)
-                vf_hid2 = relu(np.matmul(vf_hid1, vf_w1) + vf_b1)
-                values = np.matmul(vf_hid2, vf_w2) + vf_b2
-                return values.flatten()
+        # get values of the mirrored observations
+        def get_value(obs):
+            vf_hid1 = relu(np.matmul(obs, vf_w0) + vf_b0)
+            vf_hid2 = relu(np.matmul(vf_hid1, vf_w1) + vf_b1)
+            values = np.matmul(vf_hid2, vf_w2) + vf_b2
+            return values.flatten()
 
-            def get_action_means(obs):
-                pi_hid1 = relu(np.matmul(obs, pi_w0) + pi_b0)
-                pi_hid2 = relu(np.matmul(pi_hid1, pi_w1) + pi_b1)
-                means = np.matmul(pi_hid2, pi_w2) + pi_b2
-                return means
+        def get_action_means(obs):
+            pi_hid1 = relu(np.matmul(obs, pi_w0) + pi_b0)
+            pi_hid2 = relu(np.matmul(pi_hid1, pi_w1) + pi_b1)
+            means = np.matmul(pi_hid2, pi_w2) + pi_b2
+            return means
 
-            def neglogp(acts, mean, logstd):
-                std = np.exp(logstd)
-                return 0.5 * np.sum(np.square((acts - mean) / std), axis=-1) \
-                       + 0.5 * np.log(2.0 * np.pi) * np.array(acts.shape[-1], dtype=np.float) \
-                       + np.sum(logstd, axis=-1)
+        def neglogp(acts, mean, logstd):
+            std = np.exp(logstd)
+            return 0.5 * np.sum(np.square((acts - mean) / std), axis=-1) \
+                   + 0.5 * np.log(2.0 * np.pi) * np.array(acts.shape[-1], dtype=np.float) \
+                   + np.sum(logstd, axis=-1)
+
+        for old_rollout in self.replay_buf:
+            if old_rollout is None: continue
+
+            self.prev_obs, self.prev_returns, self.prev_masks, self.prev_actions, \
+            self.prev_values, self.prev_neglogpacs, self.prev_states, \
+            self.prev_ep_infos, self.prev_true_reward = old_rollout
 
             act_means = get_action_means(self.prev_obs)
-
             self.prev_values = get_value(self.prev_obs)
             self.prev_neglogpacs = neglogp(self.prev_actions, act_means, pi_logstd)
 
@@ -296,9 +301,30 @@ class CustomPPO2(PPO2):
             values = np.concatenate((values, self.prev_values))
             neglogpacs = np.concatenate((neglogpacs, self.prev_neglogpacs))
 
-        self.prev_obs, self.prev_returns, self.prev_masks, self.prev_actions, \
-        self.prev_values, self.prev_neglogpacs, self.prev_states, \
-        self.prev_ep_infos, self.prev_true_reward = rollout
+        # remove mirrored experiences with too high neglogpacs
+        FILTER_MIRRED_EXPS = True
+        if FILTER_MIRRED_EXPS:
+            n_mirred_exps = int(len(neglogpacs) / (cfg.replay_buf_size+1))
+            max_allowed_neglogpac = 5 * np.percentile(neglogpacs[:n_mirred_exps], 99)
+            delete_act_indices = np.where(neglogpacs[n_mirred_exps:] > max_allowed_neglogpac)[0] + n_mirred_exps
+            if np.random.randint(0, 10, 1)[0] == 7:
+                log(f'Deleted {len(delete_act_indices)} mirrored actions '
+                    f'with neglogpac > {max_allowed_neglogpac}')
+
+            obs = np.delete(obs, delete_act_indices, axis=0)
+            actions = np.delete(actions, delete_act_indices, axis=0)
+            returns = np.delete(returns, delete_act_indices, axis=0)
+            masks = np.delete(masks, delete_act_indices, axis=0)
+            values = np.delete(values, delete_act_indices, axis=0)
+            true_reward = np.delete(true_reward, delete_act_indices, axis=0)
+            neglogpacs = np.delete(neglogpacs, delete_act_indices, axis=0)
+
+        # add the current rollout in the replay buffer
+        self.replay_buf = np.roll(self.replay_buf, shift=1)
+        self.replay_buf[0] = rollout
+        # self.prev_obs, self.prev_returns, self.prev_masks, self.prev_actions, \
+        # self.prev_values, self.prev_neglogpacs, self.prev_states, \
+        # self.prev_ep_infos, self.prev_true_reward = rollout
 
         return obs, returns, masks, actions, values, \
                neglogpacs, states, ep_infos, true_reward

@@ -129,7 +129,7 @@ MOD_MIRR_STEPS = 'steps_mirr'
 MOD_MIRR_QUERY_VF_ONLY = 'query_vf_only'
 MOD_REW_DELTA = 'rew_delta'
 MOD_EXP_REPLAY = 'exp_replay'
-replay_buf_size = 2
+replay_buf_size = 3
 
 # ------------------
 approach = AP_DEEPMIMIC
@@ -147,6 +147,8 @@ MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
 ent_coef = {200: -0.0075, 400: -0.00375}[CTRL_FREQ]
+# if is_mod(MOD_MIRROR_EXPS): ent_coef /= 2
+# if is_mod(MOD_EXP_REPLAY): ent_coef /= (replay_buf_size+1)
 init_logstd = -0.7
 pi_out_init_scale = 0.001
 cliprange = 0.15
