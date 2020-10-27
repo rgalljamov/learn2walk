@@ -228,10 +228,80 @@ class CustomPPO2(PPO2):
             # load obs and actions generated from reference trajectories
             self.ref_obs, self.ref_acts = get_obs_and_delta_actions(norm_obs=True, norm_acts=True, fly=False)
 
+        if cfg.is_mod(cfg.MOD_EXP_REPLAY):
+            self.prev_obs = None
+
         super(CustomPPO2, self).__init__(policy, env, gamma, n_steps, ent_coef, learning_rate, vf_coef,
                                          max_grad_norm, lam, nminibatches, noptepochs, cliprange, cliprange_vf,
                                          verbose, tensorboard_log, _init_setup_model, policy_kwargs,
                                          full_tensorboard_log, seed, n_cpu_tf_sess)
+
+    def exp_replay(self, rollout):
+        obs, returns, masks, actions, values, neglogpacs, \
+        states, ep_infos, true_reward = rollout
+
+        if self.prev_obs is not None:
+            parameters = self.get_parameter_list()
+            parameter_values = np.array(self.sess.run(parameters))
+            pi_w0, pi_w1, pi_w2 = parameter_values[[0, 2, 8]]
+            pi_b0, pi_b1, pi_b2 = parameter_values[[1, 3, 9]]
+            vf_w0, vf_w1, vf_w2 = parameter_values[[4, 6, 13]]
+            vf_b0, vf_b1, vf_b2 = parameter_values[[5, 7, 14]]
+            pi_logstd = parameter_values[10]
+            pi_std = np.exp(pi_logstd)
+
+            def relu(x): return np.maximum(x, 0)
+
+            # get values of the mirrored observations
+            def get_value(obs):
+                vf_hid1 = relu(np.matmul(obs, vf_w0) + vf_b0)
+                vf_hid2 = relu(np.matmul(vf_hid1, vf_w1) + vf_b1)
+                values = np.matmul(vf_hid2, vf_w2) + vf_b2
+                return values.flatten()
+
+            def get_action_means(obs):
+                pi_hid1 = relu(np.matmul(obs, pi_w0) + pi_b0)
+                pi_hid2 = relu(np.matmul(pi_hid1, pi_w1) + pi_b1)
+                means = np.matmul(pi_hid2, pi_w2) + pi_b2
+                return means
+
+            def neglogp(acts, mean, logstd):
+                std = np.exp(logstd)
+                return 0.5 * np.sum(np.square((acts - mean) / std), axis=-1) \
+                       + 0.5 * np.log(2.0 * np.pi) * np.array(acts.shape[-1], dtype=np.float) \
+                       + np.sum(logstd, axis=-1)
+
+            act_means = get_action_means(self.prev_obs)
+
+            self.prev_values = get_value(self.prev_obs)
+            self.prev_neglogpacs = neglogp(self.prev_actions, act_means, pi_logstd)
+
+            percentiles = [50, 75, 90, 95, 99, 100]
+            if np.random.randint(0, 100, 1) == 77:
+                log('Neglogpacs Comparison (before clipping!)',
+                    [f'neglogpacs orig: min {np.min(neglogpacs)}, '
+                     f'mean {np.mean(neglogpacs)}, max {np.max(neglogpacs)}',
+                     f'neglogpacs prev: min {np.min(self.prev_neglogpacs)}, '
+                     f'mean {np.mean(self.prev_neglogpacs)}, '
+                     f'max {np.max(self.prev_neglogpacs)}',
+                     f'---\npercentiles {percentiles}:',
+                     f'orig percentiles: {np.percentile(neglogpacs, percentiles)}',
+                     f'prev percentiles: {np.percentile(self.prev_neglogpacs, percentiles)}',
+                     ])
+
+            obs = np.concatenate((obs, self.prev_obs))
+            actions = np.concatenate((actions, self.prev_actions))
+            returns = np.concatenate((returns, self.prev_returns))
+            masks = np.concatenate((masks, self.prev_masks))
+            values = np.concatenate((values, self.prev_values))
+            neglogpacs = np.concatenate((neglogpacs, self.prev_neglogpacs))
+
+        self.prev_obs, self.prev_returns, self.prev_masks, self.prev_actions, \
+        self.prev_values, self.prev_neglogpacs, self.prev_states, \
+        self.prev_ep_infos, self.prev_true_reward = rollout
+
+        return obs, returns, masks, actions, values, \
+               neglogpacs, states, ep_infos, true_reward
 
     # ----------------------------------
     # OVERWRITTEN CLASSES
@@ -316,9 +386,14 @@ class CustomPPO2(PPO2):
                 if self.mirror_experiences:
                     obs, returns, masks, actions, values, neglogpacs, \
                     states, ep_infos, true_reward = mirror_experiences(rollout, self)
+                elif cfg.is_mod(cfg.MOD_EXP_REPLAY):
+                    obs, returns, masks, actions, values, neglogpacs, \
+                    states, ep_infos, true_reward = self.exp_replay(rollout)
                 else:
                     obs, returns, masks, actions, values, neglogpacs, \
                     states, ep_infos, true_reward = rollout
+
+
 
                 self.last_actions = actions
 
