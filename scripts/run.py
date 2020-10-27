@@ -11,15 +11,29 @@ from stable_baselines import PPO2
 from scripts.common.utils import load_env
 from scripts.common import config as cfg
 
+# paths
+# PD baseline
+path_pd_baseline = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/' \
+                   'cstm_pi/mim3d/8envs/ppo2/16mio/918-evaled-ret71'
+path_pd_normed_deltas = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/' \
+                        'pi_deltas/norm_acts/cstm_pi/mim3d/8envs/ppo2/16mio/431-evaled-ret81'
+
 FLY = False
 DETERMINISTIC_ACTIONS = True
 RENDER = True
 
+IS_TORQUE_MODEL = False
+if IS_TORQUE_MODEL:
+    cfg.env_id = cfg.envs[4]
+else:
+    cfg.env_id = cfg.envs[2]
+
 SPEED_CONTROL = False
 
 FROM_PATH = True
-PATH = "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
-       "cstm_pi/mim_trq3d/8envs/ppo2/16mio/658-evaled-ret78"
+PATH = path_pd_normed_deltas
+    # "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
+    #    "cstm_pi/mim_trq3d/8envs/ppo2/16mio/658-evaled-ret78"
 if not PATH.endswith('/'): PATH += '/'
 checkpoint = 'final' # '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
 

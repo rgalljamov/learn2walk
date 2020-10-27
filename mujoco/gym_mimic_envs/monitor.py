@@ -29,6 +29,10 @@ class Monitor(gym.Wrapper):
         super(Monitor, self).__init__(self.env)
 
         self.num_dofs = len(self.env.kinem_labels)
+        # for i, label in enumerate(self.env.kinem_labels):
+        #     print(f'{i}: {label}')
+        # exit(33)
+
         # self.num_dofs = self.env.observation_space.high.size
         self.num_actions = self.env.action_space.high.size
         # do we want to control walking speed
@@ -209,6 +213,12 @@ class Monitor(gym.Wrapper):
         sns.set_style("whitegrid", {'axes.edgecolor':'#ffffff00'})
         names = ['Simulation'] # line names (legend)
         second_y_axis_pos = 1.0
+
+        ONLY_ACTUATED_JOINTS = True
+        if ONLY_ACTUATED_JOINTS:
+            inds = list(range(6,14)) + list(range(20, 27))
+            self.trajecs_buffer = self.trajecs_buffer[:, inds, :]
+            self.kinem_labels = self.kinem_labels[inds]
 
         if self.SPEED_CONTROL:
             # plt.rcParams.update({'axes.labelsize': 14})
