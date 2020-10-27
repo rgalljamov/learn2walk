@@ -31,10 +31,10 @@ class CustomPolicy(ActorCriticPolicy):
 
             # reduce dim of observations
             if cfg.is_mod(cfg.MOD_E2E_ENC_OBS):
-                log('Building an encoder to reduce observation dimensionality.\n'
+                log('Building an encoder to reduce PI input dimensionality.\n'
                     f'Input dim original: {obs.shape[1]}\n'
-                    f'Hidden Layer Sizes (E2E): {cfg.enc_layer_sizes + cfg.hid_layer_sizes}')
-                obs = self.fc_hidden_layers('obs_enc_hid', obs, cfg.enc_layer_sizes, act_func_hid)
+                    f'Hidden Layer Sizes (E2E): {cfg.enc_layer_sizes + cfg.hid_layer_sizes_pi}')
+                obs_reduced = self.fc_hidden_layers('obs_enc_hid', obs, cfg.enc_layer_sizes, act_func_hid)
             elif cfg.is_mod(cfg.MOD_ENC_DIM_RED_PRETRAINED):
                 # load encoder matrices
                 ws, bs = load_encoder_weights()
@@ -53,31 +53,32 @@ class CustomPolicy(ActorCriticPolicy):
                 log('Loading pretrained policy HIDDEN LAYER weights!')
             elif cfg.is_mod(cfg.MOD_GROUND_CONTACT_NNS):
                 log('Constructing multiple networks for different gait phases!')
-                pi_left = self.fc_hidden_layers('pi_left_hid', obs, cfg.hid_layer_sizes, act_func_hid)
-                pi_right = self.fc_hidden_layers('pi_right_hid', obs, cfg.hid_layer_sizes, act_func_hid)
-                pi_double = self.fc_hidden_layers('pi_double_hid', obs, cfg.hid_layer_sizes, act_func_hid)
-                has_ground_contact_left = tf.stack([obs[:,0]]*cfg.hid_layer_sizes[-1], axis=1)
-                has_ground_contact_right = tf.stack([obs[:,1]]*cfg.hid_layer_sizes[-1], axis=1)
-                has_ground_contact_both = tf.stack([obs[:,2]]*cfg.hid_layer_sizes[-1], axis=1)
+                pi_left = self.fc_hidden_layers('pi_left_hid', obs, cfg.hid_layer_sizes_vf, act_func_hid)
+                pi_right = self.fc_hidden_layers('pi_right_hid', obs, cfg.hid_layer_sizes_vf, act_func_hid)
+                pi_double = self.fc_hidden_layers('pi_double_hid', obs, cfg.hid_layer_sizes_vf, act_func_hid)
+                has_ground_contact_left = tf.stack([obs[:,0]] * cfg.hid_layer_sizes_vf[-1], axis=1)
+                has_ground_contact_right = tf.stack([obs[:,1]] * cfg.hid_layer_sizes_vf[-1], axis=1)
+                has_ground_contact_both = tf.stack([obs[:,2]] * cfg.hid_layer_sizes_vf[-1], axis=1)
                 pi_h = tf.divide(
                     (tf.multiply(has_ground_contact_left, pi_left)
                      + tf.multiply(has_ground_contact_right, pi_right)
                      + tf.multiply(has_ground_contact_both, pi_double)),
                     (has_ground_contact_left+has_ground_contact_right+has_ground_contact_both))
             else:
-                pi_h = self.fc_hidden_layers('pi_fc_hid', obs, cfg.hid_layer_sizes, act_func_hid)
+                pi_obs_input = obs if not cfg.is_mod(cfg.MOD_E2E_ENC_OBS) else obs_reduced
+                pi_h = self.fc_hidden_layers('pi_fc_hid', pi_obs_input, cfg.hid_layer_sizes_pi, act_func_hid)
             # build the value network's hidden layers
             if cfg.is_mod(cfg.MOD_GROUND_CONTACT_NNS):
-                vf_left = self.fc_hidden_layers('vf_left_hid', obs, cfg.hid_layer_sizes, act_func_hid)
-                vf_right = self.fc_hidden_layers('vf_right_hid', obs, cfg.hid_layer_sizes, act_func_hid)
-                vf_double = self.fc_hidden_layers('vf_double_hid', obs, cfg.hid_layer_sizes, act_func_hid)
+                vf_left = self.fc_hidden_layers('vf_left_hid', obs, cfg.hid_layer_sizes_vf, act_func_hid)
+                vf_right = self.fc_hidden_layers('vf_right_hid', obs, cfg.hid_layer_sizes_vf, act_func_hid)
+                vf_double = self.fc_hidden_layers('vf_double_hid', obs, cfg.hid_layer_sizes_vf, act_func_hid)
                 vf_h = tf.divide(
                 (tf.multiply(has_ground_contact_left, vf_left)
                  + tf.multiply(has_ground_contact_right, vf_right)
                  + tf.multiply(has_ground_contact_both, vf_double)),
                 (has_ground_contact_left + has_ground_contact_right + has_ground_contact_both))
             else:
-                vf_h = self.fc_hidden_layers('vf_fc_hid', obs, cfg.hid_layer_sizes, act_func_hid)
+                vf_h = self.fc_hidden_layers('vf_fc_hid', obs, cfg.hid_layer_sizes_vf, act_func_hid)
             # build the output layer of the policy (init_scale as proposed by stable-baselines)
             self._proba_distribution, self._policy, self.q_value = \
                 self.pdtype.proba_distribution_from_latent(pi_h, vf_h, init_scale=0.01)
@@ -135,7 +136,7 @@ class CustomPolicy(ActorCriticPolicy):
         # check dimensions
         assert input_dim == ws[0].shape[0]
         hid_layer_sizes = [bs[0].size, bs[1].size]
-        assert cfg.hid_layer_sizes == hid_layer_sizes
+        assert cfg.hid_layer_sizes_pi == hid_layer_sizes
         # organize weights and biases in lists
 
         # construct the hidden layers with relu activation

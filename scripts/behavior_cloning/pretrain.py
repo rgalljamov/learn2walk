@@ -20,7 +20,7 @@ def build_model(state_dim, act_dim):
     model = keras.Sequential()
     model.add(keras.Input(shape=(state_dim,), name='input'))
     l2_coeff = 0.0005
-    for i, hid_size in enumerate(cfg.hid_layer_sizes):
+    for i, hid_size in enumerate(cfg.hid_layer_sizes_pi):
         model.add(layers.Dense(hid_size, activation='relu', name=f'hid{i+1}',
                                kernel_initializer=keras.initializers.Orthogonal(gain=0.01),
                                kernel_regularizer=keras.regularizers.l2(l=l2_coeff)))

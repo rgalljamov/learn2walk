@@ -106,10 +106,11 @@ def train():
     else:
         learning_rate_schedule = LinearSchedule(lr_start, lr_end).value
     clip_schedule = ExponentialSchedule(cfg.clip_start, cfg.clip_end, cfg.clip_exp_slope).value
-    network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
 
     if cfg.is_mod(cfg.MOD_N_OPT_EPS_SCHED):
         cfg.opt_eps_sched = ExponentialSchedule(cfg.opt_eps_start, cfg.opt_eps_end, cfg.opt_eps_slope)
+
+    network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes_vf, 'pi': cfg.hid_layer_sizes_pi}],
                     'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else {}
 
     model = CustomPPO2(CustomPolicy if cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else MlpPolicy,

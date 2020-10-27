@@ -164,7 +164,8 @@ opt_eps_slope = 10
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 enc_layer_sizes = [512]*2 + [16]
-hid_layer_sizes = [512]*2
+hid_layer_sizes_vf = [512]*2
+hid_layer_sizes_pi = [512]*2
 gamma = {50:0.99, 100: 0.999, 200:0.995, 400:0.998}[CTRL_FREQ]
 alive_min_dist = 0
 trq_delta = 0.25
@@ -259,7 +260,7 @@ own_hypers = ''
 info = ''
 run_id = s(np.random.random_integers(0, 1000))
 
-info_baseline_hyp_tune = f'hl{s(hid_layer_sizes)}_ent{int(ent_coef * 1000)}_lr{lr_start}to{lr_final}_epdur{_ep_dur_in_k}_' \
+info_baseline_hyp_tune = f'hl{s(hid_layer_sizes_vf)}_ent{int(ent_coef * 1000)}_lr{lr_start}to{lr_final}_epdur{_ep_dur_in_k}_' \
        f'bs{int(batch_size/1000)}_imrew{rew_weights}_gam{int(gamma*1e3)}'
 
 # construct the paths
