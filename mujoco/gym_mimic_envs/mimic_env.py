@@ -491,9 +491,15 @@ class MimicEnv:
         else:
             mirred_acts_indices = [3, 4, 5, 0, 1, 2]
 
-        acts_mirred = acts[mirred_acts_indices]
-        if is3d:
-            acts_mirred[negate_act_indices] *= -1
+        try:
+            acts_mirred = acts[mirred_acts_indices]
+            if is3d:
+                acts_mirred[negate_act_indices] *= -1
+        except Exception as ex:
+            log('WARNING! Could not mirror actions',
+                [f'Exception: {ex}', f'Actions: {acts}'])
+            acts_mirred = acts
+
 
         return acts_mirred
 
