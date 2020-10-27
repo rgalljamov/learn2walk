@@ -375,6 +375,11 @@ class CustomPPO2(PPO2):
                 lr_now = self.learning_rate(frac)
                 cliprange_now = self.cliprange(frac)
                 cliprange_vf_now = cliprange_vf(frac)
+                if cfg.is_mod(cfg.MOD_N_OPT_EPS_SCHED):
+                    self.noptepochs = int(cfg.opt_eps_sched.value(frac))
+                    if np.random.randint(0,10,1)[0] == 7:
+                        print('Current noptepochs: ', self.noptepochs)
+
 
                 callback.on_rollout_start()
 

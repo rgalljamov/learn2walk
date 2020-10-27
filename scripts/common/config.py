@@ -130,6 +130,7 @@ MOD_MIRR_QUERY_VF_ONLY = 'query_vf_only'
 MOD_REW_DELTA = 'rew_delta'
 MOD_EXP_REPLAY = 'exp_replay'
 replay_buf_size = 3
+MOD_N_OPT_EPS_SCHED = 'opt_eps_sched'
 
 # ------------------
 approach = AP_DEEPMIMIC
@@ -155,6 +156,11 @@ cliprange = 0.15
 clip_start = 0.55 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_exp_slope = 5
+
+opt_eps_start = 11
+opt_eps_end = 4
+opt_eps_slope = 10
+
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 enc_layer_sizes = [512]*2 + [16]
@@ -199,7 +205,12 @@ wb_run_notes = 'Save experiences and append them to the next batch. ' \
                ' ' \
                'Eval model from 20 different steps at same position. '
 # num of times a batch of experiences is used
-noptepochs = 4
+if is_mod(MOD_N_OPT_EPS_SCHED):
+    noptepochs = f'{opt_eps_start} - {opt_eps_end}'
+    # schedule is setup in train.py
+    opt_eps_sched = None
+else:
+    noptepochs = 4
 
 # ----------------------------------------------------------------------------------
 
