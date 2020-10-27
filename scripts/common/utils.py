@@ -46,9 +46,12 @@ def config_pyplot(fullscreen=False, font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TI
 
     # activate and configure seaborn style for plots
     sns.set()
+    sns.set_style("ticks")
+
     sns.set_context(rc={"lines.linewidth": PLOT_LINE_WIDTH, 'xtick.labelsize': tick_size,
                         'ytick.labelsize': tick_size, 'savefig.dpi': 1024,
                         'axes.titlesize': tick_size, 'figure.autolayout': True,
+                        'axes.grid': True,
                         'legend.fontsize': legend_fontsize, 'axes.labelsize': font_size})
 
     # configure saving format and directory
