@@ -52,10 +52,12 @@ def config_pyplot(fullscreen=False, font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TI
                         'legend.fontsize': legend_fontsize, 'axes.labelsize': font_size})
 
     # configure saving format and directory
-    PLOT_FIGURE_SAVE_FORMAT = 'png'  # 'pdf' #'eps'
+    PLOT_FIGURE_SAVE_FORMAT = 'pdf' #'eps'
     plt.rcParams.update({'figure.autolayout': True})
     plt.rcParams.update({'savefig.format': PLOT_FIGURE_SAVE_FORMAT})
-    plt.rcParams.update({"savefig.directory": '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/figures'})
+    plt.rcParams.update({"savefig.directory":
+                             '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Report/figures/wandb_scratch'})
+                              # '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/report'})
 
     if fullscreen:
         # plot figure in full screen mode (scaled down aspect ratio of my screen)

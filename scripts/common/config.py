@@ -128,11 +128,13 @@ MOD_CONST_EXPLORE = 'const_explor'
 MOD_MIRR_STEPS = 'steps_mirr'
 MOD_MIRR_QUERY_VF_ONLY = 'query_vf_only'
 MOD_REW_DELTA = 'rew_delta'
+MOD_EXP_REPLAY = 'exp_replay'
+replay_buf_size = 3
 
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([MOD_NORM_ACTS,
+modification = mod([MOD_EXP_REPLAY,
     MOD_CUSTOM_POLICY,
     ])
 assert_mod_compatibility()
@@ -145,6 +147,8 @@ MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
 ent_coef = {200: -0.0075, 400: -0.00375}[CTRL_FREQ]
+# if is_mod(MOD_MIRROR_EXPS): ent_coef /= 2
+# if is_mod(MOD_EXP_REPLAY): ent_coef /= (replay_buf_size+1)
 init_logstd = -0.7
 pi_out_init_scale = 0.001
 cliprange = 0.15
@@ -166,13 +170,13 @@ alive_bonus = 0.2 * rew_scale
 EVAL_N_TIMES = 20
 rew_delta_scale = 20
 
-wb_project_name = 'pd_approaches'
+wb_project_name = 'final3d_trq'
 # todo: ET punish should be a function of training time or ep dur
 # to punish less hard at beginning, we should better have a smaller lambda...
 # or even better have a reward with a higher amplitude and that can also be negative!
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-              f'BSLN - normed target angles'
-wb_run_notes = '' \
+              f'EXP Replay - query VF - last only - half batch size, double n_mini_batches'
+wb_run_notes = 'Save experiences and append them to the next batch. ' \
                'Changed evaluation of stable walks to consider 18m without falling as stable. '\
                'Evaluate the agent starting at 75% of the step cycle. ' \
                'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \
@@ -202,7 +206,7 @@ noptepochs = 4
 # choose environment
 envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
 env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 2
+env_index = 4
 env_id = envs[env_index]
 env_name = env_names[env_index]
 is_torque_model = env_name in ['mim_trq2d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
@@ -216,11 +220,22 @@ et_reward = -100
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mirr_exps = is_mod(MOD_MIRROR_EXPS)
+exp_replay = is_mod(MOD_EXP_REPLAY)
 mio_steps = (8 if is_torque_model else 16) * (2 if mirr_exps else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
 batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
+if is_mod(MOD_MIRR_STEPS): batch_size = int(batch_size/2)
+# when mirroring experiences, we have to duplicate the number of minibatches
+# otherwise only half of the data will be used (see implementation of PPO2 updates)
+# todo: remove, as n_minibatches is automatically calculated in CustomPPO2
+#       to maintain the same batch and minibatch sizes.
 n_mini_batches = int(batch_size / minibatch_size) * (2 if mirr_exps else 1)
+# if using a replay buffer, we have to collect less experiences
+# to reach the same batch size
+# if exp_replay: batch_size = int(batch_size/(replay_buf_size+1))
+
+
 lr_start = 2000 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
