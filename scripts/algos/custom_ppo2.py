@@ -364,7 +364,7 @@ class CustomPPO2(PPO2):
             callback.on_training_start(locals(), globals())
 
             for update in range(1, n_updates + 1):
-                batch_size = self.n_batch // self.nminibatches
+                minibatch_size = cfg.minibatch_size # self.n_batch // self.nminibatches
                 if self.n_batch % self.nminibatches != 0:
                     log("The number of minibatches (`nminibatches`) "
                         "is not a factor of the total number of samples "
@@ -442,18 +442,19 @@ class CustomPPO2(PPO2):
 
                 self.ep_info_buf.extend(ep_infos)
                 mb_loss_vals = []
+                self.n_batch = obs.shape[0]
+                self.nminibatches = self.n_batch / minibatch_size
                 if states is None:  # nonrecurrent version
                     update_fac = self.n_batch // self.nminibatches // self.noptepochs + 1
-                    # inds = np.arange(self.n_batch)
-                    inds = np.arange(obs.shape[0])
+                    inds = np.arange(self.n_batch)
                     n_epochs = self.noptepochs \
                         if not cfg.is_mod(cfg.MOD_ONLINE_CLONE) or update > 9 else 200
                     for epoch_num in range(n_epochs):
                         np.random.shuffle(inds)
-                        for start in range(0, self.n_batch, batch_size):
+                        for start in range(0, self.n_batch, minibatch_size):
                             timestep = self.num_timesteps // update_fac + ((self.noptepochs * self.n_batch + epoch_num *
-                                                                            self.n_batch + start) // batch_size)
-                            end = start + batch_size
+                                                                            self.n_batch + start) // minibatch_size)
+                            end = start + minibatch_size
                             mbinds = inds[start:end]
                             slices = (arr[mbinds] for arr in (obs, returns, masks, actions, values, neglogpacs))
                             mb_loss_vals.append(self._train_step(lr_now, cliprange_now, *slices, writer=writer,
@@ -463,7 +464,7 @@ class CustomPPO2(PPO2):
                     assert self.n_envs % self.nminibatches == 0
                     env_indices = np.arange(self.n_envs)
                     flat_indices = np.arange(self.n_envs * self.n_steps).reshape(self.n_envs, self.n_steps)
-                    envs_per_batch = batch_size // self.n_steps
+                    envs_per_batch = minibatch_size // self.n_steps
                     for epoch_num in range(self.noptepochs):
                         np.random.shuffle(env_indices)
                         for start in range(0, self.n_envs, envs_per_batch):

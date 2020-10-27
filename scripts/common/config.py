@@ -224,10 +224,18 @@ exp_replay = is_mod(MOD_EXP_REPLAY)
 mio_steps = (8 if is_torque_model else 16) * (2 if mirr_exps else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
-batch_size = (4096 * 4 * (2 if not mirr_exps and not exp_replay else 1)) if not DEBUG else 2*minibatch_size
+batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
+if is_mod(MOD_MIRR_STEPS): batch_size = int(batch_size/2)
 # when mirroring experiences, we have to duplicate the number of minibatches
 # otherwise only half of the data will be used (see implementation of PPO2 updates)
-n_mini_batches = int(batch_size / minibatch_size) * (2 if mirr_exps or exp_replay else 1)
+# todo: remove, as n_minibatches is automatically calculated in CustomPPO2
+#       to maintain the same batch and minibatch sizes.
+n_mini_batches = int(batch_size / minibatch_size) * (2 if mirr_exps else 1)
+# if using a replay buffer, we have to collect less experiences
+# to reach the same batch size
+# if exp_replay: batch_size = int(batch_size/(replay_buf_size+1))
+
+
 lr_start = 2000 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
