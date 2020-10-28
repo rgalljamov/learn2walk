@@ -40,13 +40,14 @@ PLOT_TICKS_SIZE = 18
 PLOT_LINE_WIDTH = 2
 
 def config_pyplot(fullscreen=False, font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TICKS_SIZE,
-                  legend_fontsize=PLOT_FONT_SIZE-4):
+                  legend_fontsize=PLOT_TICKS_SIZE+2):
     """ set desired plotting settings and returns a pyplot object
      @ return: pyplot object with seaborn style and configured rcParams"""
 
     # activate and configure seaborn style for plots
     sns.set()
-    sns.set_style("ticks")
+    # sns.set_style("ticks")
+    sns.set_style("whitegrid", {'axes.edgecolor': '#ffffff00'})
 
     sns.set_context(rc={"lines.linewidth": PLOT_LINE_WIDTH, 'xtick.labelsize': tick_size,
                         'ytick.labelsize': tick_size, 'savefig.dpi': 1024,

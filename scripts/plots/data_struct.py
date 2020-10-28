@@ -4,10 +4,14 @@ import numpy as np
 import os
 
 class Metric:
-    def __init__(self, label):
+    def __init__(self, label, approach_name='approach'):
         self.label = label
+        self.approach_name = approach_name
         # runs x recorded points for metric
         self.data = []
+
+    def set_approach_name(self, approach_name):
+        self.approach_name = approach_name
 
     def append_run(self, run):
         self.data.append(run)
@@ -44,10 +48,12 @@ class Metric:
         self.std = np.std(self.data, axis=0)
         if isinstance(self.mean, np.ndarray) and len(self.mean) > 10:
             self.mean_fltrd = utils.smooth_exponential(self.mean, 0.005)
+            self.std_fltrd = utils.smooth_exponential(self.std, 0.005)
         else: self.mean_fltrd = self.mean
 
+
 class Approach:
-    def __init__(self, approach_name, project_name, run_name, metrics_names):
+    def __init__(self, approach_name, project_name=None, run_name=None, metrics_names=[]):
         self.name = approach_name
         self.project_name = project_name
         self.run_name = run_name
@@ -62,14 +68,15 @@ class Approach:
         if os.path.exists(metrics_path):
             self.metrics = []
             npz = np.load(metrics_path)
-            for metric_name in self.metrics_names:
-                metric = Metric(metric_name)
+            for metric_name in npz.keys():
+                self.metrics_names.append(metric_name)
+                metric = Metric(metric_name, self.name)
                 metric.set_np_data(npz[metric_name])
                 self.metrics.append(metric)
         # fetch from wandb if not on disc
         else:
             self._api = Api(self.project_name)
-            self.metrics = [Metric(name) for name in self.metrics_names]
+            self.metrics = [Metric(name, self.name) for name in self.metrics_names]
             self._api.get_metrics(self)
             self._metrics_to_np()
 
