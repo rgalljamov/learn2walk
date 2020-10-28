@@ -40,15 +40,19 @@ PLOT_TICKS_SIZE = 18
 PLOT_LINE_WIDTH = 2
 
 def config_pyplot(fullscreen=False, font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TICKS_SIZE,
-                  legend_fontsize=PLOT_FONT_SIZE-4):
+                  legend_fontsize=PLOT_TICKS_SIZE+2):
     """ set desired plotting settings and returns a pyplot object
      @ return: pyplot object with seaborn style and configured rcParams"""
 
     # activate and configure seaborn style for plots
     sns.set()
+    # sns.set_style("ticks")
+    sns.set_style("whitegrid", {'axes.edgecolor': '#ffffff00'})
+
     sns.set_context(rc={"lines.linewidth": PLOT_LINE_WIDTH, 'xtick.labelsize': tick_size,
                         'ytick.labelsize': tick_size, 'savefig.dpi': 1024,
                         'axes.titlesize': tick_size, 'figure.autolayout': True,
+                        'axes.grid': True,
                         'legend.fontsize': legend_fontsize, 'axes.labelsize': font_size})
 
     # configure saving format and directory
@@ -229,6 +233,13 @@ def smooth_exponential(data, alpha=0.9):
     for t in range(1, len(data)):
         smoothed[t] = alpha * data[t] + (1-alpha) * smoothed[t-1]
     return smoothed
+
+def numpy_ewm_alpha(a, alpha, windowSize):
+    wghts = (1-alpha)**np.arange(windowSize)
+    wghts /= wghts.sum()
+    out = np.full(a.shape[0],np.nan)
+    out[windowSize-1:] = np.convolve(a,wghts,'valid')
+    return out
 
 def lowpass_filter_data(data, sample_rate, cutoff_freq, order=1):
     """

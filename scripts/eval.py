@@ -233,8 +233,7 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
             # reset the environment to init RSI and ET
             env.reset()
             while True:
-                action = zero_actions
-                obs, reward, done, info = env.step(action)
+                obs, reward, done, info = env.step(env.action_space.sample())
                 if done.any(): break
 
         # log progress

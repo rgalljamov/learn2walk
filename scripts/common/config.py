@@ -135,7 +135,7 @@ MOD_N_OPT_EPS_SCHED = 'opt_eps_sched'
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([MOD_EXP_REPLAY,
+modification = mod([MOD_MIRR_STEPS,
     MOD_CUSTOM_POLICY,
     ])
 assert_mod_compatibility()
@@ -171,19 +171,20 @@ alive_min_dist = 0
 trq_delta = 0.25
 rew_scale = 1
 l2_coef = 5e-4
-# todo reduce et_reward after agents starts walking multiple steps
 et_rew_thres = 0.1 * rew_scale
 alive_bonus = 0.2 * rew_scale
 EVAL_N_TIMES = 20
 rew_delta_scale = 20
 
-wb_project_name = 'final3d_trq'
-# todo: ET punish should be a function of training time or ep dur
-# to punish less hard at beginning, we should better have a smaller lambda...
-# or even better have a reward with a higher amplitude and that can also be negative!
+wb_project_name = 'mrr_phase3d'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-              f'EXP Replay - query VF - last only - half batch size, double n_mini_batches'
-wb_run_notes = 'Save experiences and append them to the next batch. ' \
+               f'MRR steps, half BS'
+               # f'exp clip decay (VF too): {clip_start} - {clip_end}'
+               # f'PI E2ENC {enc_layer_sizes}, pi {hid_layer_sizes_pi[0]}'
+               # f'exp noptepochs schedule: slope {opt_eps_slope}, {opt_eps_start} - {opt_eps_end}'
+               # f'Replay BUF{replay_buf_size}, retain BS, ent_coef{ent_coef}, query both, delete pacs'
+               # f'MRR no query, init logstd {init_logstd}, half ent_coef{ent_coef}'
+wb_run_notes = f'' \
                'Changed evaluation of stable walks to consider 18m without falling as stable. '\
                'Evaluate the agent starting at 75% of the step cycle. ' \
                'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \

@@ -5,7 +5,7 @@ from scripts.common.utils import config_pyplot
 
 sns.set_context("paper")
 plt = config_pyplot(font_size=20, tick_size=20)
-sns.set_style("ticks") # , {'axes.edgecolor': '#cccccc'})
+# sns.set_style("ticks") # , {'axes.edgecolor': '#cccccc'})
 
 def plot_violin(names, means, hist_data, x_label, y_label):
     """@:param hist_data: a list of lists, for each name a list of metric values. """
@@ -30,12 +30,13 @@ def plot_violin(names, means, hist_data, x_label, y_label):
     plt.xlabel(x_label)
 
 
-norm_deltas = np.array([5209568, 5209664, 5810848, 6612304])/1e6
-bsln = np.array([16000000, 16000000, 16000000, 16000000])/1e6
-norm_angs = np.array([9417888, 9517888, 9000000, 9900000])/1e6
-aps = [bsln, norm_angs, norm_deltas]
-means = [np.mean(ap) for ap in aps]
+if __name__ == '__main__':
+    norm_deltas = np.array([5209568, 5209664, 5810848, 6612304])/1e6
+    bsln = np.array([16000000, 16000000, 16000000, 16000000])/1e6
+    norm_angs = np.array([9417888, 9517888, 9000000, 9900000])/1e6
+    aps = [bsln, norm_angs, norm_deltas]
+    means = [np.mean(ap) for ap in aps]
 
-plot_violin(['Baseline', 'Normalized\nAngles', 'Normalized\nAngle Deltas'],
-            means, aps, '', 'Training Timesteps [$x10^6$]')
-plt.show()
+    plot_violin(['Baseline', 'Normalized\nAngles', 'Normalized\nAngle Deltas'],
+                means, aps, '', 'Training Timesteps [$x10^6$]')
+    plt.show()
