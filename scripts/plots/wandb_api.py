@@ -13,13 +13,16 @@ class Api:
 
     def get_metrics(self, approach):
         # get relevant runs, finished only
-        runs = [run for run in self.runs if (run.label == approach.run_name)]
+        runs = [run for run in self.runs if (run.name == approach.run_name)]
         i = 1
         for run in runs:
             print(f'Fething run {i} of {len(runs)} runs')
             i += 1
-            history = run.history(samples=int(1e6))
+            history = run.history(samples=int(1e5))
             for metric in approach.metrics:
+                if metric.label == 'log_steps_to_convergence':
+                    metric.append_run(run.summary['log_steps_to_convergence'])
+                    continue
                 metric.append_run(history[metric.label].dropna().tolist())
 
 

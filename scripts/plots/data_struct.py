@@ -13,6 +13,10 @@ class Metric:
         self.data.append(run)
 
     def convert_data_to_np(self):
+        # to account for scalar values like steps_to_conv
+        if not (isinstance(self.data[0], list) or isinstance(self.data[0], np.ndarray)):
+            self.data = np.array(self.data)
+            return
         # cut all lists to the same minimum length
         # but avoid runs that failed too quickly
         while True:
@@ -35,6 +39,13 @@ class Metric:
         assert isinstance(data, np.ndarray)
         self.data = data
 
+    def calculate_statistics(self):
+        self.mean = np.mean(self.data, axis=0)
+        self.std = np.std(self.data, axis=0)
+        if isinstance(self.mean, np.ndarray) and len(self.mean) > 10:
+            self.mean_fltrd = utils.smooth_exponential(self.mean, 0.005)
+        else: self.mean_fltrd = self.mean
+
 class Approach:
     def __init__(self, approach_name, project_name, run_name, metrics_names):
         self.name = approach_name
@@ -44,6 +55,7 @@ class Approach:
         self.metrics_names = metrics_names
         self._api = Api(project_name)
         self._get_metrics_data()
+        self._calculate_statistics()
 
     def _get_metrics_data(self):
         # first try to load from disc
@@ -60,6 +72,10 @@ class Approach:
             self.metrics = [Metric(name) for name in self.metrics_names]
             self._api.get_metrics(self)
             self._metrics_to_np()
+
+    def _calculate_statistics(self):
+        for metric in self.metrics:
+            metric.calculate_statistics()
 
     def _metrics_to_np(self):
         # convert each metric individually

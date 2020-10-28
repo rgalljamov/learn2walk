@@ -233,6 +233,13 @@ def smooth_exponential(data, alpha=0.9):
         smoothed[t] = alpha * data[t] + (1-alpha) * smoothed[t-1]
     return smoothed
 
+def numpy_ewm_alpha(a, alpha, windowSize):
+    wghts = (1-alpha)**np.arange(windowSize)
+    wghts /= wghts.sum()
+    out = np.full(a.shape[0],np.nan)
+    out[windowSize-1:] = np.convolve(a,wghts,'valid')
+    return out
+
 def lowpass_filter_data(data, sample_rate, cutoff_freq, order=1):
     """
     Uses a butterworth filter to filter data in both directions without causing any delay.

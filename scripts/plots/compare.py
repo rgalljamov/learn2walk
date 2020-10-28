@@ -6,8 +6,11 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 from scripts.plots.data_struct import Approach
 from scripts.plots.wandb_api import Api
 from scripts.common.utils import config_pyplot
+from scripts.plots import plot
+import seaborn as sns
 import numpy as np
 plt = config_pyplot()
+sns.set_style("whitegrid", {'axes.edgecolor': '#ffffff00'})
 
 PR_PD_APS = "pd_approaches"
 
@@ -40,17 +43,30 @@ metrics = [MET_SUM_SCORE, MET_STABLE_WALKS, MET_STEP_REW, MET_MEAN_DIST, MET_REW
            MET_REW_COM, MET_TRAIN_EPRET, MET_TRAIN_STEPREW, MET_TRAIN_DIST, MET_TRAIN_EPLEN,
            MET_STEPS_TO_CONV, MET_PI_STD]
 
+
+def check_data_for_completeness(approach):
+    n_metrics = len(approach.metrics)
+    for i, metric in enumerate(approach.metrics):
+        subplot = plt.subplot(3, int(n_metrics / 3) + 1, i + 1)
+        if isinstance(metric.mean, np.ndarray) and len(metric.mean) > 1:
+            x = np.linspace(0, 16e6, len(metric.mean))
+            subplot.plot(x, metric.mean)
+            subplot.plot(x, metric.mean_fltrd)
+            mean_color = subplot.get_lines()[-1].get_color()
+            subplot.fill_between(x, metric.mean_fltrd + metric.std, metric.mean_fltrd - metric.std,
+                                 color=mean_color, alpha=0.25)
+        else:
+            subplot.scatter(np.arange(len(metric.data)), metric.data)
+        subplot.title.set_text(metric_names[metric.label])
+    plt.show()
+
+
 if __name__ == '__main__':
     api = Api(project_name)
     approach = Approach('PD_NORM_DELTA', PR_PD_APS, run_name, metrics)
     # approach.save()
     # exit(33)
-    n_metrics = len(approach.metrics)
-    for i, metric in enumerate(approach.metrics):
-        subplot = plt.subplot(3, int(n_metrics/3)+1, i+1)
-        subplot.plot(np.linspace(0, 16e6, len(metric.data[0,:])), metric.data[0,:])
-        subplot.title.set_text(metric_names[metric.label])
-    plt.show()
+    check_data_for_completeness(approach)
     exit(33)
 
 # stable_walks = api.get_metrics(run_names, metric_name)
