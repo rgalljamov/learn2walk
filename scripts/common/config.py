@@ -31,7 +31,7 @@ def assert_mod_compatibility():
     this function throws an exception and provides explanations.
     """
     if is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
-        raise TypeError("Normalized actions (ctrlrange [-1,1] for all joints) " \
+        print("Normalized actions (ctrlrange [-1,1] for all joints) " \
                         "currently only work when policy outputs delta angles.")
     if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_POLICY):
         raise TypeError("Using sac and tanh actions is only possible in combination"
@@ -126,11 +126,16 @@ MOD_L2_REG = 'l2_reg'
 MOD_CONST_EXPLORE = 'const_explor'
 # learn policy for right step only, mirror states and actions for the left step
 MOD_MIRR_STEPS = 'steps_mirr'
+MOD_MIRR_QUERY_VF_ONLY = 'query_vf_only'
+MOD_REW_DELTA = 'rew_delta'
+MOD_EXP_REPLAY = 'exp_replay'
+replay_buf_size = 3
+MOD_N_OPT_EPS_SCHED = 'opt_eps_sched'
 
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([MOD_SYMMETRIC_WALK, MOD_MIRR_STEPS,
+modification = mod([MOD_MIRR_STEPS,
     MOD_CUSTOM_POLICY,
     ])
 assert_mod_compatibility()
@@ -143,33 +148,44 @@ MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
 ent_coef = {200: -0.0075, 400: -0.00375}[CTRL_FREQ]
+# if is_mod(MOD_MIRROR_EXPS): ent_coef /= 2
+# if is_mod(MOD_EXP_REPLAY): ent_coef /= (replay_buf_size+1)
 init_logstd = -0.7
 pi_out_init_scale = 0.001
 cliprange = 0.15
 clip_start = 0.55 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_exp_slope = 5
+
+opt_eps_start = 11
+opt_eps_end = 4
+opt_eps_slope = 10
+
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
 enc_layer_sizes = [512]*2 + [16]
-hid_layer_sizes = [512]*2
+hid_layer_sizes_vf = [512]*2
+hid_layer_sizes_pi = [512]*2
 gamma = {50:0.99, 100: 0.999, 200:0.995, 400:0.998}[CTRL_FREQ]
 alive_min_dist = 0
 trq_delta = 0.25
 rew_scale = 1
 l2_coef = 5e-4
-# todo reduce et_reward after agents starts walking multiple steps
 et_rew_thres = 0.1 * rew_scale
-alive_bonus = et_rew_thres * 2
+alive_bonus = 0.2 * rew_scale
 EVAL_N_TIMES = 20
+rew_delta_scale = 20
 
-wb_project_name = 'final3d_trq'
-# todo: ET punish should be a function of training time or ep dur
-# to punish less hard at beginning, we should better have a smaller lambda...
-# or even better have a reward with a higher amplitude and that can also be negative!
+wb_project_name = 'mrr_phase3d'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-              f'MRR steps'
-wb_run_notes = 'PHASE approach from Peng 19. '\
+               f'MRR steps, half BS'
+               # f'exp clip decay (VF too): {clip_start} - {clip_end}'
+               # f'PI E2ENC {enc_layer_sizes}, pi {hid_layer_sizes_pi[0]}'
+               # f'exp noptepochs schedule: slope {opt_eps_slope}, {opt_eps_start} - {opt_eps_end}'
+               # f'Replay BUF{replay_buf_size}, retain BS, ent_coef{ent_coef}, query both, delete pacs'
+               # f'MRR no query, init logstd {init_logstd}, half ent_coef{ent_coef}'
+wb_run_notes = f'' \
+               'Changed evaluation of stable walks to consider 18m without falling as stable. '\
                'Evaluate the agent starting at 75% of the step cycle. ' \
                'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \
                'Increased the minimum learning rate to 1e-6, was -8 before. ' \
@@ -191,7 +207,12 @@ wb_run_notes = 'PHASE approach from Peng 19. '\
                ' ' \
                'Eval model from 20 different steps at same position. '
 # num of times a batch of experiences is used
-noptepochs = 4
+if is_mod(MOD_N_OPT_EPS_SCHED):
+    noptepochs = f'{opt_eps_start} - {opt_eps_end}'
+    # schedule is setup in train.py
+    opt_eps_sched = None
+else:
+    noptepochs = 4
 
 # ----------------------------------------------------------------------------------
 
@@ -212,11 +233,22 @@ et_reward = -100
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mirr_exps = is_mod(MOD_MIRROR_EXPS)
+exp_replay = is_mod(MOD_EXP_REPLAY)
 mio_steps = (8 if is_torque_model else 16) * (2 if mirr_exps else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
 batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
+if is_mod(MOD_MIRR_STEPS): batch_size = int(batch_size/2)
+# when mirroring experiences, we have to duplicate the number of minibatches
+# otherwise only half of the data will be used (see implementation of PPO2 updates)
+# todo: remove, as n_minibatches is automatically calculated in CustomPPO2
+#       to maintain the same batch and minibatch sizes.
 n_mini_batches = int(batch_size / minibatch_size) * (2 if mirr_exps else 1)
+# if using a replay buffer, we have to collect less experiences
+# to reach the same batch size
+# if exp_replay: batch_size = int(batch_size/(replay_buf_size+1))
+
+
 lr_start = 2000 if is_mod(MOD_EXP_LR_SCHED) else 500
 mio_steps_to_lr1 = 16 # (32 if is_mod(MOD_MIRROR_EXPS) else 16)
 slope = mio_steps/mio_steps_to_lr1
@@ -229,7 +261,7 @@ own_hypers = ''
 info = ''
 run_id = s(np.random.random_integers(0, 1000))
 
-info_baseline_hyp_tune = f'hl{s(hid_layer_sizes)}_ent{int(ent_coef * 1000)}_lr{lr_start}to{lr_final}_epdur{_ep_dur_in_k}_' \
+info_baseline_hyp_tune = f'hl{s(hid_layer_sizes_vf)}_ent{int(ent_coef * 1000)}_lr{lr_start}to{lr_final}_epdur{_ep_dur_in_k}_' \
        f'bs{int(batch_size/1000)}_imrew{rew_weights}_gam{int(gamma*1e3)}'
 
 # construct the paths
@@ -240,9 +272,9 @@ _mod_path = ('debug/' if DEBUG else '') + \
 hyp_path = (f'{own_hypers + info}/' if len(own_hypers + info) > 0 else '')
 save_path_norun= abs_project_path + 'models/' + _mod_path + hyp_path
 save_path = save_path_norun + f'{run_id}/'
-init_obs_rms_path = abs_project_path + 'scripts/behavior_cloning/models/rms/env_999'
+init_obs_rms_path = abs_project_path + 'models/behav_clone/models/rms/env_999'
 if is_mod(MOD_FLY):
-    init_obs_rms_path = abs_project_path + 'scripts/behavior_cloning/models/' \
+    init_obs_rms_path = abs_project_path + 'models/behav_clone/models/' \
                                            'rms/env_rms_fly_const_speed'
 
 print('Model: ', save_path)

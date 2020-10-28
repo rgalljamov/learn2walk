@@ -40,22 +40,28 @@ PLOT_TICKS_SIZE = 18
 PLOT_LINE_WIDTH = 2
 
 def config_pyplot(fullscreen=False, font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TICKS_SIZE,
-                  legend_fontsize=PLOT_FONT_SIZE-4):
+                  legend_fontsize=PLOT_TICKS_SIZE+2):
     """ set desired plotting settings and returns a pyplot object
      @ return: pyplot object with seaborn style and configured rcParams"""
 
     # activate and configure seaborn style for plots
     sns.set()
+    # sns.set_style("ticks")
+    sns.set_style("whitegrid", {'axes.edgecolor': '#ffffff00'})
+
     sns.set_context(rc={"lines.linewidth": PLOT_LINE_WIDTH, 'xtick.labelsize': tick_size,
                         'ytick.labelsize': tick_size, 'savefig.dpi': 1024,
                         'axes.titlesize': tick_size, 'figure.autolayout': True,
+                        'axes.grid': True,
                         'legend.fontsize': legend_fontsize, 'axes.labelsize': font_size})
 
     # configure saving format and directory
-    PLOT_FIGURE_SAVE_FORMAT = 'png'  # 'pdf' #'eps'
+    PLOT_FIGURE_SAVE_FORMAT = 'pdf' #'eps'
     plt.rcParams.update({'figure.autolayout': True})
     plt.rcParams.update({'savefig.format': PLOT_FIGURE_SAVE_FORMAT})
-    plt.rcParams.update({"savefig.directory": '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/figures'})
+    plt.rcParams.update({"savefig.directory":
+                             '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Report/figures/wandb_scratch'})
+                              # '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/report'})
 
     if fullscreen:
         # plot figure in full screen mode (scaled down aspect ratio of my screen)
@@ -104,7 +110,7 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True,
             if not is_mod(MOD_LOAD_OBS_RMS): raise Exception
             # load the obs_rms from a previously trained model
             init_obs_rms_path = abs_project_path + \
-                                'scripts/behavior_cloning/models/rms/env_999'
+                                'models/behav_clone/models/rms/env_999'
             vec_normed = VecNormalize.load(init_obs_rms_path, vec_env)
             log('Successfully loaded OBS_RMS from a previous model:',
                 [f'file:\t {init_obs_rms_path}',
@@ -227,6 +233,13 @@ def smooth_exponential(data, alpha=0.9):
     for t in range(1, len(data)):
         smoothed[t] = alpha * data[t] + (1-alpha) * smoothed[t-1]
     return smoothed
+
+def numpy_ewm_alpha(a, alpha, windowSize):
+    wghts = (1-alpha)**np.arange(windowSize)
+    wghts /= wghts.sum()
+    out = np.full(a.shape[0],np.nan)
+    out[windowSize-1:] = np.convolve(a,wghts,'valid')
+    return out
 
 def lowpass_filter_data(data, sample_rate, cutoff_freq, order=1):
     """

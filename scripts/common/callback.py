@@ -360,6 +360,12 @@ class TrainingMonitor(BaseCallback):
         self.auc_stable_walks += dt * 4 * self.mean_reward_means ** 2 \
                                  * (self.count_stable_walks / cfg.EVAL_N_TIMES) ** 4 \
 
+        if False: # runs_20m >= 20 and not cfg.is_mod(cfg.MOD_MIRR_QUERY_VF_ONLY):
+            cfg.modification += f'/{cfg.MOD_MIRR_QUERY_VF_ONLY}'
+            utils.log('Starting to query VF only!',
+                      [f'Stable walks: {runs_20m}',
+                       f'Mean distance: {self.mean_walked_distance}'])
+
         ## delete evaluation model if stable walking was not achieved yet
         # or too many models were saved already
         were_enough_models_saved = self.n_saved_models >= 5
@@ -372,7 +378,7 @@ class TrainingMonitor(BaseCallback):
         has_achieved_stable_walking = min_dist > 20
         # in average stable for 20 meters but not all 20 trials were over 20m
         has_reached_high_mean_distance = mean_dist > 20
-        is_stable_humanlike_walking = min_dist >= 20 and walks_humanlike
+        is_stable_humanlike_walking = self.count_stable_walks == eval_n_times and walks_humanlike
         # retain the model if it is good else delete it
         retain_model = is_stable_humanlike_walking and not were_enough_models_saved
         distances_report = [f'Min walked distance: {min_dist}m',

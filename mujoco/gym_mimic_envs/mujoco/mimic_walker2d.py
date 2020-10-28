@@ -57,7 +57,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         return [0,1] # x, z
 
     def _get_trunk_joint_indices(self):
-        return 2
+        return [2]
 
     def _get_not_actuated_joint_indices(self):
         return [0,1,2]

@@ -37,10 +37,14 @@ def init_wandb(model):
         "lr0": cfg.lr_start,
         "lr1": cfg.lr_final,
         "lr_sched": 'exp' if cfg.is_mod(cfg.MOD_EXP_LR_SCHED) else 'lin',
-        'hid_sizes': cfg.hid_layer_sizes,
+        'hid_sizes': cfg.hid_layer_sizes_vf,
+        'hid_sizes_vf': cfg.hid_layer_sizes_vf,
+        'hid_sizes_pi': cfg.hid_layer_sizes_pi,
         "noptepochs": cfg.noptepochs,
         "batch_size": batch_size,
+        "cfg.batch_size": cfg.batch_size,
         "n_mini_batches": model.nminibatches,
+        "cfg.minibatch_size": cfg.minibatch_size,
         "mini_batch_size": int(batch_size / model.nminibatches),
         "mio_steps": cfg.mio_steps,
         "mio_steps_to_lr1": cfg.mio_steps_to_lr1,
@@ -91,7 +95,7 @@ def train():
 
     # setup environment
     env = utils.vec_env(cfg.env_id, norm_rew=True, num_envs=cfg.n_envs,
-                        deltas=cfg.is_mod(cfg.MOD_PI_OUT_DELTAS))
+                        deltas=cfg.is_mod(cfg.MOD_PI_OUT_DELTAS) or cfg.is_mod(cfg.MOD_NORM_ACTS))
 
     # setup model/algorithm
     training_timesteps = int(cfg.mio_steps * 1e6)
@@ -102,7 +106,11 @@ def train():
     else:
         learning_rate_schedule = LinearSchedule(lr_start, lr_end).value
     clip_schedule = ExponentialSchedule(cfg.clip_start, cfg.clip_end, cfg.clip_exp_slope).value
-    network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes, 'pi': cfg.hid_layer_sizes}],
+
+    if cfg.is_mod(cfg.MOD_N_OPT_EPS_SCHED):
+        cfg.opt_eps_sched = ExponentialSchedule(cfg.opt_eps_start, cfg.opt_eps_end, cfg.opt_eps_slope)
+
+    network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes_vf, 'pi': cfg.hid_layer_sizes_pi}],
                     'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else {}
 
     model = CustomPPO2(CustomPolicy if cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else MlpPolicy,

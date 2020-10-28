@@ -20,7 +20,7 @@ def build_model(state_dim, act_dim):
     model = keras.Sequential()
     model.add(keras.Input(shape=(state_dim,), name='input'))
     l2_coeff = 0.0005
-    for i, hid_size in enumerate(cfg.hid_layer_sizes):
+    for i, hid_size in enumerate(cfg.hid_layer_sizes_pi):
         model.add(layers.Dense(hid_size, activation='relu', name=f'hid{i+1}',
                                kernel_initializer=keras.initializers.Orthogonal(gain=0.01),
                                kernel_regularizer=keras.regularizers.l2(l=l2_coeff)))
@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     # construct save paths
     model_path = dirname(dirname(dirname(__file__))) \
-                 + '/scripts/behavior_cloning/models/'
+                 + '/models/behav_clone/models/'
     model_name = 'ZERO_MAE_const_ortho_l2_actnorm' \
                  + ('FLY' if FLY else '') + f'_ep{EPOCHS}'
 
