@@ -53,7 +53,6 @@ class Approach:
         self.run_name = run_name
         self.path = utils.get_absolute_project_path() + f'graphs/{self.name}/'
         self.metrics_names = metrics_names
-        self._api = Api(project_name)
         self._get_metrics_data()
         self._calculate_statistics()
 
@@ -69,6 +68,7 @@ class Approach:
                 self.metrics.append(metric)
         # fetch from wandb if not on disc
         else:
+            self._api = Api(self.project_name)
             self.metrics = [Metric(name) for name in self.metrics_names]
             self._api.get_metrics(self)
             self._metrics_to_np()

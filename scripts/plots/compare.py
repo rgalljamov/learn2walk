@@ -12,8 +12,6 @@ import numpy as np
 plt = config_pyplot()
 sns.set_style("whitegrid", {'axes.edgecolor': '#ffffff00'})
 
-PR_PD_APS = "pd_approaches"
-
 # metric labels
 MET_SUM_SCORE = '_det_eval/1. AUC stable walks count'
 MET_STABLE_WALKS = '_det_eval/2. stable walks count'
@@ -37,13 +35,6 @@ metric_names = {MET_SUM_SCORE: 'Summary Score', MET_STABLE_WALKS: '# Stable Walk
                 MET_TRAIN_EPLEN:'Train Episode Length', MET_STEPS_TO_CONV:'Steps to Convergence',
                 MET_PI_STD: 'Policy STD'}
 
-project_name = PR_PD_APS
-run_name = 'normed deltas' # 'BSLN - normed target angles', 'normed deltas'
-metrics = [MET_SUM_SCORE, MET_STABLE_WALKS, MET_STEP_REW, MET_MEAN_DIST, MET_REW_POS, MET_REW_VEL,
-           MET_REW_COM, MET_TRAIN_EPRET, MET_TRAIN_STEPREW, MET_TRAIN_DIST, MET_TRAIN_EPLEN,
-           MET_STEPS_TO_CONV, MET_PI_STD]
-
-
 def check_data_for_completeness(approach):
     n_metrics = len(approach.metrics)
     for i, metric in enumerate(approach.metrics):
@@ -56,27 +47,21 @@ def check_data_for_completeness(approach):
             subplot.fill_between(x, metric.mean_fltrd + metric.std, metric.mean_fltrd - metric.std,
                                  color=mean_color, alpha=0.25)
         else:
-            subplot.scatter(np.arange(len(metric.data)), metric.data)
+            subplot.scatter(metric.data, np.arange(len(metric.data)))
         subplot.title.set_text(metric_names[metric.label])
     plt.show()
 
 
-if __name__ == '__main__':
-    api = Api(project_name)
-    approach = Approach('PD_NORM_DELTA', PR_PD_APS, run_name, metrics)
-    # approach.save()
-    # exit(33)
+def download_approach_data():
+    AP_NAME = 'PD_BSLN'
+    project_name = "pd_approaches"
+    run_name = 'BSLN, init std = 1'  # 'BSLN - normed target angles', 'normed deltas'
+    metrics = [MET_SUM_SCORE, MET_STABLE_WALKS, MET_STEP_REW, MET_MEAN_DIST, MET_REW_POS, MET_REW_VEL,
+               MET_REW_COM, MET_TRAIN_EPRET, MET_TRAIN_STEPREW, MET_TRAIN_DIST, MET_TRAIN_EPLEN,
+               MET_STEPS_TO_CONV, MET_PI_STD]
+    approach = Approach(AP_NAME, project_name, run_name, metrics)
     check_data_for_completeness(approach)
-    exit(33)
+    approach.save()
 
-# stable_walks = api.get_metrics(run_names, metric_name)
-#
-# print('shape stable walks is ', stable_walks.shape)
-# for i in range(stable_walks.shape[0]):
-#     plt.plot(stable_walks[i,:])
-# mean = np.mean(stable_walks, axis=0)
-# std = np.std(stable_walks, axis=0)
-# print('mean shape is ', mean.shape)
-# plt.plot(mean)
-# plt.show()
-
+if __name__ == '__main__':
+    download_approach_data()

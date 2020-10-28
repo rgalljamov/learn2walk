@@ -1,7 +1,10 @@
 import wandb
 import numpy as np
 
+MET_STEPS_TO_CONV = 'log_steps_to_convergence'
+
 class Api:
+
     def __init__(self, project_name=None):
         self.api = wandb.Api()
         if project_name is not None:
@@ -20,8 +23,14 @@ class Api:
             i += 1
             history = run.history(samples=int(1e5))
             for metric in approach.metrics:
-                if metric.label == 'log_steps_to_convergence':
-                    metric.append_run(run.summary['log_steps_to_convergence'])
+                sum = run.summary
+                sum_keys = list(sum.keys())
+                if metric.label == MET_STEPS_TO_CONV:
+                    if MET_STEPS_TO_CONV in sum_keys:
+                        metric.append_run(sum[MET_STEPS_TO_CONV])
+                    else:
+                        print('WARNING! One run has not converged!')
+                        metric.append_run(10e6)
                     continue
                 metric.append_run(history[metric.label].dropna().tolist())
 
