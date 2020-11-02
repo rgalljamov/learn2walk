@@ -10,9 +10,17 @@ import seaborn as sns
 import numpy as np
 plt = config_pyplot()
 
-AP_PD_BSLN = 'PD_BSLN'
-AP_NORM_ANGS = 'PD_NORM_ANGS'
-AP_NORM_DELTA = 'PD_NORM_DELTA'
+AP_PD_BSLN = 'pd_bsln'
+AP_NORM_ANGS = 'pd_norm_angs'
+AP_NORM_ANGS_EXPMORE = 'pd_norm_angs_expmore'
+AP_NORM_ANGS_SIGN_EXPMORE = 'pd_norm_angs_sign_expmore'
+AP_NORM_DELTA = 'pd_norm_delta'
+
+run_names_dict = {AP_PD_BSLN:           'BSLN, init std = 1',
+                 AP_NORM_ANGS:          'BSLN - normed target angles',
+                 AP_NORM_ANGS_EXPMORE:  'BSLN - normed target angles - init std = 1',
+                 AP_NORM_ANGS_SIGN_EXPMORE: 'BSLN - SIGN normed target angles - init std = 1',
+                 AP_NORM_DELTA:         'normed deltas'}
 
 # metric labels
 MET_SUM_SCORE = '_det_eval/1. AUC stable walks count'
@@ -33,13 +41,14 @@ metrics = [MET_SUM_SCORE, MET_STABLE_WALKS, MET_STEP_REW, MET_MEAN_DIST, MET_REW
            MET_REW_COM, MET_TRAIN_EPRET, MET_TRAIN_STEPREW, MET_TRAIN_DIST, MET_TRAIN_EPLEN,
            MET_STEPS_TO_CONV, MET_PI_STD]
 
-metric_names = {MET_SUM_SCORE: 'Summary Score', MET_STABLE_WALKS: '# Stable Walks',
+metric_names_dict = {MET_SUM_SCORE: 'Summary Score', MET_STABLE_WALKS: '# Stable Walks',
                 MET_STEP_REW: 'Eval Step Reward', MET_MEAN_DIST: 'Eval Distance [m]',
                 MET_REW_POS: 'Average Position Reward', MET_REW_VEL: 'Average Velocity Reward', 
                 MET_REW_COM: 'Average COM Reward', MET_TRAIN_EPRET: 'Episode Return',
                 MET_TRAIN_STEPREW: 'Train Step Reward', MET_TRAIN_DIST: 'Train Distance [m]',
                 MET_TRAIN_EPLEN:'Train Episode Length', MET_STEPS_TO_CONV:'Steps to Convergence',
                 MET_PI_STD: 'Policy STD'}
+
 
 def check_data_for_completeness(approach, train_steps=16e6):
     n_metrics = len(approach.metrics)
@@ -54,19 +63,31 @@ def check_data_for_completeness(approach, train_steps=16e6):
                                  color=mean_color, alpha=0.25)
         else:
             subplot.scatter(metric.data, np.arange(len(metric.data)))
-        subplot.title.set_text(metric_names[metric.label])
+        subplot.title.set_text(metric_names_dict[metric.label])
     plt.show()
 
 
-def download_approach_data():
-    AP_NAME = 'PD_BSLN'
-    project_name = "pd_approaches"
-    run_name = 'BSLN, init std = 1'  # 'BSLN - normed target angles', 'normed deltas'
+def download_approach_data(approach_name, project_name, run_name):
+    AP_NAME = approach_name # 'PD_BSLN'
+    # project_name = "pd_approaches"
+    # run_name = 'BSLN, init std = 1'  # 'BSLN - normed target angles', 'normed deltas'
     train_steps = 16e6
     approach = Approach(AP_NAME, project_name, run_name, metrics)
     check_data_for_completeness(approach, train_steps)
     approach.save()
 
+def download_multiple_approaches(project_name, approach_names: list):
+    run_names = [run_names_dict[approach] for approach in approach_names]
+    for i in range(len(run_names)):
+        approach_name = approach_names[i]
+        print('Downloading approach:', approach_name)
+        download_approach_data(approach_name, project_name, run_names[i])
+
+def download_PD_approaches():
+    project_name = "pd_approaches"
+    ap_names = [AP_PD_BSLN, AP_NORM_ANGS, AP_NORM_ANGS_EXPMORE,
+                AP_NORM_ANGS_SIGN_EXPMORE, AP_NORM_DELTA]
+    download_multiple_approaches(project_name, ap_names)
 
 def compare_PD_approaches():
     ap_names = [AP_PD_BSLN, AP_NORM_ANGS, AP_NORM_DELTA]
@@ -90,12 +111,12 @@ def compare_PD_approaches():
             subplot.set_xticks(np.arange(5) * 4e6)
             subplot.set_xticklabels([f'{x}M' for x in np.arange(5) * 4])
             # subplot.set_yticks((np.arange(3)+1)*0.25)
-            subplot.set_title(metric_names[metric.label])
+            subplot.set_title(metric_names_dict[metric.label])
             subplot.legend(ap_names)
     plt.show()
 
 
 if __name__ == '__main__':
-    compare_PD_approaches()
-
+    # compare_PD_approaches()
+    download_PD_approaches()
     

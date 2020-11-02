@@ -100,4 +100,5 @@ class Approach:
         metrics = [metric.data for metric in self.metrics]
         keys = [metric.label for metric in self.metrics]
         np.savez(path+'metrics', **{key:metric for key,metric in zip(keys, metrics)})
+        print('Successfully saved approach:', self.name)
 

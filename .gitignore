@@ -24,3 +24,5 @@ scripts/mocap/__pycache__/
 *.pyc
 
 *.stl
+
+graphs/archive/
