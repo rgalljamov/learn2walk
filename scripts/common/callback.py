@@ -361,7 +361,7 @@ class TrainingMonitor(BaseCallback):
                                  * (self.count_stable_walks / cfg.EVAL_N_TIMES) ** 4 \
 
         if False: # runs_20m >= 20 and not cfg.is_mod(cfg.MOD_MIRR_QUERY_VF_ONLY):
-            cfg.modification += f'/{cfg.MOD_MIRR_QUERY_VF_ONLY}'
+            cfg.modification += f'/{cfg.MOD_QUERY_VF_ONLY}'
             utils.log('Starting to query VF only!',
                       [f'Stable walks: {runs_20m}',
                        f'Mean distance: {self.mean_walked_distance}'])

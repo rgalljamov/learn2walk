@@ -62,7 +62,7 @@ def mirror_experiences(rollout, ppo2=None):
         obs_mirred[:, negate_obs_indices] *= -1
         acts_mirred[:, negate_act_indices] *= -1
 
-    QUERY_NETS = cfg.is_mod(cfg.MOD_MIRR_QUERY_NETS)
+    QUERY_NETS = cfg.is_mod(cfg.MOD_QUERY_NETS)
     if QUERY_NETS:
         parameters = ppo2.get_parameter_list()
         parameter_values = np.array(ppo2.sess.run(parameters))
@@ -148,7 +148,7 @@ def mirror_experiences(rollout, ppo2=None):
         values = np.concatenate((values, values_mirred_obs.flatten()))
         neglogpacs = np.concatenate((neglogpacs,
                                      neglogpacs_mirred.flatten()
-                                     if not cfg.is_mod(cfg.MOD_MIRR_QUERY_VF_ONLY)
+                                     if not cfg.is_mod(cfg.MOD_QUERY_VF_ONLY)
                                      else neglogpacs))
     else:
         values = np.concatenate((values, values))
@@ -240,35 +240,38 @@ class CustomPPO2(PPO2):
         obs, returns, masks, actions, values, neglogpacs, \
         states, ep_infos, true_reward = rollout
 
-        # get current PI and VF network parameters
-        parameters = self.get_parameter_list()
-        parameter_values = np.array(self.sess.run(parameters))
-        pi_w0, pi_w1, pi_w2 = parameter_values[[0, 2, 8]]
-        pi_b0, pi_b1, pi_b2 = parameter_values[[1, 3, 9]]
-        vf_w0, vf_w1, vf_w2 = parameter_values[[4, 6, 13]]
-        vf_b0, vf_b1, vf_b2 = parameter_values[[5, 7, 14]]
-        pi_logstd = parameter_values[10]
+        QUERY_NETS = cfg.is_mod(cfg.MOD_QUERY_NETS)
 
-        def relu(x): return np.maximum(x, 0)
+        if QUERY_NETS:
+            # get current PI and VF network parameters
+            parameters = self.get_parameter_list()
+            parameter_values = np.array(self.sess.run(parameters))
+            pi_w0, pi_w1, pi_w2 = parameter_values[[0, 2, 8]]
+            pi_b0, pi_b1, pi_b2 = parameter_values[[1, 3, 9]]
+            vf_w0, vf_w1, vf_w2 = parameter_values[[4, 6, 13]]
+            vf_b0, vf_b1, vf_b2 = parameter_values[[5, 7, 14]]
+            pi_logstd = parameter_values[10]
 
-        # get values of the mirrored observations
-        def get_value(obs):
-            vf_hid1 = relu(np.matmul(obs, vf_w0) + vf_b0)
-            vf_hid2 = relu(np.matmul(vf_hid1, vf_w1) + vf_b1)
-            values = np.matmul(vf_hid2, vf_w2) + vf_b2
-            return values.flatten()
+            def relu(x): return np.maximum(x, 0)
 
-        def get_action_means(obs):
-            pi_hid1 = relu(np.matmul(obs, pi_w0) + pi_b0)
-            pi_hid2 = relu(np.matmul(pi_hid1, pi_w1) + pi_b1)
-            means = np.matmul(pi_hid2, pi_w2) + pi_b2
-            return means
+            # get values of the mirrored observations
+            def get_value(obs):
+                vf_hid1 = relu(np.matmul(obs, vf_w0) + vf_b0)
+                vf_hid2 = relu(np.matmul(vf_hid1, vf_w1) + vf_b1)
+                values = np.matmul(vf_hid2, vf_w2) + vf_b2
+                return values.flatten()
 
-        def neglogp(acts, mean, logstd):
-            std = np.exp(logstd)
-            return 0.5 * np.sum(np.square((acts - mean) / std), axis=-1) \
-                   + 0.5 * np.log(2.0 * np.pi) * np.array(acts.shape[-1], dtype=np.float) \
-                   + np.sum(logstd, axis=-1)
+            def get_action_means(obs):
+                pi_hid1 = relu(np.matmul(obs, pi_w0) + pi_b0)
+                pi_hid2 = relu(np.matmul(pi_hid1, pi_w1) + pi_b1)
+                means = np.matmul(pi_hid2, pi_w2) + pi_b2
+                return means
+
+            def neglogp(acts, mean, logstd):
+                std = np.exp(logstd)
+                return 0.5 * np.sum(np.square((acts - mean) / std), axis=-1) \
+                       + 0.5 * np.log(2.0 * np.pi) * np.array(acts.shape[-1], dtype=np.float) \
+                       + np.sum(logstd, axis=-1)
 
         for old_rollout in self.replay_buf:
             if old_rollout is None: continue
@@ -277,22 +280,24 @@ class CustomPPO2(PPO2):
             self.prev_values, self.prev_neglogpacs, self.prev_states, \
             self.prev_ep_infos, self.prev_true_reward = old_rollout
 
-            act_means = get_action_means(self.prev_obs)
-            self.prev_values = get_value(self.prev_obs)
-            self.prev_neglogpacs = neglogp(self.prev_actions, act_means, pi_logstd)
+            if QUERY_NETS:
+                self.prev_values = get_value(self.prev_obs)
+                if not cfg.is_mod(cfg.MOD_QUERY_VF_ONLY):
+                    act_means = get_action_means(self.prev_obs)
+                    self.prev_neglogpacs = neglogp(self.prev_actions, act_means, pi_logstd)
 
-            percentiles = [50, 75, 90, 95, 99, 100]
-            if np.random.randint(0, 100, 1) == 77:
-                log('Neglogpacs Comparison (before clipping!)',
-                    [f'neglogpacs orig: min {np.min(neglogpacs)}, '
-                     f'mean {np.mean(neglogpacs)}, max {np.max(neglogpacs)}',
-                     f'neglogpacs prev: min {np.min(self.prev_neglogpacs)}, '
-                     f'mean {np.mean(self.prev_neglogpacs)}, '
-                     f'max {np.max(self.prev_neglogpacs)}',
-                     f'---\npercentiles {percentiles}:',
-                     f'orig percentiles: {np.percentile(neglogpacs, percentiles)}',
-                     f'prev percentiles: {np.percentile(self.prev_neglogpacs, percentiles)}',
-                     ])
+                percentiles = [50, 75, 90, 95, 99, 100]
+                if np.random.randint(0, 100, 1) == 77:
+                    log('Neglogpacs Comparison (before clipping!)',
+                        [f'neglogpacs orig: min {np.min(neglogpacs)}, '
+                         f'mean {np.mean(neglogpacs)}, max {np.max(neglogpacs)}',
+                         f'neglogpacs prev: min {np.min(self.prev_neglogpacs)}, '
+                         f'mean {np.mean(self.prev_neglogpacs)}, '
+                         f'max {np.max(self.prev_neglogpacs)}',
+                         f'---\npercentiles {percentiles}:',
+                         f'orig percentiles: {np.percentile(neglogpacs, percentiles)}',
+                         f'prev percentiles: {np.percentile(self.prev_neglogpacs, percentiles)}',
+                         ])
 
             obs = np.concatenate((obs, self.prev_obs))
             actions = np.concatenate((actions, self.prev_actions))
@@ -302,11 +307,11 @@ class CustomPPO2(PPO2):
             neglogpacs = np.concatenate((neglogpacs, self.prev_neglogpacs))
 
         # remove mirrored experiences with too high neglogpacs
-        FILTER_MIRRED_EXPS = True
+        FILTER_MIRRED_EXPS = True and QUERY_NETS and not cfg.is_mod(cfg.MOD_QUERY_VF_ONLY)
         if FILTER_MIRRED_EXPS:
-            n_mirred_exps = int(len(neglogpacs) / (cfg.replay_buf_size+1))
-            max_allowed_neglogpac = 5 * np.percentile(neglogpacs[:n_mirred_exps], 99)
-            delete_act_indices = np.where(neglogpacs[n_mirred_exps:] > max_allowed_neglogpac)[0] + n_mirred_exps
+            n_fresh_exps = int(len(neglogpacs) / (cfg.replay_buf_size+1))
+            max_allowed_neglogpac = 5 * np.percentile(neglogpacs[:n_fresh_exps], 99)
+            delete_act_indices = np.where(neglogpacs[n_fresh_exps:] > max_allowed_neglogpac)[0] + n_fresh_exps
             if np.random.randint(0, 10, 1)[0] == 7:
                 log(f'Deleted {len(delete_act_indices)} mirrored actions '
                     f'with neglogpac > {max_allowed_neglogpac}')
@@ -365,11 +370,6 @@ class CustomPPO2(PPO2):
 
             for update in range(1, n_updates + 1):
                 minibatch_size = cfg.minibatch_size # self.n_batch // self.nminibatches
-                if self.n_batch % self.nminibatches != 0:
-                    log("The number of minibatches (`nminibatches`) "
-                        "is not a factor of the total number of samples "
-                        "collected per rollout (`n_batch`), "
-                        "which is ok, as still all experiences will be used!")
                 t_start = time.time()
                 frac = 1.0 - (update - 1.0) / n_updates
                 lr_now = self.learning_rate(frac)
@@ -449,6 +449,11 @@ class CustomPPO2(PPO2):
                 mb_loss_vals = []
                 self.n_batch = obs.shape[0]
                 self.nminibatches = self.n_batch / minibatch_size
+                if self.n_batch % minibatch_size != 0:
+                    log("CAUTION!", ['Last minibatch might be too small!',
+                                     f'Batch Size: \t{self.n_batch}',
+                                     f'Minibatch Size:\t{minibatch_size}',
+                                     f'Modulo: \t\t {self.n_batch % minibatch_size}'])
                 if states is None:  # nonrecurrent version
                     update_fac = self.n_batch // self.nminibatches // self.noptepochs + 1
                     inds = np.arange(self.n_batch)
