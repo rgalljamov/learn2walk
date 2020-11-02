@@ -73,6 +73,7 @@ MOD_PUNISH_UNREAL_TARGET_ANGS = 'pun_unreal_angs'
 MOD_PI_OUT_DELTAS = 'pi_deltas'
 # normalize actions: programmatically set action space to be [-1,1]
 MOD_NORM_ACTS = 'norm_acts'
+MOD_NORM_CONSIDER_SIGN = 'norm_with_sign'
 # init weights in the policy output layer to zero (action=qpos+pi_out)
 MOD_ZERO_OUT = 'zero_out' # - not tried yet
 # use a tanh activation function at the output layer
@@ -176,13 +177,13 @@ alive_bonus = 0.2 * rew_scale
 EVAL_N_TIMES = 20
 rew_delta_scale = 20
 
-wb_project_name = 'mrr_phase3d'
+wb_project_name = 'pd_approaches'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               f'MRR steps, half BS'
+               f'BSLN - normed target angles'
+               # f'NEW Replay BUF{replay_buf_size}, query VF, ent_coef{ent_coef}, adjust BS'
                # f'exp clip decay (VF too): {clip_start} - {clip_end}'
                # f'PI E2ENC {enc_layer_sizes}, pi {hid_layer_sizes_pi[0]}'
                # f'exp noptepochs schedule: slope {opt_eps_slope}, {opt_eps_start} - {opt_eps_end}'
-               # f'Replay BUF{replay_buf_size}, retain BS, ent_coef{ent_coef}, query both, delete pacs'
                # f'MRR no query, init logstd {init_logstd}, half ent_coef{ent_coef}'
 wb_run_notes = f'' \
                'Changed evaluation of stable walks to consider 18m without falling as stable. '\
@@ -219,7 +220,7 @@ else:
 # choose environment
 envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
 env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 4
+env_index = 2
 env_id = envs[env_index]
 env_name = env_names[env_index]
 is_torque_model = env_name in ['mim_trq2d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']

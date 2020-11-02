@@ -118,9 +118,21 @@ class MimicEnv:
             a = qpos_act_before_step + a
         elif cfg.is_mod(cfg.MOD_NORM_ACTS):
             qpos_min, qpos_max = self.get_qpos_ranges()
-            act_prct = (a + 1) / 2
-            qpos_ranges = (qpos_max - qpos_min)
-            a = qpos_min + act_prct * qpos_ranges
+            # qpos_min: [-0.8727 -0.7854  0.     -0.3491 -0.8727 -0.0873  0.     -0.3491]
+            # qpos_max: [0.8727  0.0873   2.618  0.6981  0.8727  0.7854   2.618  0.6981]
+            if cfg.is_mod(cfg.MOD_NORM_CONSIDER_SIGN):
+                # todo: add mean actions. this way we shift the normal distribution to be around the mean...
+                a_unnormalized = []
+                for i, act in enumerate(a):
+                    if act > 0:
+                        a_unnormalized.append(qpos_max[i]*act)
+                    else:
+                        a_unnormalized.append(qpos_min[i]*np.abs(act))
+                a = np.array(a_unnormalized)
+            else:
+                act_prct = (a + 1) / 2
+                qpos_ranges = (qpos_max - qpos_min)
+                a = qpos_min + act_prct * qpos_ranges
 
         if cfg.is_mod(cfg.MOD_TORQUE_DELTAS):
             last_action = np.copy(self.sim.data.actuator_force)
