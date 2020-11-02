@@ -96,7 +96,7 @@ MOD_REF_STATS_ET = 'ref_et'
 # mirror experiences
 MOD_MIRROR_EXPS = 'mirr_exps'
 # query the policy and the value functions to get neglogpacs and values
-MOD_MIRR_QUERY_NETS = 'query_nets'
+MOD_QUERY_NETS = 'query_nets'
 # improve reward function by normalizing individual joints etc.
 MOD_IMPROVE_REW = 'improve_rew'
 # use linear instead of exponential reward to have better gradient away from trajecs
@@ -126,16 +126,16 @@ MOD_L2_REG = 'l2_reg'
 MOD_CONST_EXPLORE = 'const_explor'
 # learn policy for right step only, mirror states and actions for the left step
 MOD_MIRR_STEPS = 'steps_mirr'
-MOD_MIRR_QUERY_VF_ONLY = 'query_vf_only'
+MOD_QUERY_VF_ONLY = 'query_vf_only'
 MOD_REW_DELTA = 'rew_delta'
 MOD_EXP_REPLAY = 'exp_replay'
-replay_buf_size = 3
+replay_buf_size = 1
 MOD_N_OPT_EPS_SCHED = 'opt_eps_sched'
 
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([MOD_MIRR_STEPS,
+modification = mod([MOD_NORM_ACTS,
     MOD_CUSTOM_POLICY,
     ])
 assert_mod_compatibility()
@@ -246,7 +246,7 @@ if is_mod(MOD_MIRR_STEPS): batch_size = int(batch_size/2)
 n_mini_batches = int(batch_size / minibatch_size) * (2 if mirr_exps else 1)
 # if using a replay buffer, we have to collect less experiences
 # to reach the same batch size
-# if exp_replay: batch_size = int(batch_size/(replay_buf_size+1))
+if exp_replay: batch_size = int(batch_size/(replay_buf_size+1))
 
 
 lr_start = 2000 if is_mod(MOD_EXP_LR_SCHED) else 500
