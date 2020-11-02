@@ -10,17 +10,19 @@ import seaborn as sns
 import numpy as np
 plt = config_pyplot()
 
-AP_PD_BSLN = 'pd_bsln'
-AP_NORM_ANGS = 'pd_norm_angs'
-AP_NORM_ANGS_EXPMORE = 'pd_norm_angs_expmore'
-AP_NORM_ANGS_SIGN_EXPMORE = 'pd_norm_angs_sign_expmore'
-AP_NORM_DELTA = 'pd_norm_delta'
+APD_BSLN = 'pd_bsln'
+APD_NORM_ANGS = 'pd_norm_angs'
+APD_NORM_ANGS_EXPMORE = 'pd_norm_angs_expmore'
+APD_NORM_ANGS_SIGN_EXPMORE = 'pd_norm_angs_sign_expmore'
+APD_NORM_DELTA = 'pd_norm_delta'
+APT_BSLN = 'trq_bsln'
 
-run_names_dict = {AP_PD_BSLN:           'BSLN, init std = 1',
-                 AP_NORM_ANGS:          'BSLN - normed target angles',
-                 AP_NORM_ANGS_EXPMORE:  'BSLN - normed target angles - init std = 1',
-                 AP_NORM_ANGS_SIGN_EXPMORE: 'BSLN - SIGN normed target angles - init std = 1',
-                 AP_NORM_DELTA:         'normed deltas'}
+run_names_dict = {APD_BSLN: 'BSLN, init std = 1',
+                  APD_NORM_ANGS: 'BSLN - normed target angles',
+                  APD_NORM_ANGS_EXPMORE: 'BSLN - normed target angles - init std = 1',
+                  APD_NORM_ANGS_SIGN_EXPMORE: 'BSLN - SIGN normed target angles - init std = 1',
+                  APD_NORM_DELTA: 'normed deltas',
+                  APT_BSLN: 'bsln'}
 
 # metric labels
 MET_SUM_SCORE = '_det_eval/1. AUC stable walks count'
@@ -50,29 +52,30 @@ metric_names_dict = {MET_SUM_SCORE: 'Summary Score', MET_STABLE_WALKS: '# Stable
                 MET_PI_STD: 'Policy STD'}
 
 
-def check_data_for_completeness(approach, train_steps=16e6):
+def check_data_for_completeness(approach, mio_train_steps=16):
     n_metrics = len(approach.metrics)
     for i, metric in enumerate(approach.metrics):
         subplot = plt.subplot(3, int(n_metrics / 3) + 1, i + 1)
         if isinstance(metric.mean, np.ndarray) and len(metric.mean) > 1:
-            x = np.linspace(0, train_steps, len(metric.mean))
+            x = np.linspace(0, mio_train_steps*1e6, len(metric.mean))
             subplot.plot(x, metric.mean)
             subplot.plot(x, metric.mean_fltrd)
             mean_color = subplot.get_lines()[-1].get_color()
             subplot.fill_between(x, metric.mean_fltrd + metric.std, metric.mean_fltrd - metric.std,
                                  color=mean_color, alpha=0.25)
+            tick_distance_mio = mio_train_steps / 4
         else:
             subplot.scatter(metric.data, np.arange(len(metric.data)))
         subplot.title.set_text(metric_names_dict[metric.label])
+        subplot.set_xticks(np.arange(5) * tick_distance_mio * 1e6)
+        subplot.set_xticklabels([f'{x}M' for x in np.arange(5) * tick_distance_mio])
     plt.show()
 
 
-def download_approach_data(approach_name, project_name, run_name):
-    AP_NAME = approach_name # 'PD_BSLN'
-    # project_name = "pd_approaches"
-    # run_name = 'BSLN, init std = 1'  # 'BSLN - normed target angles', 'normed deltas'
-    train_steps = 16e6
-    approach = Approach(AP_NAME, project_name, run_name, metrics)
+def download_approach_data(approach_name, project_name, run_name=None):
+    train_steps = 16 if project_name == 'pd_approaches' else 8
+    if run_name is None: run_name = run_names_dict[approach_name]
+    approach = Approach(approach_name, project_name, run_name, metrics)
     check_data_for_completeness(approach, train_steps)
     approach.save()
 
@@ -85,12 +88,12 @@ def download_multiple_approaches(project_name, approach_names: list):
 
 def download_PD_approaches():
     project_name = "pd_approaches"
-    ap_names = [AP_PD_BSLN, AP_NORM_ANGS, AP_NORM_ANGS_EXPMORE,
-                AP_NORM_ANGS_SIGN_EXPMORE, AP_NORM_DELTA]
+    ap_names = [APD_BSLN, APD_NORM_ANGS, APD_NORM_ANGS_EXPMORE,
+                APD_NORM_ANGS_SIGN_EXPMORE, APD_NORM_DELTA]
     download_multiple_approaches(project_name, ap_names)
 
 def compare_PD_approaches():
-    ap_names = [AP_PD_BSLN, AP_NORM_ANGS, AP_NORM_DELTA]
+    ap_names = [APD_BSLN, APD_NORM_ANGS, APD_NORM_DELTA]
     aps = [Approach(name) for name in ap_names]
     metric_labels = [MET_TRAIN_EPRET]
     n_metrics = len(metric_labels)
@@ -118,5 +121,6 @@ def compare_PD_approaches():
 
 if __name__ == '__main__':
     # compare_PD_approaches()
-    download_PD_approaches()
-    
+    # download_PD_approaches()
+    # download_approach_data(AP_NORM_ANGS, 'pd_approaches', run_names_dict[AP_NORM_ANGS])
+    download_approach_data(APT_BSLN, 'final3d_trq')
