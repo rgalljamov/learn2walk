@@ -4,11 +4,12 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 from scripts.plots.data_struct import Approach
+from scripts.plots.plot import plot_violin as violin
 from scripts.common.utils import config_pyplot, change_plot_properties
 from scripts.plots import plot
 import seaborn as sns
 import numpy as np
-plt = config_pyplot(fullscreen=False)
+plt = config_pyplot(fig_size=False)
 
 APD_BSLN = 'pd_bsln'
 APD_NORM_ANGS = 'pd_norm_angs'
@@ -257,7 +258,7 @@ def compare_baselines_main_plots():
     n_metrics = len(metric_labels)
     font_size, tick_size, legend_size = \
         change_plot_properties(font_size=-2, tick_size=-3, legend_fontsize=-2, line_width=+1)
-    plt.rcParams.update({'figure.autolayout': False})
+    # plt.rcParams.update({'figure.autolayout': False})
     fig, subplots = plt.subplots(1, n_metrics)
     for i, metric_label in enumerate(metric_labels):
         subplot = subplots[i]
@@ -283,8 +284,7 @@ def compare_baselines_main_plots():
     x_label = r'Training Timesteps [x$10^6$]'
     # plt.gcf().tight_layout(rect=[0.1, 0.5, 0.95, 1])
     fig.text(0.5, 0.04, x_label, ha='center', fontsize=font_size-2)
-    # subplots[1].set_xlabel(x_label)
-    plt.subplots_adjust(wspace=0.25, top=0.99, left=0.04, right=0.99, bottom=0.18)
+    # plt.subplots_adjust(wspace=0.25, top=0.99, left=0.04, right=0.99, bottom=0.18)
     subplots[-1].legend([approach_names_dict[ap] for ap in ap_names])
     plt.show()
 
@@ -372,12 +372,72 @@ def compare_baselines_training_curves():
     plt.show()
 
 
+def compare_baselines_violin():
+    # for the APPENDIX
+    ap_names = [APD_BSLN, APT_BSLN]
+    approach_names_dict[APT_BSLN] = 'Joint Torque'
+    approach_names_dict[APD_BSLN] = 'Target Angles'
+    aps = [Approach(name) for name in ap_names]
+    metric_label = MET_STEPS_TO_CONV
+    font_size, tick_size, legend_size = \
+        change_plot_properties(font_size=2, tick_size=+3, legend_fontsize=-2, line_width=+1)
+    plt.rcParams.update({'figure.autolayout': False})
+
+    metrics = [metric for ap in aps for metric in ap.metrics
+               if metric.label == metric_label]
+    names = [approach_names_dict[ap] for ap in ap_names]
+    means = []
+    hist_data = []
+    for metric in metrics:
+        means.append(metric.mean)
+        hist_data.append(metric.data)
+    violin(names, means, hist_data, '',
+           metric_names_dict[metric.label] + ' [x$10^6$]', text_size=font_size)
+    tick_distance_mio = 2
+    arange = np.arange(2, 8)
+    plt.gca().set_yticks(arange * tick_distance_mio * 1e6)
+    plt.gca().set_yticklabels([f'{x}' for x in arange * tick_distance_mio])
+
+    # plt.subplots_adjust(wspace=0.4, top=0.99, left=0.04, right=0.99, bottom=0.18)
+    plt.show()
+
+
+def compare_baselines_violin():
+    # for the APPENDIX
+    ap_names = [APD_BSLN, APT_BSLN]
+    approach_names_dict[APT_BSLN] = 'Joint Torque'
+    approach_names_dict[APD_BSLN] = 'Target Angles'
+    aps = [Approach(name) for name in ap_names]
+    metric_label = MET_STEPS_TO_CONV
+    font_size, tick_size, legend_size = \
+        change_plot_properties(font_size=2, tick_size=+3, legend_fontsize=-2, line_width=+1)
+    plt.rcParams.update({'figure.autolayout': False})
+
+    metrics = [metric for ap in aps for metric in ap.metrics
+               if metric.label == metric_label]
+    names = [approach_names_dict[ap] for ap in ap_names]
+    means = []
+    hist_data = []
+    for metric in metrics:
+        means.append(metric.mean)
+        hist_data.append(metric.data)
+    violin(names, means, hist_data, '',
+           metric_names_dict[metric.label] + ' [x$10^6$]', text_size=font_size)
+    tick_distance_mio = 2
+    arange = np.arange(2, 8)
+    plt.gca().set_yticks(arange * tick_distance_mio * 1e6)
+    plt.gca().set_yticklabels([f'{x}' for x in arange * tick_distance_mio])
+
+    # plt.subplots_adjust(wspace=0.4, top=0.99, left=0.04, right=0.99, bottom=0.18)
+    plt.show()
+
 if __name__ == '__main__':
     # show_summary_score_advantages()
     # compare_baselines_main_plots
-    compare_baselines_training_curves()
+    # compare_baselines_training_curves()
     # compare_baselines_rews()
     # compare_baselines_8plots()
+    compare_baselines_violin()
     # compare_action_spaces()
     # compare_all_metrics()
     # download_PD_approaches()

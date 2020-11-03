@@ -39,7 +39,7 @@ PLOT_FONT_SIZE = 22
 PLOT_TICKS_SIZE = 18
 PLOT_LINE_WIDTH = 2
 
-def config_pyplot(fullscreen=False, font_size=PLOT_FONT_SIZE, tick_size=PLOT_TICKS_SIZE,
+def config_pyplot(fig_size=0.25, font_size=PLOT_FONT_SIZE, tick_size=PLOT_TICKS_SIZE,
                   legend_fontsize=PLOT_TICKS_SIZE+4):
     """ set desired plotting settings and returns a pyplot object
      @ return: pyplot object with seaborn style and configured rcParams"""
@@ -59,11 +59,13 @@ def config_pyplot(fullscreen=False, font_size=PLOT_FONT_SIZE, tick_size=PLOT_TIC
                              '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Report/figures/wandb_scratch'})
                               # '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/report'})
 
-    if fullscreen:
+    if fig_size == 1:
         # plot figure in full screen mode (scaled down aspect ratio of my screen)
         plt.rcParams['figure.figsize'] = (19.2, 10.8)
-    else:
+    elif fig_size == 0.5:
         plt.rcParams['figure.figsize'] = (19.2, 5.4)
+    elif fig_size == 0.25:
+        plt.rcParams['figure.figsize'] = (9.6, 5.4)
 
     return plt
 
