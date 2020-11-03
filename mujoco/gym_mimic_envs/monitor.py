@@ -1,7 +1,8 @@
 import gym
 import numpy as np
 import seaborn as sns
-from scripts.common.utils import config_pyplot, is_remote, exponential_running_smoothing as smooth
+from scripts.common.utils import config_pyplot, is_remote, \
+    exponential_running_smoothing as smooth, change_plot_properties
 from gym_mimic_envs.mimic_env import MimicEnv
 from stable_baselines.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
 
@@ -210,11 +211,12 @@ class Monitor(gym.Wrapper):
         """
         plt = self.plt
         plt.rcParams.update({'figure.autolayout': False})
+        change_plot_properties(-4, -4, -4, 1)
         sns.set_style("whitegrid", {'axes.edgecolor':'#ffffff00'})
         names = ['Simulation'] # line names (legend)
         second_y_axis_pos = 1.0
 
-        ONLY_ACTUATED_JOINTS = True
+        ONLY_ACTUATED_JOINTS = False
         if ONLY_ACTUATED_JOINTS:
             inds = list(range(6,14)) + list(range(20, 27))
             self.trajecs_buffer = self.trajecs_buffer[:, inds, :]

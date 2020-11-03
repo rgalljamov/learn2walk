@@ -4,9 +4,10 @@ import numpy as np
 import os
 
 class Metric:
-    def __init__(self, label, approach_name='approach'):
+    def __init__(self, label, approach_name='approach', train_duration_mio=None):
         self.label = label
         self.approach_name = approach_name
+        self.train_duration_mio = train_duration_mio
         # runs x recorded points for metric
         self.data = []
 
@@ -56,6 +57,7 @@ class Approach:
     def __init__(self, approach_name, project_name=None, run_name=None, metrics_names=[]):
         self.name = approach_name
         self.project_name = project_name
+        self.train_duration_mio = 16 if 'pd' in approach_name else 8
         self.run_name = run_name
         self.path = utils.get_absolute_project_path() + f'graphs/{self.name}/'
         self.metrics_names = metrics_names
@@ -66,17 +68,27 @@ class Approach:
         # first try to load from disc
         metrics_path = self.path + 'metrics.npz'
         if os.path.exists(metrics_path):
+            from scripts.plots.compare import MET_SUM_SCORE
+            from scripts.common.callback import EVAL_INTERVAL_RARE
             self.metrics = []
             npz = np.load(metrics_path)
-            for metric_name in npz.keys():
-                self.metrics_names.append(metric_name)
-                metric = Metric(metric_name, self.name)
-                metric.set_np_data(npz[metric_name])
+            for metric_label in npz.keys():
+                self.metrics_names.append(metric_label)
+                metric = Metric(metric_label, self.name, self.train_duration_mio)
+                metric_data = npz[metric_label]
+                # normalize summary score
+                if metric_label == MET_SUM_SCORE:
+                    max_score = self.train_duration_mio*1e6/EVAL_INTERVAL_RARE
+                    metric_data /= 0.5*max_score
+                    # normalize training duration to range [0,1]
+                    metric_data *= 16/self.train_duration_mio
+                    metric_data *= 100 # show in percent
+                metric.set_np_data(metric_data)
                 self.metrics.append(metric)
         # fetch from wandb if not on disc
         else:
             self._api = Api(self.project_name)
-            self.metrics = [Metric(name, self.name) for name in self.metrics_names]
+            self.metrics = [Metric(name, self.name, self.train_duration_mio) for name in self.metrics_names]
             self._api.get_metrics(self)
             self._metrics_to_np()
 
