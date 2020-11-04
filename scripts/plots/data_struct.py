@@ -88,6 +88,8 @@ class Approach:
                     metric_data *= 100 # show in percent
                 elif metric_label == MET_STEPS_TO_CONV:
                     self.steps_to_conv = metric_data
+                    self.steps_to_conv_mean = np.mean(metric_data)
+                    self.steps_to_conv_std = np.std(metric_data)
                 metric.set_np_data(metric_data)
                 self.metrics.append(metric)
         # fetch from wandb if not on disc
@@ -126,6 +128,8 @@ class Approach:
         for metric in self.metrics:
             if metric.label == MET_SUM_SCORE:
                 self.final_sum_scores = metric.data[:, -1]
+                self.final_sum_score_mean = np.mean(self.final_sum_scores)
+                self.final_sum_score_std = np.std(self.final_sum_scores)
             elif metric.label == MET_STEP_REW:
                 self.final_rews = metric.data[:, -1]
                 # Rew at convergence
@@ -151,11 +155,23 @@ class Approach:
                 rew75_indices[rew75_indices==0] = n_points
                 self.steps_to_75rew = rew75_indices / n_points * self.train_duration_mio
                 self.steps_to_75rew_mean = np.mean(self.steps_to_75rew)
-                self.steps_to_75rew_mean = np.mean(self.steps_to_75rew)
+                self.steps_to_75rew_std = np.std(self.steps_to_75rew)
 
-        print('\nApproach: ', self.name)
-        print('Converged after percent: ', conv_steps_frac)
-        print('indices: ', conv_index)
-        print('Rews MEAN at CONV: ', self.rews_at_conv_mean)
-        print('Rews STD at CONV: ', self.rews_at_conv_std)
-        print('75 Rews reached after: ', self.steps_to_75rew)
+        # print('\nApproach: ', self.name)
+        # print('Converged after percent: ', conv_steps_frac)
+        # print('indices: ', conv_index)
+        # print('Rews MEAN at CONV: ', self.rews_at_conv_mean)
+        # print('Rews STD at CONV: ', self.rews_at_conv_std)
+        # print('75 Rews reached after: ', self.steps_to_75rew)
+
+        # round all metrics
+        self.final_sum_score_mean = np.round(self.final_sum_score_mean, 1)
+        self.final_sum_score_std = np.round(self.final_sum_score_std, 1)
+        self.steps_to_conv_mean = int(self.steps_to_conv_mean)
+        self.steps_to_conv_std = int(self.steps_to_conv_std)
+        self.steps_to_75rew_mean = np.round(self.steps_to_75rew_mean, 1)
+        self.steps_to_75rew_std = np.round(self.steps_to_75rew_std,1)
+        self.rews_at_conv_mean = np.round(self.rews_at_conv_mean, 2)
+        self.rews_at_conv_std = np.round(self.rews_at_conv_std, 2)
+        self.rews_at_end_mean = np.round(self.rews_at_end_mean, 2)
+        self.rews_at_end_std = np.round(self.rews_at_end_std, 2)

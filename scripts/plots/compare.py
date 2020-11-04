@@ -250,16 +250,19 @@ def compare_baselines_8plots():
     plt.show()
 
 
-def compare_baselines_main_plots():
-    ap_names = [APD_BSLN, APT_BSLN]
-    approach_names_dict[APT_BSLN] = 'Joint Torque'
+def compare_main_plots():
+    plt = config_pyplot(fig_size=0.5)
+    ap_names = [APD_BSLN, APD_NORM_ANGS, APD_NORM_DELTA]
     approach_names_dict[APD_BSLN] = 'Target Angles'
+    approach_names_dict[APD_NORM_ANGS] = 'Normalized\nTarget Angles'
+    approach_names_dict[APD_NORM_DELTA] = 'Normalized\nAngle Deltas'
     aps = [Approach(name) for name in ap_names]
-    metric_labels = [MET_SUM_SCORE, MET_STABLE_WALKS, MET_STEP_REW, MET_TRAIN_EPRET]
+    # metric_labels = [MET_SUM_SCORE, MET_STABLE_WALKS, MET_STEP_REW, MET_TRAIN_EPRET]
+    metric_labels = [MET_REW_POS, MET_REW_VEL, MET_REW_COM]
     n_metrics = len(metric_labels)
     font_size, tick_size, legend_size = \
-        change_plot_properties(font_size=-2, tick_size=-3, legend_fontsize=-2, line_width=+1)
-    # plt.rcParams.update({'figure.autolayout': False})
+        change_plot_properties(font_size=0, tick_size=-2, legend_fontsize=-3, line_width=+1)
+    plt.rcParams.update({'figure.autolayout': False})
     fig, subplots = plt.subplots(1, n_metrics)
     for i, metric_label in enumerate(metric_labels):
         subplot = subplots[i]
@@ -285,7 +288,7 @@ def compare_baselines_main_plots():
     x_label = r'Training Timesteps [x$10^6$]'
     # plt.gcf().tight_layout(rect=[0.1, 0.5, 0.95, 1])
     fig.text(0.5, 0.04, x_label, ha='center', fontsize=font_size-2)
-    # plt.subplots_adjust(wspace=0.25, top=0.99, left=0.04, right=0.99, bottom=0.18)
+    plt.subplots_adjust(wspace=0.2, top=0.99, left=0.04, right=0.99, bottom=0.18)
     subplots[-1].legend([approach_names_dict[ap] for ap in ap_names])
     plt.show()
 
@@ -405,14 +408,14 @@ def compare_baselines_violin():
 
 def compare_pd_violin():
     # for the APPENDIX
-    ap_names = [APD_BSLN, APD_NORM_DELTA, APD_NORM_ANGS]
+    ap_names = [APD_BSLN, APD_NORM_ANGS, APD_NORM_DELTA]
     approach_names_dict[APD_BSLN] = 'Target Angles'
-    approach_names_dict[APD_NORM_ANGS] = 'Normalized Target Angles'
-    approach_names_dict[APD_NORM_DELTA] = 'Normalized Angle Deltas'
+    approach_names_dict[APD_NORM_ANGS] = 'Normalized\nTarget Angles'
+    approach_names_dict[APD_NORM_DELTA] = 'Normalized\nAngle Deltas'
     aps = [Approach(name) for name in ap_names]
     metric_label = MET_STEPS_TO_CONV
     font_size, tick_size, legend_size = \
-        change_plot_properties(font_size=2, tick_size=+3, legend_fontsize=-2, line_width=+1)
+        change_plot_properties(font_size=5, tick_size=7, line_width=+1)
     plt.rcParams.update({'figure.autolayout': False})
 
     metrics = [metric for ap in aps for metric in ap.metrics
@@ -428,7 +431,6 @@ def compare_pd_violin():
     arange = np.arange(2, 7) * 2 + 1
     plt.gca().set_yticks(arange * 1e6)
     plt.gca().set_yticklabels([f'{x}' for x in arange])
-
     # plt.subplots_adjust(wspace=0.4, top=0.99, left=0.04, right=0.99, bottom=0.18)
     plt.show()
 
@@ -439,29 +441,26 @@ def plot_metrics_table():
     # approach_names_dict[APT_BSLN] = 'Joint Torque'
     # approach_names_dict[APD_BSLN] = 'Target Angles'
     aps = [Approach(name) for name in ap_names]
-    metric_labels = [MET_TRAIN_EPRET, MET_TRAIN_STEPREW, MET_TRAIN_DIST, MET_TRAIN_EPLEN]
-    n_metrics = len(metric_labels)
-    font_size, tick_size, legend_size = \
-        change_plot_properties(font_size=-2, tick_size=-3, legend_fontsize=-2, line_width=+1)
-    plt.rcParams.update({'figure.autolayout': False})
-    fig, subplots = plt.subplots(1, n_metrics)
-    for i, metric_label in enumerate(metric_labels):
-        subplot = subplots[i]
-        metrics = [metric for ap in aps for metric in ap.metrics
-                   if metric.label == metric_label]
-
+    for ap in aps:
+        print('\nApproach:', ap.name)
+        print(f'{ap.final_sum_score_mean} \pm {ap.final_sum_score_std} \n'
+              f'{ap.steps_to_conv_mean} \pm {ap.steps_to_conv_std} \n'
+              f'{ap.rews_at_conv_mean} \pm {ap.rews_at_conv_std} \n'
+              f'{ap.steps_to_75rew_mean} \pm {ap.steps_to_75rew_std} \n'
+              f'{ap.rews_at_end_mean} \pm {ap.rews_at_end_std} \n'
+              )
 
 
 if __name__ == '__main__':
     # plot_metrics_table()
     # show_summary_score_advantages()
-    # compare_baselines_main_plots
+    # compare_main_plots()
     # compare_baselines_training_curves()
     # compare_baselines_rews()
     # compare_baselines_8plots()
     # compare_baselines_violin()
     # compare_action_spaces()
-    # compare_all_metrics()
-    compare_pd_violin()
+    compare_all_metrics()
+    # compare_pd_violin()
     # download_PD_approaches()
     # download_approach_data(APD_NORM_ANGS, 'pd_approaches')

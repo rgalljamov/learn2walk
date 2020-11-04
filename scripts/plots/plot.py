@@ -22,7 +22,7 @@ def plot_violin(names, means, hist_data, x_label='', y_label='', text_size=18):
     for i in range(len(means)):
         color = sns.color_palette()[i]
         plt.plot(np.arange(-1, len(names) + 1), np.ones((len(names) + 2,)) * means[i], c=color,
-                 linestyle='--', linewidth=2, zorder=0)
+                 linestyle='--', linewidth=3, zorder=0)
 
         plt.gca().text(-0.45, means[i]+1e5,
                        f'{np.round(means[i]/1e6, 1)}M',
