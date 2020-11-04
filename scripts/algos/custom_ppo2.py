@@ -95,51 +95,53 @@ def mirror_experiences(rollout, ppo2=None):
                    + 0.5 * np.log(2.0 * np.pi) * np.array(acts.shape[-1], dtype=np.float) \
                    + np.sum(logstd, axis=-1)
 
-        act_means = get_action_means(obs)
-        act_means_mirred = get_action_means(obs_mirred)
+        if not cfg.is_mod(cfg.MOD_QUERY_VF_ONLY):
+            act_means = get_action_means(obs)
+            act_means_mirred = get_action_means(obs_mirred)
 
-        neglogpacs_test = neglogp(actions, act_means, pi_logstd)
-        neglogpacs_mirred = neglogp(acts_mirred, act_means_mirred, pi_logstd)
+            neglogpacs_test = neglogp(actions, act_means, pi_logstd)
+            neglogpacs_mirred = neglogp(acts_mirred, act_means_mirred, pi_logstd)
 
-        # log('Logstd', [f'logstd = {pi_logstd}', f'std = {pi_std}'])
+            # log('Logstd', [f'logstd = {pi_logstd}', f'std = {pi_std}'])
 
-        percentiles = [50, 75, 90, 95, 99, 100]
-        if np.random.randint(0, 100, 1) == 77:
-            log('Neglogpacs Comparison (before clipping!)',
-            [f'neglogpacs orig: min {np.min(neglogpacs)}, '
-              f'mean {np.mean(neglogpacs)}, max {np.max(neglogpacs)}',
-              f'neglogpacs mirred: min {np.min(neglogpacs_mirred)}, '
-              f'mean {np.mean(neglogpacs_mirred)}, '
-              f'max {np.max(neglogpacs_mirred)}',
-              f'---\npercentiles {percentiles}:',
-              f'orig percentiles: {np.percentile(neglogpacs, percentiles)}',
-              f'mirred percentiles: {np.percentile(neglogpacs_mirred, percentiles)}',
-              ])
+            percentiles = [50, 75, 90, 95, 99, 100]
+            if np.random.randint(0, 100, 1) == 77:
+                log('Neglogpacs Comparison (before clipping!)',
+                [f'neglogpacs orig: min {np.min(neglogpacs)}, '
+                  f'mean {np.mean(neglogpacs)}, max {np.max(neglogpacs)}',
+                  f'neglogpacs mirred: min {np.min(neglogpacs_mirred)}, '
+                  f'mean {np.mean(neglogpacs_mirred)}, '
+                  f'max {np.max(neglogpacs_mirred)}',
+                  f'---\npercentiles {percentiles}:',
+                  f'orig percentiles: {np.percentile(neglogpacs, percentiles)}',
+                  f'mirred percentiles: {np.percentile(neglogpacs_mirred, percentiles)}',
+                  ])
 
-        CLIP_NEGLOGPACS = False
-        if CLIP_NEGLOGPACS:
-            # limit neglogpacs_mirred to be not bigger than the max neglogpacs
-            # otherwise the action distribution stay too wide
-            max_allowed_neglogpac = 50 # np.percentile(neglogpacs, 99)
-            min_allowed_neglogpac = -15 # np.percentile(neglogpacs, 1)
-            neglogpacs_mirred = np.clip(neglogpacs_mirred,
-                                        min_allowed_neglogpac, max_allowed_neglogpac)
+            # this doesn't work! we should rather delete actions that are too unprobable under pi!
+            CLIP_NEGLOGPACS = False
+            if CLIP_NEGLOGPACS:
+                # limit neglogpacs_mirred to be not bigger than the max neglogpacs
+                # otherwise the action distribution stay too wide
+                max_allowed_neglogpac = 5 * np.percentile(neglogpacs, 99)
+                min_allowed_neglogpac = 2 * np.min(neglogpacs) # np.percentile(neglogpacs, 1)
+                neglogpacs_mirred = np.clip(neglogpacs_mirred,
+                                            min_allowed_neglogpac, max_allowed_neglogpac)
 
-        residuals_neglogpacs = neglogpacs - neglogpacs_test
-        residuals_values = values - values_test
+            residuals_neglogpacs = neglogpacs - neglogpacs_test
+            residuals_values = values - values_test
 
-        difs_neglogpacs = neglogpacs_mirred - neglogpacs
-        difs_values = values_mirred_obs - values
+            difs_neglogpacs = neglogpacs_mirred - neglogpacs
+            difs_values = values_mirred_obs - values
 
-        log('Differences between original and mirrored experiences',
-            [f'neglogpacs: min {np.min(difs_neglogpacs)} max {np.max(difs_neglogpacs)}\n'
-             f'values: min {np.min(difs_values)} max {np.max(difs_values)}'])
+            log('Differences between original and mirrored experiences',
+                [f'neglogpacs: min {np.min(difs_neglogpacs)} max {np.max(difs_neglogpacs)}\n'
+                 f'values: min {np.min(difs_values)} max {np.max(difs_values)}'])
 
-        if not ( (residuals_neglogpacs < 0.01).all() and (residuals_values < 0.01).all() ):
-            log('WARNING!', ['Residuals exceeded allowed amplitude of 0.01',
-                             f'Neglogpacs: mean {np.mean(residuals_neglogpacs)}, max {np.max(residuals_neglogpacs)}',
-                             f'Values: mean {np.mean(residuals_values)}, max {np.max(residuals_values)}',
-                             ])
+            if not ( (residuals_neglogpacs < 0.01).all() and (residuals_values < 0.01).all() ):
+                log('WARNING!', ['Residuals exceeded allowed amplitude of 0.01',
+                                 f'Neglogpacs: mean {np.mean(residuals_neglogpacs)}, max {np.max(residuals_neglogpacs)}',
+                                 f'Values: mean {np.mean(residuals_values)}, max {np.max(residuals_values)}',
+                                 ])
 
     obs = np.concatenate((obs, obs_mirred), axis=0)
     actions = np.concatenate((actions, acts_mirred), axis=0)
@@ -160,7 +162,7 @@ def mirror_experiences(rollout, ppo2=None):
     true_reward = np.concatenate((true_reward, true_reward))
 
     # remove mirrored experiences with too high neglogpacs
-    FILTER_MIRRED_EXPS = True
+    FILTER_MIRRED_EXPS = cfg.is_mod(cfg.MOD_QUERY_NETS) and not cfg.is_mod(cfg.MOD_QUERY_VF_ONLY)
     if FILTER_MIRRED_EXPS:
         n_mirred_exps = int(len(neglogpacs) / 2)
         max_allowed_neglogpac = 5 * np.percentile(neglogpacs[:n_mirred_exps], 99)
