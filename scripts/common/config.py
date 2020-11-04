@@ -30,7 +30,7 @@ def assert_mod_compatibility():
     Some modes cannot be used together. In such cases,
     this function throws an exception and provides explanations.
     """
-    if is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
+    if False and is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
         print("Normalized actions (ctrlrange [-1,1] for all joints) " \
                         "currently only work when policy outputs delta angles.")
     if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_POLICY):
