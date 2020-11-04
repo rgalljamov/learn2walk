@@ -20,7 +20,7 @@ path_pd_normed_deltas = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/
 
 FLY = False
 DETERMINISTIC_ACTIONS = True
-RENDER = True
+RENDER = False
 
 IS_TORQUE_MODEL = False
 if IS_TORQUE_MODEL:
@@ -31,7 +31,7 @@ else:
 SPEED_CONTROL = False
 
 FROM_PATH = True
-PATH = path_pd_normed_deltas
+PATH = path_pd_normed_deltas # path_pd_baseline #
     # "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
     #    "cstm_pi/mim_trq3d/8envs/ppo2/16mio/658-evaled-ret78"
 if not PATH.endswith('/'): PATH += '/'

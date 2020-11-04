@@ -41,7 +41,7 @@ class Monitor(gym.Wrapper):
 
         self.setup_containers()
 
-        self.plt = config_pyplot(fullscreen=True, font_size=12,
+        self.plt = config_pyplot(fig_size=True, font_size=12,
                                  tick_size=12, legend_fontsize=16)
 
     def activate_speed_control(self, speeds):
@@ -211,16 +211,20 @@ class Monitor(gym.Wrapper):
         """
         plt = self.plt
         plt.rcParams.update({'figure.autolayout': False})
-        change_plot_properties(-4, -4, -4, 1)
+        font_size, _, _ = change_plot_properties(-4, -2, -2, 1)
         sns.set_style("whitegrid", {'axes.edgecolor':'#ffffff00'})
         names = ['Simulation'] # line names (legend)
         second_y_axis_pos = 1.0
 
-        ONLY_ACTUATED_JOINTS = False
+        ONLY_ACTUATED_JOINTS = True
         if ONLY_ACTUATED_JOINTS:
-            inds = list(range(6,14)) + list(range(20, 27))
+            # both legs
+            # inds = list(range(6,14)) + list(range(20, 27))
+            # right leg only
+            inds = list(range(6,10)) + list(range(20, 24))
             self.trajecs_buffer = self.trajecs_buffer[:, inds, :]
             self.kinem_labels = self.kinem_labels[inds]
+            plt.rcParams.update({'figure.autolayout': False})
 
         if self.SPEED_CONTROL:
             # plt.rcParams.update({'axes.labelsize': 14})
@@ -235,6 +239,9 @@ class Monitor(gym.Wrapper):
             num_joints = len(self.kinem_labels)
             cols = 5
             rows = int((num_joints+1)/cols) + 1
+            if ONLY_ACTUATED_JOINTS:
+                cols = 4
+                rows = 2
         # plot sim trajecs
         trajecs = self.trajecs_buffer[0,:,:]
         # collect axes to reuse them for overlaying multiple plots
@@ -254,7 +261,7 @@ class Monitor(gym.Wrapper):
             if self.SPEED_CONTROL:
                 plt.ylabel(y_labels[i_joint])
             else:
-                plt.title(f'{i_joint}. ' + self.kinem_labels[i_joint])
+                plt.ylabel(f'{i_joint+1}. ' + self.kinem_labels[i_joint])
         lines.append(line[0])
 
         # plot ref trajec distributions (mean + 2std)
@@ -310,7 +317,7 @@ class Monitor(gym.Wrapper):
             plot_actions(self.action_buf, 'PD Target', '#ff0000')
 
         # remove x ticks from upper graphs
-        for i_graph in range(len(axes) - cols + 1):
+        for i_graph in (range(len(axes) - cols + 1) if not ONLY_ACTUATED_JOINTS else range(4)):
             axes[i_graph].tick_params(axis='x', which='both',
                                       labelbottom=False)
 
@@ -320,6 +327,11 @@ class Monitor(gym.Wrapper):
             plt.ylabel('Desired Walking Speed [m/s]')
             plt.xlabel('Simulation Timesteps []')
             axes[0].legend(lines, names)
+        elif ONLY_ACTUATED_JOINTS:
+            axes[-1].legend(lines, names)
+            plt.gcf().text(0.5, 0.04, r'Simulation Timesteps', ha='center', fontsize=font_size+2)
+            axes[-1].set_xlim([1200, 2000])
+            plt.subplots_adjust(wspace=0.2, hspace=0.2, top=0.99, left=0.04, right=0.99, bottom=0.18)
         else:
             # plot the legend in a separate subplot
             with sns.axes_style("white", {"axes.edgecolor": 'white'}):
@@ -329,25 +341,27 @@ class Monitor(gym.Wrapper):
                 legend_subplot.legend(lines, names, bbox_to_anchor=(
                     1.2 if PLOT_REF_DISTRIB else 1, 1.075 if PLOT_REF_DISTRIB else 1))
 
-            # add rewards and returns
-            from scripts.common.config import rew_scale, alive_bonus
-            rews = np.copy(self.rewards[-_trajec_buffer_length:])
-            rews -= alive_bonus
-            rews /= rew_scale
+            PLOT_REWS = False
+            if PLOT_REWS:
+                # add rewards and returns
+                from scripts.common.config import rew_scale, alive_bonus
+                rews = np.copy(self.rewards[-_trajec_buffer_length:])
+                rews -= alive_bonus
+                rews /= rew_scale
 
-            rew_plot = plt.subplot(rows, cols, len(axes) + 1, sharex=axes[-1])
-            rew_plot.plot(rews)
-            # rew_plot.set_ylim(np.array([-0.075, 1.025]))
-            # plot episode terminations
-            plt.vlines(np.argwhere(self.dones_buf).flatten() + 1,
-                       0, 1, colors='#cccccc')
-            # plot episode returns
-            ret_plot = rew_plot.twinx().twiny()
-            ret_plot.plot(self.returns, '#77777777')
-            ret_plot.tick_params(axis='y', labelcolor='#77777777')
-            ret_plot.set_xticks([])
+                rew_plot = plt.subplot(rows, cols, len(axes) + 1, sharex=axes[-1])
+                rew_plot.plot(rews)
+                # rew_plot.set_ylim(np.array([-0.075, 1.025]))
+                # plot episode terminations
+                plt.vlines(np.argwhere(self.dones_buf).flatten() + 1,
+                           0, 1, colors='#cccccc')
+                # plot episode returns
+                ret_plot = rew_plot.twinx().twiny()
+                ret_plot.plot(self.returns, '#77777777')
+                ret_plot.tick_params(axis='y', labelcolor='#77777777')
+                ret_plot.set_xticks([])
 
-            plt.title('Rewards & Returns')
+                plt.title('Rewards & Returns')
 
         # fix title overlapping when tight_layout is true
         plt.gcf().tight_layout() # rect=[0, 0, 1, 0.95])

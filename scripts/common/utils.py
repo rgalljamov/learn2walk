@@ -56,7 +56,7 @@ def config_pyplot(fig_size=0.25, font_size=PLOT_FONT_SIZE, tick_size=PLOT_TICKS_
     plt.rcParams.update({'figure.autolayout': True})
     plt.rcParams.update({'savefig.format': PLOT_FIGURE_SAVE_FORMAT})
     plt.rcParams.update({"savefig.directory":
-                             '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Report/figures/wandb_scratch'})
+                             '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Report/figures/results'})
                               # '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/report'})
 
     if fig_size == 1:
