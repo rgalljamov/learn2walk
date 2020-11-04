@@ -131,6 +131,7 @@ def show_summary_score_advantages():
 
 
 def compare_all_metrics():
+    plt = config_pyplot(fig_size=1)
     ap_names = [APD_BSLN, APD_NORM_ANGS, APD_NORM_DELTA]
     # approach_names_dict[APT_BSLN] = 'Joint Torque'
     # approach_names_dict[APD_BSLN] = 'Target Angles'
@@ -402,11 +403,12 @@ def compare_baselines_violin():
     plt.show()
 
 
-def compare_baselines_violin():
+def compare_pd_violin():
     # for the APPENDIX
-    ap_names = [APD_BSLN, APT_BSLN]
-    approach_names_dict[APT_BSLN] = 'Joint Torque'
+    ap_names = [APD_BSLN, APD_NORM_DELTA, APD_NORM_ANGS]
     approach_names_dict[APD_BSLN] = 'Target Angles'
+    approach_names_dict[APD_NORM_ANGS] = 'Normalized Target Angles'
+    approach_names_dict[APD_NORM_DELTA] = 'Normalized Angle Deltas'
     aps = [Approach(name) for name in ap_names]
     metric_label = MET_STEPS_TO_CONV
     font_size, tick_size, legend_size = \
@@ -423,23 +425,43 @@ def compare_baselines_violin():
         hist_data.append(metric.data)
     violin(names, means, hist_data, '',
            metric_names_dict[metric.label] + ' [x$10^6$]', text_size=font_size)
-    tick_distance_mio = 2
-    arange = np.arange(2, 8)
-    plt.gca().set_yticks(arange * tick_distance_mio * 1e6)
-    plt.gca().set_yticklabels([f'{x}' for x in arange * tick_distance_mio])
+    arange = np.arange(2, 7) * 2 + 1
+    plt.gca().set_yticks(arange * 1e6)
+    plt.gca().set_yticklabels([f'{x}' for x in arange])
 
     # plt.subplots_adjust(wspace=0.4, top=0.99, left=0.04, right=0.99, bottom=0.18)
     plt.show()
 
+
+def plot_metrics_table():
+    # first get all metrics of interest
+    ap_names = [APD_BSLN, APD_NORM_ANGS, APD_NORM_DELTA]
+    # approach_names_dict[APT_BSLN] = 'Joint Torque'
+    # approach_names_dict[APD_BSLN] = 'Target Angles'
+    aps = [Approach(name) for name in ap_names]
+    metric_labels = [MET_TRAIN_EPRET, MET_TRAIN_STEPREW, MET_TRAIN_DIST, MET_TRAIN_EPLEN]
+    n_metrics = len(metric_labels)
+    font_size, tick_size, legend_size = \
+        change_plot_properties(font_size=-2, tick_size=-3, legend_fontsize=-2, line_width=+1)
+    plt.rcParams.update({'figure.autolayout': False})
+    fig, subplots = plt.subplots(1, n_metrics)
+    for i, metric_label in enumerate(metric_labels):
+        subplot = subplots[i]
+        metrics = [metric for ap in aps for metric in ap.metrics
+                   if metric.label == metric_label]
+
+
+
 if __name__ == '__main__':
+    # plot_metrics_table()
     # show_summary_score_advantages()
     # compare_baselines_main_plots
     # compare_baselines_training_curves()
     # compare_baselines_rews()
     # compare_baselines_8plots()
-    compare_baselines_violin()
+    # compare_baselines_violin()
     # compare_action_spaces()
     # compare_all_metrics()
+    compare_pd_violin()
     # download_PD_approaches()
-    # download_approach_data(AP_NORM_ANGS, 'pd_approaches', run_names_dict[AP_NORM_ANGS])
-    # download_approach_data(APT_BSLN, 'final3d_trq')
+    # download_approach_data(APD_NORM_ANGS, 'pd_approaches')
