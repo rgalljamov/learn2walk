@@ -7,7 +7,7 @@ sns.set_context("paper")
 plt = config_pyplot(font_size=20, tick_size=20)
 # sns.set_style("ticks") # , {'axes.edgecolor': '#cccccc'})
 
-def plot_violin(names, means, hist_data, x_label, y_label):
+def plot_violin(names, means, hist_data, x_label='', y_label='', text_size=18):
     """@:param hist_data: a list of lists, for each name a list of metric values. """
     performance_data = []
     for i_arch in range(len(names)):
@@ -16,12 +16,20 @@ def plot_violin(names, means, hist_data, x_label, y_label):
 
     performance_df = pd.DataFrame(performance_data, columns=[x_label, 'Mean Architecture Performance', y_label])
     # plot violins
-    sns.violinplot(x=x_label, y=y_label, data=performance_df, inner='stick', bw=0.5)
-    # plot means
-    plt.scatter(names, means, linestyle='None', color='#ffffff', s=60)
+    sns.violinplot(x=x_label, y=y_label, data=performance_df, inner='stick', bw=0.4)
     # plot baseline
-    plt.plot(np.arange(-1, len(names) + 1), np.ones((len(names) + 2,)) * means[0], c='#777777',
-             linestyle='--', linewidth=1)
+
+    for i in range(len(means)):
+        color = sns.color_palette()[i]
+        plt.plot(np.arange(-1, len(names) + 1), np.ones((len(names) + 2,)) * means[i], c=color,
+                 linestyle='--', linewidth=3, zorder=0)
+
+        plt.gca().text(-0.45, means[i]+1e5,
+                       f'{np.round(means[i]/1e6, 1)}M',
+                       fontsize=text_size, color=color)
+
+    # plot means
+    plt.scatter(names, means, linestyle='None', color='#ffffff', s=60, zorder=10)
     plt.xlim([-0.5, len(names)-0.5])
     ymin, ymax = np.min(hist_data), np.max(hist_data)
     margin = 0.1*(ymax - ymin)
