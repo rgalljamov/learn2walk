@@ -261,8 +261,8 @@ def compare_main_plots():
     approach_names_dict[APD_NORM_DELTA] = 'Angle Deltas (Ours)'
     aps = [Approach(name) for name in ap_names]
     max_dur = 1e6 * max([ap.train_duration_mio for ap in aps])
-    metric_labels = [MET_SUM_SCORE, MET_STABLE_WALKS, MET_STEP_REW, MET_TRAIN_EPRET]
-    # metric_labels = [MET_REW_POS, MET_REW_VEL, MET_REW_COM]
+    # metric_labels = [MET_SUM_SCORE, MET_STABLE_WALKS, MET_STEP_REW, MET_TRAIN_EPRET]
+    metric_labels = [MET_REW_POS, MET_REW_VEL, MET_REW_COM]
     n_metrics = len(metric_labels)
     plot_rews = n_metrics == 3
 
@@ -298,6 +298,30 @@ def compare_main_plots():
             subplot.set_xticklabels([f'{x}' for x in np.arange(5) * 4])
             # subplot.set_yticks((np.arange(3)+1)*0.25)
             subplot.set_ylabel(f'({"abcd"[i]}) ' + metric_names_dict[metric.label])
+
+            if plot_rews:
+                conv_timestep = metric.approach.steps_to_conv_mean
+                train_dur = (metric.approach.train_duration_mio * 1e6)
+                n_points = len(metric.mean_fltrd)
+                index = int(n_points * conv_timestep / train_dur)
+                mean_conv = metric.mean_fltrd[index]
+
+                subplot.scatter(conv_timestep, mean_conv, s=100, marker='o', color=mean_color, zorder=10)
+                subplot.plot(np.linspace(0, conv_timestep, 3), np.ones(3) * mean_conv,
+                             c=mean_color, linestyle='--', linewidth=2, zorder=1)
+
+                # show time after 75% of reward was reached
+                # but only when it is reached at all
+                # rew75_timestep = 1e6 * metric.approach.steps_to_75rew_mean
+                # if rew75_timestep != train_dur:
+                #     index = int(n_points * rew75_timestep / train_dur)
+                #     mean75 = metric.mean_fltrd[index]
+                #     # subplot.scatter(rew75_timestep, 0.07, s=75, marker='v', color=mean_color)
+                #     subplot.scatter(rew75_timestep, mean75, s=120, marker='X', color=mean_color, zorder=10)
+
+                    # # horizontal
+                    # subplot.plot(np.linspace(0, rew75_timestep, 3),
+                    #     np.ones(3) * mean75, c=mean_color, linestyle=':', linewidth=2, zorder=0)
 
             # Mark important points in the stable walks graph
             if i == 1 and len(metric_labels) == 4:
@@ -360,7 +384,7 @@ def compare_main_plots():
     legend_texts = [approach_names_dict[ap] for ap in ap_names]
     assert 'ours' in ''.join(legend_texts).lower()
     if plot_rews:
-        subplots[-1].legend(legend_texts, fancybox=True, framealpha=0.6,
+        subplots[-1].legend(subplots[-1].get_lines()[::2], legend_texts, fancybox=True, framealpha=0.6,
                             loc='upper right')
     else:
         subplots[-1].legend(subplots[0].get_lines(), legend_texts, fancybox=True, framealpha=0.6,
