@@ -447,8 +447,9 @@ class MimicEnv:
         else:
             obs = np.concatenate([np.array([phase, self.desired_walking_speed]), qpos, qvel]).ravel()
 
-        if cfg.is_mod(cfg.MOD_GROUND_CONTACT):
-            if _rsinitialized and cfg.is_mod(cfg.MOD_GROUND_CONTACT_DENSE):
+        DEBUG_GRND = False and _rsinitialized
+        if cfg.is_mod(cfg.MOD_GROUND_CONTACT) or DEBUG_GRND:
+            if _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GROUND_CONTACT_DENSE)):
 
                 label_left = 'grd_contact_left'
                 label_right = 'grd_contact_right'
@@ -466,24 +467,67 @@ class MimicEnv:
                 self.last_contact_left = has_contact_left
                 self.last_contact_right = has_contact_right
 
-                has_contact_left = smooth(label_left, has_contact_left, 0.0025)
-                has_contact_right = smooth(label_right, has_contact_right, 0.0025)
-                # self.left_contacts.append(has_contact_left)
-                # self.right_contacts.append(has_contact_right)
-                #
-                # if len(self.left_contacts) >= 1600:
-                #     from matplotlib import pyplot as plt
-                #     plt.subplot(1,2,1)
-                #     plt.plot(self.left_contacts)
-                #     plt.subplot(1,2,2)
-                #     plt.plot(self.right_contacts)
-                #     plt.show()
-                #     exit(33)
+                has_contact_left = smooth(label_left, has_contact_left, 0.002)
+                has_contact_right = smooth(label_right, has_contact_right, 0.002)
+                self.left_contacts.append(has_contact_left)
+                self.right_contacts.append(has_contact_right)
+
+                if len(self.left_contacts) >= 1600 and DEBUG_GRND:
+                    from matplotlib import pyplot as plt
+                    plt.subplot(1,2,1)
+                    plt.plot(self.left_contacts)
+                    plt.subplot(1,2,2)
+                    plt.plot(self.right_contacts)
+                    plt.show()
+                    exit(33)
                 has_contact = np.array([has_contact_left, has_contact_right]).astype(np.float)
-                obs = np.concatenate([has_contact, obs]).ravel()
+                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
+
+            elif _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GRND_STANCE_DUR)):
+                has_contact_left, has_contact_right = np.array(self.has_ground_contact()).astype(np.float)
+                self.last_contact_left = has_contact_left * (self.last_contact_left + 1/100)
+                self.last_contact_right = has_contact_right * (self.last_contact_right + 1/100)
+                has_contact = np.array([self.last_contact_left, self.last_contact_right]).astype(np.float)
+                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
+
+                self.left_contacts.append(self.last_contact_left)
+                self.right_contacts.append(self.last_contact_right)
+
+                if DEBUG_GRND and len(self.left_contacts) >= 1600:
+                    from matplotlib import pyplot as plt
+                    plt.subplot(1, 2, 1)
+                    plt.plot(self.left_contacts)
+                    plt.subplot(1, 2, 2)
+                    plt.plot(self.right_contacts)
+                    plt.show()
+                    exit(33)
+
+            elif _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GRND_INV_STANCE_DUR)):
+                has_contact_left, has_contact_right = np.array(self.has_ground_contact()).astype(np.float)
+                if has_contact_left == 1 and self.last_contact_left == 0:
+                    self.last_contact_left = 2
+                if has_contact_right == 1 and self.last_contact_right == 0:
+                    self.last_contact_right = 2
+                self.last_contact_left = has_contact_left * (self.last_contact_left - 1/100)
+                self.last_contact_right = has_contact_right * (self.last_contact_right - 1/100)
+                has_contact = np.array([self.last_contact_left, self.last_contact_right]).astype(np.float)
+                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
+
+                self.left_contacts.append(self.last_contact_left)
+                self.right_contacts.append(self.last_contact_right)
+
+                if DEBUG_GRND and len(self.left_contacts) >= 1600:
+                    from matplotlib import pyplot as plt
+                    plt.subplot(1, 2, 1)
+                    plt.plot(self.left_contacts)
+                    plt.subplot(1, 2, 2)
+                    plt.plot(self.right_contacts)
+                    plt.show()
+                    exit(33)
+            # just a binary ground contact
             else:
                 has_contact = np.array(self.has_ground_contact()).astype(np.float)
-                obs = np.concatenate([has_contact, obs]).ravel()
+                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
 
         if _rsinitialized and cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
             assert not cfg.is_mod(cfg.MOD_GROUND_CONTACT)
