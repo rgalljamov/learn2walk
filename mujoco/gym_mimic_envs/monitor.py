@@ -211,6 +211,8 @@ class Monitor(gym.Wrapper):
         """
         plt = self.plt
         plt.rcParams.update({'figure.autolayout': False})
+        plt.rcParams['figure.figsize'] = (19.2, 6.8)
+        plt.subplots_adjust(top=0.974, bottom=0.13, left=0.06, right=0.978, hspace=0.15, wspace=0.44)
         font_size, _, _ = change_plot_properties(-4, -2, -2, 1)
         sns.set_style("whitegrid", {'axes.edgecolor':'#ffffff00'})
         names = ['Simulation'] # line names (legend)
@@ -328,10 +330,10 @@ class Monitor(gym.Wrapper):
             plt.xlabel('Simulation Timesteps []')
             axes[0].legend(lines, names)
         elif ONLY_ACTUATED_JOINTS:
-            axes[-1].legend(lines, names)
+            axes[-1].legend(lines, names, loc='upper right')
             plt.gcf().text(0.5, 0.04, r'Simulation Timesteps', ha='center', fontsize=font_size+2)
-            axes[-1].set_xlim([1200, 2000])
-            plt.subplots_adjust(wspace=0.2, hspace=0.2, top=0.99, left=0.04, right=0.99, bottom=0.18)
+            plt.subplots_adjust(top=0.974, bottom=0.13, left=0.06, right=0.978, hspace=0.15, wspace=0.44)
+            axes[-1].set_xlim([1400, 2000])
         else:
             # plot the legend in a separate subplot
             with sns.axes_style("white", {"axes.edgecolor": 'white'}):
