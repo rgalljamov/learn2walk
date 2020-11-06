@@ -4,15 +4,13 @@ import numpy as np
 import os
 
 class Metric:
-    def __init__(self, label, approach_name='approach', train_duration_mio=None):
+    def __init__(self, label, approach, train_duration_mio=None):
         self.label = label
-        self.approach_name = approach_name
+        self.approach = approach
+        self.approach_name = approach.name
         self.train_duration_mio = train_duration_mio
         # runs x recorded points for metric
         self.data = []
-
-    def set_approach_name(self, approach_name):
-        self.approach_name = approach_name
 
     def append_run(self, run):
         self.data.append(run)
@@ -77,7 +75,7 @@ class Approach:
             npz = np.load(metrics_path)
             for metric_label in npz.keys():
                 self.metrics_names.append(metric_label)
-                metric = Metric(metric_label, self.name, self.train_duration_mio)
+                metric = Metric(metric_label, self, self.train_duration_mio)
                 metric_data = npz[metric_label]
                 # normalize summary score
                 if metric_label == MET_SUM_SCORE:
@@ -95,7 +93,7 @@ class Approach:
         # fetch from wandb if not on disc
         else:
             self._api = Api(self.project_name)
-            self.metrics = [Metric(name, self.name, self.train_duration_mio) for name in self.metrics_names]
+            self.metrics = [Metric(name, self, self.train_duration_mio) for name in self.metrics_names]
             self._api.get_metrics(self)
             self._metrics_to_np()
         return data_is_on_disc
