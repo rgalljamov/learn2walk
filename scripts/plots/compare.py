@@ -17,13 +17,29 @@ APD_NORM_ANGS_EXPMORE = 'pd_norm_angs_expmore'
 APD_NORM_ANGS_SIGN_EXPMORE = 'pd_norm_angs_sign_expmore'
 APD_NORM_DELTA = 'pd_norm_delta'
 APT_BSLN = 'trq_bsln'
+APT_BSLN_HALF_BS = 'trq_bsln_half_bs'
+APT_CLIP_DEC = 'clip_dec'
+APT_MRR_STEPS = 'mrr_steps'
+APT_DUP = 'mrr_exps'
+APT_SYM_DUP = 'mrr_exps_sym'
+APT_EXP_REPLAY = 'exp_replay'
+APT_EXP_REPLAY_QUERY_VF = 'exp_replay_vf'
+
 
 run_names_dict = {APD_BSLN: 'BSLN, init std = 1',
                   APD_NORM_ANGS: 'BSLN - normed target angles',
                   APD_NORM_ANGS_EXPMORE: 'BSLN - normed target angles - init std = 1',
                   APD_NORM_ANGS_SIGN_EXPMORE: 'BSLN - SIGN normed target angles - init std = 1',
                   APD_NORM_DELTA: 'normed deltas',
-                  APT_BSLN: 'bsln'}
+                  APT_BSLN: 'bsln',
+                  APT_BSLN_HALF_BS:  'bsln, half exps',
+                  APT_CLIP_DEC:  'exp clip decay (VF too): 0.55 - 0.1',
+                  APT_MRR_STEPS:  'MRR steps, half BS',
+                  APT_DUP:  'mirr exps - no query nets',
+                  APT_SYM_DUP:  'SYM mirr exps - no query nets',
+                  APT_EXP_REPLAY:  'NEW Replay BUF1, NO query, ent_coef-0.0075, adjust BS',
+                  APT_EXP_REPLAY_QUERY_VF:  'NEW Replay BUF1, query VF, ent_coef-0.0075, adjust BS'
+}
 
 approach_names_dict = {APD_BSLN: 'Baseline ($\sigma^2_0 = 1.0$)',
                   APD_NORM_ANGS: 'Normed Target Angles ($\sigma^2_0 = 0.5$)',
@@ -63,6 +79,7 @@ metric_names_dict = {MET_SUM_SCORE: 'Summary Score', MET_STABLE_WALKS: '# Stable
 
 def check_data_for_completeness(approach, mio_train_steps=16):
     n_metrics = len(approach.metrics)
+    change_plot_properties(font_size=-4, tick_size=-4, legend_fontsize=-2)
     for i, metric in enumerate(approach.metrics):
         subplot = plt.subplot(3, int(n_metrics / 3) + 1, i + 1)
         if isinstance(metric.mean, np.ndarray) and len(metric.mean) > 1:
@@ -95,10 +112,13 @@ def download_multiple_approaches(project_name, approach_names: list):
         print('Downloading approach:', approach_name)
         download_approach_data(approach_name, project_name, run_names[i])
 
-def download_PD_approaches():
+def download_approaches():
     project_name = "pd_approaches"
-    ap_names = [APD_BSLN, APD_NORM_ANGS, APD_NORM_ANGS_EXPMORE,
-                APD_NORM_ANGS_SIGN_EXPMORE, APD_NORM_DELTA]
+    # ap_names = [APD_BSLN, APD_NORM_ANGS, APD_NORM_ANGS_EXPMORE,
+    #             APD_NORM_ANGS_SIGN_EXPMORE, APD_NORM_DELTA]
+    project_name = "final3d_trq"
+    ap_names = [APT_BSLN_HALF_BS, APT_CLIP_DEC, APT_MRR_STEPS ,
+                APT_DUP ,APT_SYM_DUP,APT_EXP_REPLAY,APT_EXP_REPLAY_QUERY_VF,]
     download_multiple_approaches(project_name, ap_names)
 
 
@@ -624,7 +644,7 @@ if __name__ == '__main__':
     # download_approach_data(APT_BSLN, 'final3d_trq')
     # plot_metrics_table()
     # show_summary_score_advantages()
-    compare_main_plots()
+    # compare_main_plots()
     # compare_rewards()
     # compare_violins()
     # compare_baselines_training_curves()
@@ -634,5 +654,5 @@ if __name__ == '__main__':
     # compare_action_spaces()
     # compare_all_metrics()
     # compare_pd_violin()
-    # download_PD_approaches()
+    download_approaches()
     # download_approach_data(APD_NORM_ANGS, 'pd_approaches')
