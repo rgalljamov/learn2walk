@@ -110,6 +110,7 @@ MOD_REFS_REPLAY = 'ref_replay'
 MOD_ONLINE_CLONE = 'online_clone'
 # input ground contact information
 MOD_GROUND_CONTACT = 'grnd_contact'
+MOD_GROUND_CONTACT_DENSE = 'grnd_dense'
 # double stance results in 0, 0, 1
 MOD_GRND_CONTACT_ONE_HOT = 'grnd_1hot'
 # train multiple networks for different phases (left/right step, double stance)
@@ -136,7 +137,8 @@ MOD_N_OPT_EPS_SCHED = 'opt_eps_sched'
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([MOD_NORM_ACTS,
+modification = mod([MOD_SYMMETRIC_WALK, MOD_MIRROR_EXPS, MOD_QUERY_NETS, MOD_QUERY_VF_ONLY,
+                    #MOD_GROUND_CONTACT, MOD_GROUND_CONTACT_DENSE,
     MOD_CUSTOM_POLICY,
     ])
 assert_mod_compatibility()
@@ -177,9 +179,11 @@ alive_bonus = 0.2 * rew_scale
 EVAL_N_TIMES = 20
 rew_delta_scale = 20
 
-wb_project_name = 'pd_approaches'
+wb_project_name = 'dup_exps3d'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               f'BSLN - normed target angles'
+               'MRR query VF only'
+               # 'BSLN, GRND dense, RESET FXD, smooth0025'
+               # f'BSLN - normed target angles'
                # f'NEW Replay BUF{replay_buf_size}, query VF, ent_coef{ent_coef}, adjust BS'
                # f'exp clip decay (VF too): {clip_start} - {clip_end}'
                # f'PI E2ENC {enc_layer_sizes}, pi {hid_layer_sizes_pi[0]}'
@@ -220,7 +224,7 @@ else:
 # choose environment
 envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
 env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 2
+env_index = 4
 env_id = envs[env_index]
 env_name = env_names[env_index]
 is_torque_model = env_name in ['mim_trq2d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']

@@ -314,10 +314,10 @@ def exponential_running_smoothing(label, new_value, smoothing_factor=0.9):
     return new_average
 
 
-def resetExponentialRunningSmoothing(label):
+def resetExponentialRunningSmoothing(label, value=0):
     """
     Sets the current value of the exponential running smoothing identified by the label to zero.
     """
     global _exp_weighted_averages
-    _exp_weighted_averages[label] = 0
+    _exp_weighted_averages[label] = value
     return True
