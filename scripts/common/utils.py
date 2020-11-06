@@ -35,12 +35,12 @@ def import_pyplot():
 
 plt = import_pyplot()
 
-PLOT_FONT_SIZE = 24
+PLOT_FONT_SIZE = 22
 PLOT_TICKS_SIZE = 18
 PLOT_LINE_WIDTH = 2
 
-def config_pyplot(fullscreen=False, font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TICKS_SIZE,
-                  legend_fontsize=PLOT_TICKS_SIZE+2):
+def config_pyplot(fig_size=0.25, font_size=PLOT_FONT_SIZE, tick_size=PLOT_TICKS_SIZE,
+                  legend_fontsize=PLOT_TICKS_SIZE+4):
     """ set desired plotting settings and returns a pyplot object
      @ return: pyplot object with seaborn style and configured rcParams"""
 
@@ -49,25 +49,43 @@ def config_pyplot(fullscreen=False, font_size=PLOT_TICKS_SIZE, tick_size=PLOT_TI
     # sns.set_style("ticks")
     sns.set_style("whitegrid", {'axes.edgecolor': '#ffffff00'})
 
-    sns.set_context(rc={"lines.linewidth": PLOT_LINE_WIDTH, 'xtick.labelsize': tick_size,
-                        'ytick.labelsize': tick_size, 'savefig.dpi': 1024,
-                        'axes.titlesize': tick_size, 'figure.autolayout': True,
-                        'axes.grid': True,
-                        'legend.fontsize': legend_fontsize, 'axes.labelsize': font_size})
+    change_plot_properties(font_size, legend_fontsize, tick_size)
 
     # configure saving format and directory
     PLOT_FIGURE_SAVE_FORMAT = 'pdf' #'eps'
     plt.rcParams.update({'figure.autolayout': True})
     plt.rcParams.update({'savefig.format': PLOT_FIGURE_SAVE_FORMAT})
     plt.rcParams.update({"savefig.directory":
-                             '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Report/figures/wandb_scratch'})
+                             '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Report/figures/results'})
                               # '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/report'})
 
-    if fullscreen:
+    if fig_size == 1:
         # plot figure in full screen mode (scaled down aspect ratio of my screen)
         plt.rcParams['figure.figsize'] = (19.2, 10.8)
+    elif fig_size == 0.5:
+        plt.rcParams['figure.figsize'] = (19.2, 5.4)
+    elif fig_size == 0.25:
+        plt.rcParams['figure.figsize'] = (9.6, 5.4)
 
     return plt
+
+
+def change_plot_properties(font_size=0, tick_size=0,
+                           legend_fontsize=0, line_width=0, show_grid=True):
+
+    font_size = PLOT_FONT_SIZE + font_size
+    tick_size = PLOT_TICKS_SIZE + tick_size
+    legend_fontsize = PLOT_TICKS_SIZE + 4 + legend_fontsize
+    line_width = PLOT_LINE_WIDTH + line_width
+    show_grid = True and show_grid
+
+    sns.set_context(rc={"lines.linewidth": line_width, 'xtick.labelsize': tick_size,
+                        'ytick.labelsize': tick_size, 'savefig.dpi': 1024,
+                        'axes.titlesize': legend_fontsize, 'figure.autolayout': True,
+                        'axes.grid': show_grid,
+                        'legend.fontsize': legend_fontsize, 'axes.labelsize': font_size})
+    return font_size, tick_size, legend_fontsize
+
 
 def vec_env(env_name, num_envs=4, seed=33, norm_rew=True,
             load_path=None, deltas=False):
@@ -296,10 +314,10 @@ def exponential_running_smoothing(label, new_value, smoothing_factor=0.9):
     return new_average
 
 
-def resetExponentialRunningSmoothing(label):
+def resetExponentialRunningSmoothing(label, value=0):
     """
     Sets the current value of the exponential running smoothing identified by the label to zero.
     """
     global _exp_weighted_averages
-    _exp_weighted_averages[label] = 0
+    _exp_weighted_averages[label] = value
     return True

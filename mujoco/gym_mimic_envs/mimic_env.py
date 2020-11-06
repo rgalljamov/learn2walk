@@ -4,7 +4,8 @@ Interface for environments using reference trajectories.
 import gym, mujoco_py
 import numpy as np
 from scripts.common import config as cfg
-from scripts.common.utils import log, is_remote, exponential_running_smoothing as smooth
+from scripts.common.utils import log, is_remote, \
+    exponential_running_smoothing as smooth, resetExponentialRunningSmoothing as reset_smooth
 from scripts.mocap.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
 # double max deltas for better perturbation recovery. To keep balance,
@@ -55,6 +56,11 @@ class MimicEnv:
         # track running mean of the return and use it for ET reward
         self.ep_rews = []
         self.mean_epret_smoothed = 0
+        # dense grnd contact info
+        self.last_contact_left = 0
+        self.last_contact_right = 0
+        self.left_contacts = []
+        self.right_contacts = []
 
     def step(self, a):
         """
@@ -118,9 +124,21 @@ class MimicEnv:
             a = qpos_act_before_step + a
         elif cfg.is_mod(cfg.MOD_NORM_ACTS):
             qpos_min, qpos_max = self.get_qpos_ranges()
-            act_prct = (a + 1) / 2
-            qpos_ranges = (qpos_max - qpos_min)
-            a = qpos_min + act_prct * qpos_ranges
+            # qpos_min: [-0.8727 -0.7854  0.     -0.3491 -0.8727 -0.0873  0.     -0.3491]
+            # qpos_max: [0.8727  0.0873   2.618  0.6981  0.8727  0.7854   2.618  0.6981]
+            if cfg.is_mod(cfg.MOD_NORM_CONSIDER_SIGN):
+                # todo: add mean actions. this way we shift the normal distribution to be around the mean...
+                a_unnormalized = []
+                for i, act in enumerate(a):
+                    if act > 0:
+                        a_unnormalized.append(qpos_max[i]*act)
+                    else:
+                        a_unnormalized.append(qpos_min[i]*np.abs(act))
+                a = np.array(a_unnormalized)
+            else:
+                act_prct = (a + 1) / 2
+                qpos_ranges = (qpos_max - qpos_min)
+                a = qpos_min + act_prct * qpos_ranges
 
         if cfg.is_mod(cfg.MOD_TORQUE_DELTAS):
             last_action = np.copy(self.sim.data.actuator_force)
@@ -429,9 +447,87 @@ class MimicEnv:
         else:
             obs = np.concatenate([np.array([phase, self.desired_walking_speed]), qpos, qvel]).ravel()
 
-        if cfg.is_mod(cfg.MOD_GROUND_CONTACT):
-            has_contact = np.array(self.has_ground_contact()).astype(np.float)
-            obs = np.concatenate([has_contact, obs]).ravel()
+        DEBUG_GRND = False and _rsinitialized
+        if cfg.is_mod(cfg.MOD_GROUND_CONTACT) or DEBUG_GRND:
+            if _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GROUND_CONTACT_DENSE)):
+
+                label_left = 'grd_contact_left'
+                label_right = 'grd_contact_right'
+                has_contact_left, has_contact_right = np.array(self.has_ground_contact()).astype(np.float)
+
+                # avoid both feet having no contact with the ground:
+                if has_contact_right == 0 and has_contact_left == 0:
+                    has_contact_right = self.last_contact_right
+                    has_contact_left = self.last_contact_left
+
+                if self.last_contact_left != has_contact_left:
+                    reset_smooth(label_left, self.last_contact_left)
+                if self.last_contact_right != has_contact_right:
+                    reset_smooth(label_right, self.last_contact_right)
+                self.last_contact_left = has_contact_left
+                self.last_contact_right = has_contact_right
+
+                has_contact_left = smooth(label_left, has_contact_left, 0.002)
+                has_contact_right = smooth(label_right, has_contact_right, 0.002)
+                self.left_contacts.append(has_contact_left)
+                self.right_contacts.append(has_contact_right)
+
+                if len(self.left_contacts) >= 1600 and DEBUG_GRND:
+                    from matplotlib import pyplot as plt
+                    plt.subplot(1,2,1)
+                    plt.plot(self.left_contacts)
+                    plt.subplot(1,2,2)
+                    plt.plot(self.right_contacts)
+                    plt.show()
+                    exit(33)
+                has_contact = np.array([has_contact_left, has_contact_right]).astype(np.float)
+                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
+
+            elif _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GRND_STANCE_DUR)):
+                has_contact_left, has_contact_right = np.array(self.has_ground_contact()).astype(np.float)
+                self.last_contact_left = has_contact_left * (self.last_contact_left + 1/100)
+                self.last_contact_right = has_contact_right * (self.last_contact_right + 1/100)
+                has_contact = np.array([self.last_contact_left, self.last_contact_right]).astype(np.float)
+                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
+
+                self.left_contacts.append(self.last_contact_left)
+                self.right_contacts.append(self.last_contact_right)
+
+                if DEBUG_GRND and len(self.left_contacts) >= 1600:
+                    from matplotlib import pyplot as plt
+                    plt.subplot(1, 2, 1)
+                    plt.plot(self.left_contacts)
+                    plt.subplot(1, 2, 2)
+                    plt.plot(self.right_contacts)
+                    plt.show()
+                    exit(33)
+
+            elif _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GRND_INV_STANCE_DUR)):
+                has_contact_left, has_contact_right = np.array(self.has_ground_contact()).astype(np.float)
+                if has_contact_left == 1 and self.last_contact_left == 0:
+                    self.last_contact_left = 2
+                if has_contact_right == 1 and self.last_contact_right == 0:
+                    self.last_contact_right = 2
+                self.last_contact_left = has_contact_left * (self.last_contact_left - 1/100)
+                self.last_contact_right = has_contact_right * (self.last_contact_right - 1/100)
+                has_contact = np.array([self.last_contact_left, self.last_contact_right]).astype(np.float)
+                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
+
+                self.left_contacts.append(self.last_contact_left)
+                self.right_contacts.append(self.last_contact_right)
+
+                if DEBUG_GRND and len(self.left_contacts) >= 1600:
+                    from matplotlib import pyplot as plt
+                    plt.subplot(1, 2, 1)
+                    plt.plot(self.left_contacts)
+                    plt.subplot(1, 2, 2)
+                    plt.plot(self.right_contacts)
+                    plt.show()
+                    exit(33)
+            # just a binary ground contact
+            else:
+                has_contact = np.array(self.has_ground_contact()).astype(np.float)
+                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
 
         if _rsinitialized and cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
             assert not cfg.is_mod(cfg.MOD_GROUND_CONTACT)

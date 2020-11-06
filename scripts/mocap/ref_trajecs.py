@@ -113,7 +113,7 @@ class ReferenceTrajectories:
         self.qpos_is = qpos_indices
         self.qvel_is = q_vel_indices
         # setup pyplot
-        self.plt = config_pyplot(fullscreen=True, font_size=12,
+        self.plt = config_pyplot(fig_size=True, font_size=12,
                                  tick_size=12, legend_fontsize=16)
         # data contains 250 steps consisting of 40 trajectories
         self.data = self._load_trajecs()

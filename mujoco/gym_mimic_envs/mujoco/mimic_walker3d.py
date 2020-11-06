@@ -83,7 +83,7 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
 
     def has_ground_contact(self):
         has_contact = [False, False]
-        for contact in self.data.contact[:10]:
+        for contact in self.data.contact[:self.data.ncon]:
             if contact.geom1 == 0 and contact.geom2 == 4:
                 # right foot has ground contact
                 has_contact[1] = True

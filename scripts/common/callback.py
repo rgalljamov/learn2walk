@@ -268,18 +268,18 @@ class TrainingMonitor(BaseCallback):
             utils.save_model(self.model, cfg.save_path,
                              'ep_ret' + str(ep_ret_thres) + f'_{get_mio_timesteps()}M')
             self.times_surpassed_ep_return_threshold += 1
-            print(f'Saving model after surpassing EPISODE RETURN of {ep_ret_thres}.')
-            print('Model Path: ', cfg.save_path)
+            print(f'NOT Saving model after surpassing EPISODE RETURN of {ep_ret_thres}.')
+            # print('Model Path: ', cfg.save_path)
 
         # normalize reward
         mean_rew = (mean_rew - cfg.alive_bonus)/cfg.rew_scale
         mean_rew_thres = 0.4 * cfg.rew_scale \
                          + MEAN_REW_INCREMENT * (self.times_surpassed_mean_reward_threshold + 1)
         if mean_rew > (mean_rew_thres):
-            utils.save_model(self.model, cfg.save_path,
-                             'mean_rew' + str(int(100*mean_rew_thres)) + f'_{get_mio_timesteps()}M')
+            # utils.save_model(self.model, cfg.save_path,
+            #                  'mean_rew' + str(int(100*mean_rew_thres)) + f'_{get_mio_timesteps()}M')
             self.times_surpassed_mean_reward_threshold += 1
-            print(f'Saving model after surpassing MEAN REWARD of {mean_rew_thres}.')
+            print(f'NOT Saving model after surpassing MEAN REWARD of {mean_rew_thres}.')
             print('Model Path: ', cfg.save_path)
 
 
@@ -361,7 +361,7 @@ class TrainingMonitor(BaseCallback):
                                  * (self.count_stable_walks / cfg.EVAL_N_TIMES) ** 4 \
 
         if False: # runs_20m >= 20 and not cfg.is_mod(cfg.MOD_MIRR_QUERY_VF_ONLY):
-            cfg.modification += f'/{cfg.MOD_MIRR_QUERY_VF_ONLY}'
+            cfg.modification += f'/{cfg.MOD_QUERY_VF_ONLY}'
             utils.log('Starting to query VF only!',
                       [f'Stable walks: {runs_20m}',
                        f'Mean distance: {self.mean_walked_distance}'])
