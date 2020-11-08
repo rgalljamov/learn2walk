@@ -821,6 +821,7 @@ def compare_violins():
 def plot_metrics_table():
     # first get all metrics of interest
     ap_names = [APD_NORM_ANGS, APD_NORM_DELTA, APT_BSLN]
+    ap_names = [APT_BSLN, APT_BSLN_HALF_BS, APT_DUP, APT_MRR_STEPS]
     # approach_names_dict[APT_BSLN] = 'Joint Torque'
     # approach_names_dict[APD_BSLN] = 'Target Angles'
     aps = [Approach(name) for name in ap_names]
@@ -839,9 +840,9 @@ if __name__ == '__main__':
     # plot_metrics_table()
     # show_summary_score_advantages()
     # compare_main_plots()
-    # compare_main_torque_plots()
+    compare_main_torque_plots()
     # compare_rewards()
-    compare_violins()
+    # compare_violins()
     # compare_baselines_training_curves()
     # compare_baselines_rews()
     # compare_baselines_8plots()
