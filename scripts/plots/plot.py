@@ -7,6 +7,7 @@ sns.set_context("paper")
 plt = config_pyplot(font_size=20, tick_size=20)
 # sns.set_style("ticks") # , {'axes.edgecolor': '#cccccc'})
 
+
 def plot_violin(names, means, hist_data, x_label='', y_label='', text_size=18):
     """@:param hist_data: a list of lists, for each name a list of metric values. """
     performance_data = []
@@ -17,14 +18,15 @@ def plot_violin(names, means, hist_data, x_label='', y_label='', text_size=18):
     performance_df = pd.DataFrame(performance_data, columns=[x_label, 'Mean Architecture Performance', y_label])
     # plot violins
     sns.violinplot(x=x_label, y=y_label, data=performance_df, inner='stick', bw=0.4)
-    # plot baseline
 
+    # plot horizontal lines indicating the means
     for i in range(len(means)):
         color = sns.color_palette()[i]
         plt.plot(np.arange(-1, len(names) + 1), np.ones((len(names) + 2,)) * means[i], c=color,
                  linestyle='--', linewidth=3, zorder=0)
 
-        plt.gca().text(-0.45, means[i]+1e5,
+        vertical_offset = {0:0, 1:0, 2:-4e5, 3:0}[i]
+        plt.gca().text(-0.45, means[i]+1e5+vertical_offset,
                        f'{np.round(means[i]/1e6, 1)}M',
                        fontsize=text_size, color=color)
 
