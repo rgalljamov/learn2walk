@@ -19,12 +19,16 @@ path_pd_normed_deltas = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/
                         'pi_deltas/norm_acts/cstm_pi/mim3d/8envs/ppo2/16mio/431-evaled-ret81'
 path_trq_baseline = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/' \
                     'cstm_pi/mim_trq_ff3d/8envs/ppo2/8mio/296-evaled-ret79'
+path_mirr_steps = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/' \
+                  'steps_mirr/cstm_pi/mim_trq_ff3d/8envs/ppo2/8mio/280'
+path_mirr_exps = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/' \
+                 'mirr_exps/cstm_pi/mim_trq_ff3d/8envs/ppo2/16mio/331-evaled-ret86'
 
 FLY = False
 DETERMINISTIC_ACTIONS = True
 RENDER = False
 
-IS_TORQUE_MODEL = False
+IS_TORQUE_MODEL = True
 if IS_TORQUE_MODEL:
     cfg.env_id = cfg.envs[4]
 else:
@@ -33,7 +37,7 @@ else:
 SPEED_CONTROL = False
 
 FROM_PATH = True
-PATH = path_pd_normed_deltas # path_pd_baseline # path_trq_baseline #
+PATH = path_mirr_exps # path_pd_normed_deltas # path_pd_baseline # path_trq_baseline #
     # "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
     #    "cstm_pi/mim_trq3d/8envs/ppo2/16mio/658-evaled-ret78"
 if not PATH.endswith('/'): PATH += '/'
