@@ -226,7 +226,7 @@ class CustomPPO2(PPO2):
         # to investigate the outputted actions in the monitor env
         self.last_actions = None
 
-        if cfg.is_mod(cfg.MOD_REFS_REPLAY) or cfg.is_mod(cfg.MOD_ONLINE_CLONE):
+        if cfg.is_mod(cfg.MOD_REFS_REPLAY):
             # load obs and actions generated from reference trajectories
             self.ref_obs, self.ref_acts = get_obs_and_delta_actions(norm_obs=True, norm_acts=True, fly=False)
 
@@ -377,11 +377,6 @@ class CustomPPO2(PPO2):
                 lr_now = self.learning_rate(frac)
                 cliprange_now = self.cliprange(frac)
                 cliprange_vf_now = cliprange_vf(frac)
-                if cfg.is_mod(cfg.MOD_N_OPT_EPS_SCHED):
-                    self.noptepochs = int(cfg.opt_eps_sched.value(frac))
-                    if np.random.randint(0,10,1)[0] == 7:
-                        print('Current noptepochs: ', self.noptepochs)
-
 
                 callback.on_rollout_start()
 
@@ -436,7 +431,7 @@ class CustomPPO2(PPO2):
                      f'mean returns:\t{np.mean(returns)}', f'mean values:\t{np.mean(values)}',
                      f'max returns:\t{np.max(returns)}', f'max values:\t\t{np.max(values)}'])
 
-                if cfg.is_mod(cfg.MOD_REFS_REPLAY) or cfg.is_mod(cfg.MOD_ONLINE_CLONE):
+                if cfg.is_mod(cfg.MOD_REFS_REPLAY):
                     # load ref experiences and treat them as real experiences
                     obs, actions, returns, masks, values, neglogpacs = \
                         generate_experiences_from_refs(rollout, self.ref_obs, self.ref_acts)
@@ -459,8 +454,7 @@ class CustomPPO2(PPO2):
                 if states is None:  # nonrecurrent version
                     update_fac = self.n_batch // self.nminibatches // self.noptepochs + 1
                     inds = np.arange(self.n_batch)
-                    n_epochs = self.noptepochs \
-                        if not cfg.is_mod(cfg.MOD_ONLINE_CLONE) or update > 9 else 200
+                    n_epochs = self.noptepochs
                     for epoch_num in range(n_epochs):
                         np.random.shuffle(inds)
                         for start in range(0, self.n_batch, minibatch_size):

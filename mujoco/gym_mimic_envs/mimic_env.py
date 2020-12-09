@@ -127,19 +127,9 @@ class MimicEnv:
             qpos_min, qpos_max = self.get_qpos_ranges()
             # qpos_min: [-0.8727 -0.7854  0.     -0.3491 -0.8727 -0.0873  0.     -0.3491]
             # qpos_max: [0.8727  0.0873   2.618  0.6981  0.8727  0.7854   2.618  0.6981]
-            if cfg.is_mod(cfg.MOD_NORM_CONSIDER_SIGN):
-                # todo: add mean actions. this way we shift the normal distribution to be around the mean...
-                a_unnormalized = []
-                for i, act in enumerate(a):
-                    if act > 0:
-                        a_unnormalized.append(qpos_max[i]*act)
-                    else:
-                        a_unnormalized.append(qpos_min[i]*np.abs(act))
-                a = np.array(a_unnormalized)
-            else:
-                act_prct = (a + 1) / 2
-                qpos_ranges = (qpos_max - qpos_min)
-                a = qpos_min + act_prct * qpos_ranges
+            act_prct = (a + 1) / 2
+            qpos_ranges = (qpos_max - qpos_min)
+            a = qpos_min + act_prct * qpos_ranges
 
         if cfg.is_mod(cfg.MOD_TORQUE_DELTAS):
             last_action = np.copy(self.sim.data.actuator_force)
@@ -184,7 +174,7 @@ class MimicEnv:
             reward += alive_bonus
             reward -= 1e-3 * np.square(a).sum()
 
-        USE_ET = False or cfg.is_mod(cfg.MOD_REF_STATS_ET)
+        USE_ET = False
         USE_REW_ET = True and not cfg.do_run() and not USE_ET
         walked_distance = qpos_after[0]
         is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > cfg.max_distance + 0.01
@@ -192,10 +182,7 @@ class MimicEnv:
             # is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > 22.05
             done = com_z_pos < 0.5 or is_ep_end
         elif USE_ET:
-            if cfg.is_mod(cfg.MOD_REF_STATS_ET):
-                done = self.is_out_of_ref_distribution(obs)
-            else:
-                done = self.has_exceeded_allowed_deviations()
+            done = self.has_exceeded_allowed_deviations()
         elif USE_REW_ET:
             done, com_height_too_low, trunk_ang_exceeded, is_drunk, \
             rew_too_low = self.do_terminate_early(reward, rew_threshold=cfg.et_rew_thres)
@@ -243,10 +230,8 @@ class MimicEnv:
             reward = reward + cfg.rew_delta_scale * rew_delta
             if reward < 0: reward = 0
 
-        if walked_distance > cfg.alive_min_dist and not done:
+        if not done:
             reward += cfg.alive_bonus
-            # alive_bonus = 1 * cfg.rew_scale * step_count / (cfg.mio_steps * 1e6)
-            # reward += alive_bonus
 
         return obs, reward, done, {}
 
@@ -828,11 +813,6 @@ class MimicEnv:
             imit_rew = np.sqrt(pos_rew) * np.sqrt(com_rew) # * vel_rew**w_vel
         else:
             imit_rew = w_pos * pos_rew + w_vel * vel_rew + w_com * com_rew + w_pow * pow_rew
-
-        if cfg.is_mod(cfg.MOD_PUNISH_UNREAL_TARGET_ANGS):
-            # punish unrealistic joint target angles
-            delta_rew = self.get_angle_deltas_reward(qpos_act, action)
-            imit_rew *= delta_rew
 
         return imit_rew * cfg.rew_scale
 

@@ -35,16 +35,6 @@ class CustomPolicy(ActorCriticPolicy):
                     f'Input dim original: {obs.shape[1]}\n'
                     f'Hidden Layer Sizes (E2E): {cfg.enc_layer_sizes + cfg.hid_layer_sizes_pi}')
                 obs_reduced = self.fc_hidden_layers('obs_enc_hid', obs, cfg.enc_layer_sizes, act_func_hid)
-            elif cfg.is_mod(cfg.MOD_ENC_DIM_RED_PRETRAINED):
-                # load encoder matrices
-                ws, bs = load_encoder_weights()
-                # transform input (reduce dim)
-                for w, b in zip(ws,bs):
-                    obs = tf.matmul(obs, w)
-                    obs += b
-                assert obs.shape[1] == 8
-                log('Reducing obs dimension by multiplication '
-                    'with weight matrices from the encoder network.')
 
 
             # build the policy network's hidden layers
@@ -117,9 +107,9 @@ class CustomPolicy(ActorCriticPolicy):
     def fc(self, name, input, size, zero=False):
         """
         Builds a single fully connected layer. Initial values taken from stable-baselines.
-        :param zero: if True,
+        :param zero: if True, scale down init weights and biases by a small value of 0.01
         """
-        return self.linear(input, name, size, init_scale=0 if zero else np.sqrt(2), init_bias=0)
+        return self.linear(input, name, size, init_scale=0.01 if zero else np.sqrt(2), init_bias=0)
 
     def load_pretrained_policy_hid_layers(self, scope, input, act_func=tf.nn.relu):
         """
