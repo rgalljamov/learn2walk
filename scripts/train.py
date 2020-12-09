@@ -143,3 +143,7 @@ def train():
 
     # evaluate last saved model
     eval.eval_model()
+
+
+if __name__ == '__main__':
+    train()

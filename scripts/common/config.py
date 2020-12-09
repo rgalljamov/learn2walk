@@ -51,12 +51,12 @@ def is_mod(mod_str):
 def do_run():
     return AP_RUN in approach
 
-# choose approach
+# approaches
 AP_DEEPMIMIC = 'dmm'
 AP_RUN = 'run'
 AP_BEHAV_CLONE = 'bcln'
 
-# choose modification
+# modifications / modes of the approach
 MOD_FLY = 'fly'
 MOD_ORIG = 'orig'
 MOD_PHASE_VAR = 'phase_var'
@@ -174,7 +174,7 @@ STEPS_PER_VEL = 1
 enc_layer_sizes = [512]*2 + [16]
 hid_layer_sizes_vf = [512]*2
 hid_layer_sizes_pi = [512]*2
-gamma = {50:0.99, 100: 0.999, 200:0.995, 400:0.998}[CTRL_FREQ]
+gamma = {50:0.99, 100: 0.99, 200:0.995, 400:0.998}[CTRL_FREQ]
 alive_min_dist = 0
 trq_delta = 0.25
 rew_scale = 1
@@ -286,37 +286,3 @@ final_checkpoint = 'final'
 if __name__ == '__main__':
     from scripts.train import train
     train()
-
-
-'''
-# ARCHS
-ARC_FC_MLP = 'mlp'
-ARC_ACTION_BRANCHING = 'act_brnchg'
-
-# modifs
-MOD_SUPERVISED_INIT = 'supervised_init'
-MOD_ORIG_FC = 'orig_fc'
-MOD_CSTM_MLP = 'cstm_mlp'
-MOD_SHARE_ALL_HID = 'share_all_hids'
-
-MOD_ATTENTION = 'attention'
-MOD_SPARSE_W_INIT = 'sprs_w_init'
-MOD_L1_REG = 'l1_reg'
-
-AT_RELU = 'at_relu'
-AT_SIGMOID = 'at_sigm'
-AT_LEARNABLE_PARAMS = 'learn_params'
-AT_REMOID = 'at_remoid'
-AT_SOFTMAX = 'at_softmax'
-
-# maybe useful later
-hid_size = 128
-l1_scale = 5e-2
-zero_prct = 0.70
-rem_slope = 4
-rem_prct_init = 0.5
-sftmx_scale = 8
-sftmx_init = 0.01
-sftmx_shift = 0
-sftm_inv_temp = 1
-'''

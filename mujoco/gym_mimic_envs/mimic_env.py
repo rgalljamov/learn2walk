@@ -66,15 +66,13 @@ class MimicEnv:
         self.right_contacts = []
 
     def step(self, a):
-        """
-        Returns
-        -------
-        True if MimicEnv was already instantiated.
-        Workaround (see doc string for _rsinitialized)
-        """
+        # Workaround (see doc string for _rsinitialized)
         global _rsinitialized
 
+        # step(a) is called during mujoco environment initialization
+        # before env.reset() was called the first time
         if not _rsinitialized:
+            # do nothing in that case, return dummy values
             obs = self._get_obs()
             return obs, -3.33, False, {}
 
@@ -757,6 +755,7 @@ class MimicEnv:
         return energy_rew
 
     def get_joint_power_sum_normed(self):
+        return 0.33
         torques = np.abs(self.get_actuator_torques())
         max_tors = self.get_force_ranges().max(axis=1)
         # log(f'Max Torques: {max_tors}')
