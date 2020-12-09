@@ -26,7 +26,7 @@ path_mirr_exps = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/' \
 
 FLY = False
 DETERMINISTIC_ACTIONS = True
-RENDER = False
+RENDER = True
 
 IS_TORQUE_MODEL = True
 if IS_TORQUE_MODEL:
@@ -35,6 +35,7 @@ else:
     cfg.env_id = cfg.envs[2]
 
 SPEED_CONTROL = False
+
 
 FROM_PATH = True
 PATH = path_mirr_exps # path_pd_normed_deltas # path_pd_baseline # path_trq_baseline #

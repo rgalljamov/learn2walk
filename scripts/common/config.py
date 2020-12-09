@@ -37,12 +37,12 @@ def assert_mod_compatibility():
         raise TypeError("Using sac and tanh actions is only possible in combination"
                         "with the custom policy: MOD_CUSTOM_NETS.")
 
-def get_torque_ranges(hip, knee, ankle):
-    torque_ranges = np.ones((6,2))
-    peaks = np.array([hip, knee, ankle] * 2)
+def get_torque_ranges(hip_sag, hip_front, knee, ankle):
+    torque_ranges = np.ones((8,2))
+    peaks = np.array([hip_sag, hip_front, knee, ankle] * 2)
     torque_ranges[:,0] = -peaks
     torque_ranges[:,1] = peaks
-    # print('Torque ranges (hip, knee, ankle): ', (hip, knee, ankle))
+    # print('Torque ranges (hip_sag, hip_front, knee, ankle): ', torque_ranges)
     return torque_ranges
 
 def is_mod(mod_str):
@@ -89,7 +89,7 @@ MOD_PRETRAIN_PI = 'pretrain_pi'
 MOD_VF_ZERO = 'vf_zero'
 # checking if learning is possible with weaker motors too
 MOD_MAX_TORQUE = 'max_torque'
-TORQUE_RANGES = get_torque_ranges(300, 300, 300)
+TORQUE_RANGES = get_torque_ranges(50, 50, 50, 50)
 # Reduce dimensionality of the state with a pretrained encoder
 MOD_ENC_DIM_RED_PRETRAINED = 'dim_red'
 # use mocap statistics for ET
@@ -137,15 +137,15 @@ MOD_REW_DELTA = 'rew_delta'
 MOD_EXP_REPLAY = 'exp_replay'
 replay_buf_size = 1
 MOD_N_OPT_EPS_SCHED = 'opt_eps_sched'
+MOD_40KG = 'half_weight_40kg'
+MOD_140cm_40KG = '140cm_40kg'
+MOD_GEAR1 = 'gear1'
+MAX_TORQUE = 50
 
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([# MOD_EXP_REPLAY, # MOD_QUERY_NETS, MOD_QUERY_VF_ONLY,
-                    MOD_PI_OUT_DELTAS, MOD_NORM_ACTS,
-                    # MOD_GROUND_CONTACT, MOD_GRND_INV_STANCE_DUR, #MOD_GROUND_CONTACT_DENSE,
-    MOD_CUSTOM_POLICY,
-    ])
+modification = MOD_CUSTOM_POLICY + '/' + mod([MOD_GEAR1, MOD_40KG, MOD_MIRROR_EXPS])
 assert_mod_compatibility()
 
 # ----------------------------------------------------------------------------------
@@ -184,9 +184,10 @@ alive_bonus = 0.2 * rew_scale
 EVAL_N_TIMES = 20
 rew_delta_scale = 20
 
-wb_project_name = 'exp_replay'
+wb_project_name = 'body_weights'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               f'NEW Replay BUF{replay_buf_size}, NO query, ent_coef{ent_coef}, adjust BS'
+               'NEW 180cm, 40kg, 50Nm, gear1'
+               # f'NEW Replay BUF{replay_buf_size}, NO query, ent_coef{ent_coef}, adjust BS'
                # 'GRND INVERSE STANCE DUR'
                # 'MRR query VF only'
                # 'BSLN, GRND dense, RESET FXD, smooth0025'
@@ -195,28 +196,9 @@ wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
                # f'PI E2ENC {enc_layer_sizes}, pi {hid_layer_sizes_pi[0]}'
                # f'exp noptepochs schedule: slope {opt_eps_slope}, {opt_eps_start} - {opt_eps_end}'
                # f'MRR no query, init logstd {init_logstd}, half ent_coef{ent_coef}'
-wb_run_notes = f'' \
-               'Changed evaluation of stable walks to consider 18m without falling as stable. '\
-               'Evaluate the agent starting at 75% of the step cycle. ' \
-               'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \
-               'Increased the minimum learning rate to 1e-6, was -8 before. ' \
-               'Reduced the minimum logstd to -2.3, ' \
-               'Estimate mean return of an action based on gamma and mean ep rew. ' \
-               'Get a big positive reward on episode end to avoid punishing good actions ' \
-               'at the end of the episode due to small return. ' \
-               'Flat feet. ' \
-               'extended epdur to have enough time to reach episode end and stop episode only after 22m. ' \
-               'softened ET by allowing more trunk rotation in the axial plane axial_dev0.5. ' \
-               '' \
-               'no longer stop the episode based on a minimum reward signal! ' \
-               '' \
-               'Added hard ET conditions to avoid falling: ' \
-               'trunk angles are checked in all three directions, ' \
-               'com height has much higher threshold!' \
-               '' \
-               '' \
-               ' ' \
-               'Eval model from 20 different steps at same position. '
+wb_run_notes = f'Use gear ratio 1 and scale actions by MAX_TORQUE in the environment. ' \
+               f'Repeat Baseline experiment with original walker model.'
+
 # num of times a batch of experiences is used
 if is_mod(MOD_N_OPT_EPS_SCHED):
     noptepochs = f'{opt_eps_start} - {opt_eps_end}'
@@ -230,7 +212,7 @@ else:
 # choose environment
 envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
 env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 2
+env_index = 4
 env_id = envs[env_index]
 env_name = env_names[env_index]
 is_torque_model = env_name in ['mim_trq2d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
@@ -245,7 +227,7 @@ et_reward = -100
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mirr_exps = is_mod(MOD_MIRROR_EXPS)
 exp_replay = is_mod(MOD_EXP_REPLAY)
-mio_steps = (8 if is_torque_model else 16) * (2 if mirr_exps else 1)
+mio_steps = (20 if is_torque_model else 16) * (2 if mirr_exps else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
 batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
