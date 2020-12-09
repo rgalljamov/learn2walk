@@ -5,7 +5,7 @@
   </visual>
   <default>
     <joint armature="0.01" limited="true" />
-    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="300" forcelimited="true" forcerange="-300 300"/>
+    <motor ctrllimited="true" ctrlrange="-300 300" gear="1" forcelimited="true" forcerange="-300 300"/>
     <geom conaffinity="0" condim="3" contype="1" density="1000" friction=".7 .1 .1" rgba="0.8 0.6 .4 1"/>
   </default>
   <option integrator="RK4" timestep="0.001"/>
@@ -69,14 +69,6 @@
     <motor joint="hip_joint_frontal_left"/>
     <motor joint="knee_left_joint"/>
     <motor joint="ankle_left_joint"/>
-<!--    <position joint="hip_joint_saggital_right"   kp="3200"  ctrlrange="-0.8727 0.8727"/>-->
-<!--    <position joint="hip_joint_frontal_right"    kp="3200"  ctrlrange="-0.7854 0.0873"/>-->
-<!--    <position joint="knee_joint_right"  kp="1600"  ctrlrange="0.0 2.6180"/>-->
-<!--    <position joint="ankle_joint_right" kp="2800"  ctrlrange="-0.3491 0.6981"/> -->
-<!--    <position joint="hip_joint_saggital_left"    kp="3200"  ctrlrange="-0.8727 0.8727"/>-->
-<!--    <position joint="hip_joint_frontal_left"     kp="3200"  ctrlrange="-0.0873 0.7854"/>-->
-<!--    <position joint="knee_left_joint"   kp="1600"  ctrlrange="0.0 2.6180"/>-->
-<!--    <position joint="ankle_left_joint"  kp="2800"  ctrlrange="-0.3491 0.6981"/> -->
   </actuator>
     <asset>
         <texture type="skybox" builtin="gradient" rgb1=".4 .5 .6" rgb2="0 0 0"

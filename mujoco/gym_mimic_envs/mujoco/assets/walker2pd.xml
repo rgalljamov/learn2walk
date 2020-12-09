@@ -5,7 +5,6 @@
   </visual>
   <default>
     <joint armature="0.01" limited="true" />
-    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100"/>
     <position ctrllimited="true" forcelimited="true" forcerange="-300 300" gear="1"/>
     <geom conaffinity="0" condim="3" contype="1" density="1000" friction=".7 .1 .1" rgba="0.8 0.6 .4 1"/>
   </default>
@@ -55,15 +54,6 @@
     </body>
   </worldbody>
   <actuator>
-    <!-- <motor joint="torso_joint" ctrlrange="-100.0 100.0" isctrllimited="true"/>-->
-    <!-- Uncommented original torque motors
-    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="hip_joint_right"/>
-    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="knee_joint_right"/>
-    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="ankle_joint_right"/>
-    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="hip_left_joint"/>
-    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="knee_left_joint"/>
-    <motor ctrllimited="true" ctrlrange="-1.0 1.0" gear="100" joint="ankle_left_joint"/>
-    -->
     <position joint="hip_joint_right"   kp="3200"  ctrlrange="-0.8727 0.8727"/> 
     <position joint="knee_joint_right"  kp="1600"  ctrlrange="0.0 2.6180"/> 
     <position joint="ankle_joint_right" kp="2800"  ctrlrange="-0.3491 0.6981"/> 

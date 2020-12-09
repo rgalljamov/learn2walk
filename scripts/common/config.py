@@ -148,7 +148,10 @@ MAX_TORQUE = 300
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = MOD_CUSTOM_POLICY + '/' + mod([MOD_GEAR1, MOD_MIRROR_EXPS])
+# DO NOT CHANGE default modifications
+modification = MOD_CUSTOM_POLICY + '/' + MOD_GEAR1 + '/'
+# HERE modifications can be added
+modification += mod([MOD_MIRROR_EXPS])
 assert_mod_compatibility()
 
 # ----------------------------------------------------------------------------------
@@ -180,8 +183,10 @@ noptepochs = 4
 
 wb_project_name = 'body_weights'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               'CC-Test, baseline, 300Nm, 16envs, 6mio'
-wb_run_notes = f'Use gear ratio 1 and scale actions by MAX_TORQUE in the environment. ' \
+               'CC2-Test, baseline, 300Nm, 8envs, 4mio'
+wb_run_notes = f'CC2: made gear=1 default in all envs!' \
+               f'CC1: coarse config cleanup, deleted irrelevant hypers and modes. ' \
+               f'Use gear ratio 1 and scale actions by MAX_TORQUE in the environment. ' \
                f'Repeat Baseline experiment with original walker model.'
 
 # ----------------------------------------------------------------------------------
@@ -203,9 +208,9 @@ et_reward = -100
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mirr_exps = is_mod(MOD_MIRROR_EXPS)
 exp_replay = is_mod(MOD_EXP_REPLAY)
-mio_samples = 6
+mio_samples = 4
 if mirr_exps: mio_samples *= 2
-n_envs = 16 if utils.is_remote() and not DEBUG else 2
+n_envs = 8 if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
 batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
 # to make PHASE based mirroring comparable with DUP, reduce the batch size
