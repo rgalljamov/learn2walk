@@ -8,6 +8,7 @@ sys.path.append('/home/rustam/code/remote/')
 
 import numpy as np
 from scripts.common import utils
+from scripts import config_light as cfgl
 
 def s(input):
     """ improves conversion of digits to strings """
@@ -86,7 +87,7 @@ MOD_PRETRAIN_PI = 'pretrain_pi'
 MOD_VF_ZERO = 'vf_zero'
 # checking if learning is possible with weaker motors too
 MOD_MAX_TORQUE = 'max_torque'
-TORQUE_RANGES = get_torque_ranges(50, 50, 50, 50)
+TORQUE_RANGES = get_torque_ranges(*cfgl.PEAK_JOINT_TORQUES)
 
 
 # mirror experiences
@@ -121,15 +122,13 @@ MOD_SYMMETRIC_WALK = 'sym_walk'
 # reduce input dimensionality with an end-to-end encoder network of the observations
 # e2e means here that we don't separately train the encoder to reconstruct the observations
 MOD_E2E_ENC_OBS = 'e2e_enc_obs'
-MOD_TORQUE_DELTAS = 'trq_delta'
-# specify max torque difference between two consecutive control steps [%]
-trq_delta = 0.25
 MOD_L2_REG = 'l2_reg'
 l2_coef = 5e-4
 # set a fixed logstd of the policy
 MOD_CONST_EXPLORE = 'const_explor'
 # learn policy for right step only, mirror states and actions for the left step
 MOD_MIRR_STEPS = 'steps_mirr'
+# TODO: Will this still be possible with domain randomization?
 MOD_QUERY_VF_ONLY = 'query_vf_only'
 MOD_REW_DELTA = 'rew_delta'
 rew_delta_scale = 20
@@ -142,14 +141,13 @@ STEPS_PER_VEL = 1
 
 MOD_40KG = 'half_weight_40kg'
 MOD_140cm_40KG = '140cm_40kg'
-MOD_GEAR1 = 'gear1'
 MAX_TORQUE = 300
 
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
 # DO NOT CHANGE default modifications
-modification = MOD_CUSTOM_POLICY + '/' + MOD_GEAR1 + '/'
+modification = MOD_CUSTOM_POLICY + '/'
 # HERE modifications can be added
 modification += mod([MOD_MIRROR_EXPS])
 assert_mod_compatibility()
@@ -183,8 +181,9 @@ noptepochs = 4
 
 wb_project_name = 'body_weights'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               'CC2-Test, baseline, 300Nm, 8envs, 4mio'
-wb_run_notes = f'CC2: made gear=1 default in all envs!' \
+               'CC3-Test, TRQ 8envs, 4mio'
+wb_run_notes = f'CC3: Start config_light.py, specify is3d, isTorque' \
+               f'CC2: made gear=1 default in all envs!' \
                f'CC1: coarse config cleanup, deleted irrelevant hypers and modes. ' \
                f'Use gear ratio 1 and scale actions by MAX_TORQUE in the environment. ' \
                f'Repeat Baseline experiment with original walker model.'
@@ -192,11 +191,22 @@ wb_run_notes = f'CC2: made gear=1 default in all envs!' \
 # ----------------------------------------------------------------------------------
 
 # choose environment
-envs = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
-env_names = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
-env_index = 4
-env_id = envs[env_index]
-env_name = env_names[env_index]
+if cfgl.ENV_ID is not None:
+    env_id = cfgl.ENV_ID
+    # short description of the env used in the save path
+    env_abbrev = env_id
+    env_is3d = cfgl.ENV_IS_3D
+    env_out_torque = cfgl.ENV_OUT_TORQUE
+else:
+    env_ids = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
+    env_abbrevs = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
+    env_index = 4
+    env_id = env_ids[env_index]
+    # used in the save path (e.g. 'wlk2d')
+    env_abbrev = env_abbrevs[env_index]
+    env_out_torque = True
+    env_is3d = True
+
 
 # choose hyperparams
 algo = 'ppo2'
@@ -219,7 +229,6 @@ if is_mod(MOD_MIRR_STEPS): batch_size = int(batch_size/2)
 # to reach the same batch size
 if exp_replay: batch_size = int(batch_size/(replay_buf_size+1))
 
-
 lr_start = 500
 lr_final = 1
 _ep_dur_in_k = {400: 6, 200: 3, 100: 1.5, 50: 0.75}[CTRL_FREQ]
@@ -232,7 +241,7 @@ info_baseline_hyp_tune = f'hl{s(hid_layer_sizes_vf)}_ent{int(ent_coef * 1000)}_l
 
 # construct the paths to store the models at
 _mod_path = ('debug/' if DEBUG else '') + \
-            f'{approach}/{modification}/{env_name}/{n_envs}envs/' \
+            f'{approach}/{modification}/{env_abbrev}/{n_envs}envs/' \
             f'{algo}/{mio_samples}mio/'
 save_path_norun= abs_project_path + 'models/' + _mod_path
 save_path = save_path_norun + f'{run_id}/'

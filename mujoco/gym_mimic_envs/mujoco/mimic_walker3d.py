@@ -36,7 +36,7 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
     def __init__(self):
         walker_xml = {'mim3d': 'walker3pd.xml',
                       'mim_trq3d': 'walker3d.xml',
-                      'mim_trq_ff3d': 'walker3d_flat_feet.xml'}[cfg.env_name]
+                      'mim_trq_ff3d': 'walker3d_flat_feet.xml'}[cfg.env_abbrev]
         if cfg.is_mod(cfg.MOD_40KG):
             walker_xml = 'walker3d_flat_feet_40kg.xml'
             print('Training 40kg walker!')

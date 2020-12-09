@@ -29,7 +29,7 @@ class MimicWalker2dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
     """
     def __init__(self):
         walker_xml = {'mim2d': 'walker2pd.xml',
-                      'mim_trq2d': 'walker2d.xml'}[cfg.env_name]
+                      'mim_trq2d': 'walker2d.xml'}[cfg.env_abbrev]
         mujoco_env.MujocoEnv.__init__(self,
                                       join(dirname(__file__), "assets", walker_xml), 4)
         utils.EzPickle.__init__(self)

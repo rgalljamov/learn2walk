@@ -30,9 +30,9 @@ RENDER = True
 
 IS_TORQUE_MODEL = True
 if IS_TORQUE_MODEL:
-    cfg.env_id = cfg.envs[4]
+    cfg.env_id = cfg.env_ids[4]
 else:
-    cfg.env_id = cfg.envs[2]
+    cfg.env_id = cfg.env_ids[2]
 
 SPEED_CONTROL = False
 

@@ -20,7 +20,7 @@ def mirror_experiences(rollout, ppo2=None):
     assert states is None
     assert len(ep_infos) == 0
 
-    is3d = '3d' in cfg.env_name or '3pd' in cfg.env_name
+    is3d = cfg.env_is3d
     if is3d:
         # 3D Walker obs indices:
         #           0: phase, 1: des_vel, 2: com_y, 3: com_z,

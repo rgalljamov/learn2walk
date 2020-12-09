@@ -55,7 +55,7 @@ def init_wandb(model):
         "et_rew": cfg.et_reward,
         "ep_end_rew": cfg.ep_end_reward,
         "et_rew_thres": cfg.et_rew_thres,
-        "env": cfg.env_name,
+        "env": cfg.env_abbrev,
         "gam": model.gamma,
         "lam": model.lam,
         "n_envs": model.n_envs,

@@ -3,6 +3,7 @@ Interface for environments using reference trajectories.
 '''
 import gym, mujoco_py
 import numpy as np
+from scripts import config_light as cfgl
 from scripts.common import config as cfg
 from scripts.common.utils import log, is_remote, \
     exponential_running_smoothing as smooth, resetExponentialRunningSmoothing as reset_smooth
@@ -84,7 +85,6 @@ class MimicEnv:
             obs = self._get_obs()
             return obs, -3.33, False, {}
 
-        self.joint_pow_sum_normed = self.get_joint_power_sum_normed()
         self.refs.next()
 
         # pause sim on startup to be able to change rendering speed, camera perspective etc.
@@ -93,8 +93,7 @@ class MimicEnv:
             self._get_viewer('human')._paused = True
             pause_viewer_at_first_step = False
 
-        DEBUG = False
-
+        # monitor episode and training durations
         global step_count, ep_dur
         step_count += 1
         ep_dur += 1
@@ -117,31 +116,28 @@ class MimicEnv:
         # save qpos of actuated joints for reward calculation
         qpos_act_before_step = self.get_qpos(True, True)
 
-        # policy outputs qpos deltas
-        if cfg.is_mod(cfg.MOD_PI_OUT_DELTAS):
-            if cfg.is_mod(cfg.MOD_NORM_ACTS):
-                # rescale actions to actual bounds
-                a *= self.get_max_qpos_deltas()
-            a = qpos_act_before_step + a
-        elif cfg.is_mod(cfg.MOD_NORM_ACTS):
-            qpos_min, qpos_max = self.get_qpos_ranges()
-            # qpos_min: [-0.8727 -0.7854  0.     -0.3491 -0.8727 -0.0873  0.     -0.3491]
-            # qpos_max: [0.8727  0.0873   2.618  0.6981  0.8727  0.7854   2.618  0.6981]
-            act_prct = (a + 1) / 2
-            qpos_ranges = (qpos_max - qpos_min)
-            a = qpos_min + act_prct * qpos_ranges
+        # policy outputs (normalized) joint torques
+        if cfg.env_out_torque:
+            a = np.clip(a, -1, 1)
+            a *= cfgl.PEAK_JOINT_TORQUES*2
+        # policy outputs target angles for PD position controllers
+        else:
+            if cfg.is_mod(cfg.MOD_PI_OUT_DELTAS):
+                if cfg.is_mod(cfg.MOD_NORM_ACTS):
+                    # rescale actions to actual bounds
+                    a *= self.get_max_qpos_deltas()
+                a = qpos_act_before_step + a
+            elif cfg.is_mod(cfg.MOD_NORM_ACTS):
+                qpos_min, qpos_max = self.get_qpos_ranges()
+                # qpos_min: [-0.8727 -0.7854  0.     -0.3491 -0.8727 -0.0873  0.     -0.3491]
+                # qpos_max: [0.8727  0.0873   2.618  0.6981  0.8727  0.7854   2.618  0.6981]
+                act_prct = (a + 1) / 2
+                qpos_ranges = (qpos_max - qpos_min)
+                a = qpos_min + act_prct * qpos_ranges
 
-        if cfg.is_mod(cfg.MOD_TORQUE_DELTAS):
-            last_action = np.copy(self.sim.data.actuator_force)
-            deltas = a * cfg.trq_delta
-            a = last_action + deltas
 
         if cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
             a = self.mirror_acts(a)
-
-        if cfg.is_mod(cfg.MOD_GEAR1):
-            a = np.clip(a, -1, 1)
-            a *= cfg.MAX_TORQUE
 
         # execute simulation with desired action for multiple steps
         self.do_simulation(a, self._frame_skip)
@@ -191,7 +187,6 @@ class MimicEnv:
             done = not (com_z_pos > 0.8 and com_z_pos < 2.0 and
                         ang > -1.0 and ang < 1.0)
             done = done or is_ep_end
-        if DEBUG and done: print('Done')
 
         # punish episode termination
         if done:
@@ -528,7 +523,7 @@ class MimicEnv:
 
 
     def mirror_obs(self, obs):
-        is3d = '3d' in cfg.env_name or '3pd' in cfg.env_name
+        is3d = cfg.IS3D
         if is3d:
             # 3D Walker obs indices:
             #           0: phase, 1: des_vel, 2: com_y, 3: com_z,
@@ -569,7 +564,7 @@ class MimicEnv:
 
 
     def mirror_acts(self, acts):
-        is3d = '3d' in cfg.env_name or '3pd' in cfg.env_name
+        is3d = '3d' in cfg.env_abbrev or '3pd' in cfg.env_abbrev
         if is3d:
             mirred_acts_indices = [4, 5, 6, 7, 0, 1, 2, 3]
             # some observations and actions retain the same absolute value but change the sign
@@ -739,23 +734,6 @@ class MimicEnv:
             f'Energy Reward should be between 0 and 1 but was {energy_rew}'
         return energy_rew
 
-    def get_joint_power_sum_normed(self):
-        return 0.33
-        torques = np.abs(self.get_actuator_torques())
-        max_tors = self.get_force_ranges().max(axis=1)
-        # log(f'Max Torques: {max_tors}')
-        qvels = np.abs(self.get_qvel(exclude_not_actuated_joints=True))
-        max_vels = self._get_max_actuator_velocities()
-        assert torques.shape == max_tors.shape
-        assert qvels.shape == max_vels.shape
-        pows = np.multiply(torques, qvels)
-        max_pows = np.multiply(max_tors, max_vels)
-        abs_pows = np.abs(pows)
-        abs_max_pows = np.abs(max_pows)
-        sum_pows = np.sum(abs_pows)
-        sum_max_pows = np.sum(abs_max_pows)
-        pow_normed = sum_pows / sum_max_pows
-        return pow_normed
 
     def get_angle_deltas_reward(self, qpos_act, action):
         """
