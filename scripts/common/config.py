@@ -140,12 +140,12 @@ MOD_N_OPT_EPS_SCHED = 'opt_eps_sched'
 MOD_40KG = 'half_weight_40kg'
 MOD_140cm_40KG = '140cm_40kg'
 MOD_GEAR1 = 'gear1'
-MAX_TORQUE = 50
+MAX_TORQUE = 300
 
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = MOD_CUSTOM_POLICY + '/' + mod([MOD_GEAR1, MOD_40KG, MOD_MIRROR_EXPS])
+modification = MOD_CUSTOM_POLICY + '/' + mod([MOD_GEAR1, MOD_MIRROR_EXPS])
 assert_mod_compatibility()
 
 # ----------------------------------------------------------------------------------
@@ -156,8 +156,6 @@ MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
 ent_coef = {200: -0.0075, 400: -0.00375}[CTRL_FREQ]
-# if is_mod(MOD_MIRROR_EXPS): ent_coef /= 2
-# if is_mod(MOD_EXP_REPLAY): ent_coef /= (replay_buf_size+1)
 init_logstd = -0.7
 pi_out_init_scale = 0.001
 cliprange = 0.15
@@ -186,7 +184,7 @@ rew_delta_scale = 20
 
 wb_project_name = 'body_weights'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               'NEW 180cm, 40kg, 50Nm, gear1'
+               'baseline, 300Nm, 16envs, 8mio'
                # f'NEW Replay BUF{replay_buf_size}, NO query, ent_coef{ent_coef}, adjust BS'
                # 'GRND INVERSE STANCE DUR'
                # 'MRR query VF only'
@@ -227,8 +225,8 @@ et_reward = -100
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mirr_exps = is_mod(MOD_MIRROR_EXPS)
 exp_replay = is_mod(MOD_EXP_REPLAY)
-mio_steps = (20 if is_torque_model else 16) * (2 if mirr_exps else 1)
-n_envs = 8 if utils.is_remote() and not DEBUG else 2
+mio_steps = (8 if is_torque_model else 16) * (2 if mirr_exps else 1)
+n_envs = 16 if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
 batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
 if is_mod(MOD_MIRR_STEPS): batch_size = int(batch_size/2)
