@@ -76,8 +76,8 @@ metric_labels = [MET_SUM_SCORE, MET_STABLE_WALKS, MET_STEP_REW, MET_MEAN_DIST, M
            MET_REW_COM, MET_TRAIN_EPRET, MET_TRAIN_STEPREW, MET_TRAIN_DIST, MET_TRAIN_EPLEN,
            MET_STEPS_TO_CONV, MET_PI_STD]
 
-metric_names_dict = {MET_SUM_SCORE: 'Summary Score', MET_STABLE_WALKS: '# Stable Walks',
-                MET_STEP_REW: 'Mean Evaluation Reward', MET_MEAN_DIST: 'Eval Distance [m]',
+metric_names_dict = {MET_SUM_SCORE: 'Summary Score', MET_STABLE_WALKS: '# Stable Episodes',
+                MET_STEP_REW: 'Mean Imitation Reward', MET_MEAN_DIST: 'Eval Distance [m]',
                 MET_REW_POS: 'Average Position Reward', MET_REW_VEL: 'Average Velocity Reward', 
                 MET_REW_COM: 'Average COM Reward', MET_TRAIN_EPRET: 'Normalized Episode Return',
                 MET_TRAIN_STEPREW: 'Train Step Reward', MET_TRAIN_DIST: 'Train Distance [m]',
@@ -279,13 +279,12 @@ def compare_baselines_8plots():
     subplots[-1].legend([approach_names_dict[ap] for ap in ap_names])
     plt.show()
 
-
-def compare_main_plots():
+def plot_return_only():
     plt = config_pyplot(fig_size=0.5)
     ap_names = [APD_NORM_ANGS, APD_NORM_DELTA, APT_BSLN]
     # ap_names = [APT_BSLN, APT_BSLN_HALF_BS, APT_DUP, APT_MRR_STEPS]
     approach_names_dict[APD_BSLN] = 'Target Angles'
-    # approach_names_dict[APT_BSLN] = 'Joint Torques (Ours)'
+    approach_names_dict[APT_BSLN] = 'Joint Torques (Ours)'
     approach_names_dict[APD_NORM_ANGS] = 'Target Angles'
     approach_names_dict[APD_NORM_DELTA] = 'Angle Deltas (Ours)'
     aps = [Approach(name) for name in ap_names]
@@ -305,9 +304,10 @@ def compare_main_plots():
     line_start[2] = 0.1
     line_stop = [30, 20, 0.81, 0.8]
 
-    fig, subplots = plt.subplots(1, n_metrics)
+    fig, subplots = plt.subplots(1, 1) #n_metrics)
     for i, metric_label in enumerate(metric_labels):
-        subplot = subplots[i]
+        if i != 3: continue
+        subplot = subplots#[i]
         metrics = [metric for ap in aps for metric in ap.metrics
                    if metric.label == metric_label]
         for metric in metrics:
@@ -326,7 +326,170 @@ def compare_main_plots():
             subplot.set_xticks(np.arange(5) * 4e6)
             subplot.set_xticklabels([f'{x}' for x in np.arange(5) * 4])
             # subplot.set_yticks((np.arange(3)+1)*0.25)
-            subplot.set_ylabel(f'({"abcd"[i]}) ' + metric_names_dict[metric.label])
+            subplot.set_ylabel(metric_names_dict[metric.label])
+
+            if plot_rews:
+                conv_timestep = metric.approach.steps_to_conv_mean
+                train_dur = (metric.approach.train_duration_mio * 1e6)
+                n_points = len(metric.mean_fltrd)
+                index = int(n_points * conv_timestep / train_dur)
+                mean_conv = metric.mean_fltrd[index]
+
+                subplot.scatter(conv_timestep, mean_conv, s=100, marker='o', color=mean_color, zorder=10)
+                subplot.plot(np.linspace(0, conv_timestep, 3), np.ones(3) * mean_conv,
+                             c=mean_color, linestyle='--', linewidth=2, zorder=1)
+
+                # show time after 75% of reward was reached
+                # but only when it is reached at all
+                rew75_timestep = 1e6 * metric.approach.steps_to_75rew_mean
+                if rew75_timestep != train_dur:
+                    index = int(n_points * rew75_timestep / train_dur)
+                    mean75 = metric.mean_fltrd[index]
+                    # subplot.scatter(rew75_timestep, 0.07, s=75, marker='v', color=mean_color)
+                    subplot.scatter(rew75_timestep, mean75, s=120, marker='X', color=mean_color, zorder=10)
+
+                    # horizontal
+                    subplot.plot(np.linspace(0, rew75_timestep, 3),
+                        np.ones(3) * mean75, c=mean_color, linestyle=':', linewidth=2, zorder=0)
+
+            # Mark important points in the reward and return graph
+            if i in [1,3] and len(metric_labels) == 4:
+                # show rew at convergence
+                conv_timestep = metric.approach.steps_to_conv_mean
+                train_dur = (metric.approach.train_duration_mio * 1e6)
+                n_points = len(metric.mean_fltrd)
+                index = int(n_points * conv_timestep / train_dur)
+                mean_conv = metric.mean_fltrd[index]
+
+                subplot.scatter(conv_timestep, mean_conv, s=100, marker='o', color=mean_color, zorder=10)
+                subplot.plot(np.linspace(0, conv_timestep, 3), np.ones(3)*mean_conv,
+                             c=mean_color, linestyle='--', linewidth=2, zorder=0)
+
+            # Plot the 75% line
+            if i == 1 and len(metric_labels) == 4:
+                # subplot.plot(np.linspace(0, train_dur, 3), np.ones(3) * 0.75,
+                #              c='gray', linestyle=':', linewidth=1.25, zorder=0)
+                # show time after 75% of reward was reached
+                # but only when it is reached at all
+                rew75_timestep = 1e6 * metric.approach.steps_to_75rew_mean
+                if rew75_timestep != train_dur:
+                    index = int(n_points * rew75_timestep / train_dur)
+                    mean75 = metric.mean_fltrd[index]
+                    # subplot.scatter(rew75_timestep, 0.07, s=75, marker='v', color=mean_color)
+                    subplot.scatter(rew75_timestep, mean75, s=120, marker='X', color=mean_color, zorder=10)
+                    subplot.text(rew75_timestep, 0.05, f'{metric.approach.steps_to_75rew_mean}',
+                             ha='center', fontsize=tick_size+2, color=mean_color)
+                    # vertical
+                    subplot.plot(np.ones(3) * rew75_timestep,
+                              np.linspace(0.105, mean75, 3), c=mean_color,
+                              linestyle=':', linewidth=2, zorder=0)
+
+            # Plot horizontal 75% line in the return graph
+            if i == 3 and len(metric_labels) == 4:
+                # subplot.plot(np.linspace(0, train_dur, 3), np.ones(3) * 0.75,
+                #              c='gray', linestyle=':', linewidth=1.25, zorder=0)
+                # show time after 75% of reward was reached
+                # but only when it is reached at all
+                rew75_timestep = 1e6 * metric.approach.steps_to_75rew_mean
+                if rew75_timestep != train_dur:
+                    index = int(n_points * rew75_timestep / train_dur)
+                    mean75 = metric.mean_fltrd[index]
+                    # subplot.scatter(rew75_timestep, 0.07, s=75, marker='v', color=mean_color)
+                    subplot.scatter(rew75_timestep, mean75, s=120, marker='s', color=mean_color, zorder=10)
+
+                    # horizontal
+                    subplot.plot(np.linspace(0, rew75_timestep, 3),
+                                 np.ones(3) * mean75, c=mean_color,
+                                 linestyle=':', linewidth=3.5, zorder=0)
+
+
+
+                # # Plot vertical lines indicating convergence and 75% rew
+                # # vertical
+                # subplot.plot(np.ones(3)*conv_timestep,
+                #              np.linspace(line_start[i], mean_conv,3), c=mean_color,
+                #              linestyle='--', linewidth=1.4, zorder=0)
+                # # horizontal
+                # subplot.plot(np.linspace(0, max_dur, 3), np.ones(3)*mean_conv,
+                #              c=mean_color, linestyle='--', linewidth=1.5, zorder=0)
+
+
+    x_label = r'Training Timesteps [x$10^6$]'
+    # plt.gcf().tight_layout(rect=[0.1, 0.5, 0.95, 1])
+    fig.text(0.5, 0.04, x_label, ha='center', fontsize=font_size-1)
+    plt.subplots_adjust(wspace=0.33, top=0.99, left=0.05, right=0.99, bottom=0.18)
+    legend_texts = [approach_names_dict[ap] for ap in ap_names]
+    # assert 'ours' in ''.join(legend_texts).lower()
+    # if plot_rews:
+    #     subplots[-1].legend(np.array(subplots[-1].get_lines())[[0,2,5] if len(aps) == 3 else [0,3,6,9]], legend_texts, fancybox=True, framealpha=0.6,
+    #                         loc='upper right')
+    # else:
+    #     subplots[-1].legend(subplots[2].get_lines(), legend_texts, fancybox=True, framealpha=0.6,
+    #                         loc='upper left', bbox_to_anchor=(0.04, 0.42))
+    plt.show()
+
+
+def compare_main_plots():
+    plt = config_pyplot(fig_size=0.5)
+    # ap_names = [APD_NORM_ANGS, APD_NORM_DELTA, APT_BSLN]
+    # ap_names = [APT_BSLN, APT_BSLN_HALF_BS, APT_DUP, APT_MRR_STEPS]
+    ap_names = [APT_BSLN, APT_DUP, APT_MRR_STEPS]
+
+    # ap_names = [APD_BSLN, APD_NORM_DELTA, APT_BSLN, APT_MRR_STEPS, APT_DUP]
+    # approach_names_dict[APT_BSLN_HALF_BS] = 'Baseline (1/2 BS)'
+    # approach_names_dict[APD_BSLN] = 'Baseline\nTarget Angles'
+    # approach_names_dict[APD_NORM_DELTA] = 'Angle\nDeltas'
+    # approach_names_dict[APT_BSLN] = 'Torque'
+    # approach_names_dict[APT_MRR_STEPS] = 'Mirror\nPolicy'
+    # approach_names_dict[APT_DUP] = 'Mirror\nExperiences'
+
+    approach_names_dict[APD_BSLN] = 'Target Angles'
+    approach_names_dict[APT_BSLN] = 'Joint Torques'
+    approach_names_dict[APD_NORM_ANGS] = 'Target Angles'
+    approach_names_dict[APD_NORM_DELTA] = 'Angle Deltas'
+    aps = [Approach(name) for name in ap_names]
+    max_dur = 1e6 * max([ap.train_duration_mio for ap in aps])
+    metric_labels = [MET_STABLE_WALKS, MET_STEP_REW, MET_SUM_SCORE, MET_TRAIN_EPRET]
+    # metric_labels = [MET_REW_POS, MET_REW_VEL, MET_REW_COM]
+    n_metrics = len(metric_labels)
+    plot_rews = n_metrics == 3
+
+
+    font_size, tick_size, legend_size = \
+        change_plot_properties(font_size=-4, tick_size=-4, legend_fontsize=-3, line_width=+1)
+    plt.rcParams.update({'figure.autolayout': False})
+
+    # heights for the lines
+    line_start = np.zeros(n_metrics)
+    line_start[2] = 0.1
+    line_stop = [30, 20, 0.81, 0.8]
+
+    fig, subplots = plt.subplots(1, n_metrics)
+    for i, metric_label in enumerate(metric_labels):
+        subplot = subplots[i]
+        metrics = [metric for ap in aps for metric in ap.metrics
+                   if metric.label == metric_label]
+        for metric in metrics:
+            if not isinstance(metric.mean, np.ndarray) or not len(metric.mean) > 1:
+                subplot.scatter(metric.data, np.arange(len(metric.data)))
+                continue
+            n_steps = metric.train_duration_mio*1e6
+            x = np.linspace(0, n_steps, len(metric.mean))
+            mean = metric.mean_fltrd
+            # mean = metric.data[0,:]
+            subplot.plot(x, mean)
+            mean_color = subplot.get_lines()[-1].get_color()
+            show_std = True
+            if show_std:
+                std = metric.std_fltrd
+                subplot.fill_between(x, mean + std, mean - std,
+                                     color=mean_color, alpha=0.25)
+            # subplot.plot(x, metric.mean, color=mean_color, alpha=0.4)
+            subplot.set_xticks(np.arange(5) * 2e6)
+            subplot.set_xticklabels([f'{x}' for x in np.arange(5) * 2])
+            # subplot.set_yticks((np.arange(3)+1)*0.25)
+            subplot.set_ylabel(metric_names_dict[metric.label])
+            # subplot.set_ylabel(f'({"abcd"[i]}) ' + metric_names_dict[metric.label])
 
             if plot_rews:
                 conv_timestep = metric.approach.steps_to_conv_mean
@@ -375,7 +538,7 @@ def compare_main_plots():
                              c=mean_color, linestyle='--', linewidth=1.5, zorder=0)
 
             # Plot the 75% line
-            if i == 1 and len(metric_labels) == 4:
+            if False: # i == 1 and len(metric_labels) == 4:
                 # subplot.plot(np.linspace(0, train_dur, 3), np.ones(3) * 0.75,
                 #              c='gray', linestyle=':', linewidth=1.25, zorder=0)
                 # show time after 75% of reward was reached
@@ -427,6 +590,8 @@ def compare_main_plots():
     # plt.gcf().tight_layout(rect=[0.1, 0.5, 0.95, 1])
     fig.text(0.5, 0.04, x_label, ha='center', fontsize=font_size-1)
     plt.subplots_adjust(wspace=0.33, top=0.99, left=0.05, right=0.99, bottom=0.18)
+    plt.show()
+    exit(33)
     legend_texts = [approach_names_dict[ap] for ap in ap_names]
     # assert 'ours' in ''.join(legend_texts).lower()
     if plot_rews:
@@ -484,7 +649,8 @@ def compare_main_torque_plots():
             subplot.set_xticks(np.arange(5) * 2e6)
             subplot.set_xticklabels([f'{x}' for x in np.arange(5) * 2])
             # subplot.set_yticks((np.arange(3)+1)*0.25)
-            subplot.set_ylabel(f'({"abcd"[i]}) ' + metric_names_dict[metric.label])
+            subplot.set_ylabel(metric_names_dict[metric.label])
+            # subplot.set_ylabel(f'({"abcd"[i]}) ' + metric_names_dict[metric.label])
 
             n_points = len(metric.mean_fltrd)
 
@@ -789,10 +955,17 @@ def compare_baselines_violin():
 
 
 def compare_violins():
+    plt = config_pyplot(1)
     # for the APPENDIX
     ap_names = [APD_NORM_ANGS, APD_NORM_DELTA, APT_BSLN]
     ap_names = [APT_BSLN, APT_BSLN_HALF_BS, APT_DUP, APT_MRR_STEPS]
+    ap_names = [APD_BSLN, APD_NORM_DELTA, APT_BSLN, APT_MRR_STEPS, APT_DUP]
     approach_names_dict[APT_BSLN_HALF_BS] = 'Baseline (1/2 BS)'
+    approach_names_dict[APD_BSLN] = 'Baseline\nTarget Angles'
+    approach_names_dict[APD_NORM_DELTA] = 'Angle\nDeltas'
+    approach_names_dict[APT_BSLN] = 'Torque'
+    approach_names_dict[APT_MRR_STEPS] = 'Mirror\nPolicy'
+    approach_names_dict[APT_DUP] = 'Mirror\nExperiences'
 
     aps = [Approach(name) for name in ap_names]
     metric_label = MET_STEPS_TO_CONV
@@ -811,7 +984,7 @@ def compare_violins():
     violin(names, means, hist_data, '',
            metric_names_dict[metric.label] + ' [x$10^6$]', text_size=font_size)
     # arange = np.arange(2, 7) * 2
-    arange = np.arange(1, 7)
+    arange = np.arange(1, 7) * 2
     plt.gca().set_yticks(arange * 1e6)
     plt.gca().set_yticklabels([f'{x}' for x in arange])
     # plt.subplots_adjust(wspace=0.4, top=0.99, left=0.04, right=0.99, bottom=0.18)
@@ -839,8 +1012,9 @@ if __name__ == '__main__':
     # download_approach_data(APT_BSLN, 'final3d_trq')
     # plot_metrics_table()
     # show_summary_score_advantages()
-    # compare_main_plots()
-    compare_main_torque_plots()
+    compare_main_plots()
+    # plot_return_only()
+    # compare_main_torque_plots()
     # compare_rewards()
     # compare_violins()
     # compare_baselines_training_curves()

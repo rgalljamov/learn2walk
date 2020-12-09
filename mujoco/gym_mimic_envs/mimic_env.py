@@ -41,8 +41,11 @@ class MimicEnv:
         # keep the body in the air for testing purposes
         self._FLY = False or cfg.is_mod(cfg.MOD_FLY)
         self._evaluation_on = False
+        # when investigating different peak joint torques,
+        # set the ranges as defined in the config
         if cfg.is_mod(cfg.MOD_MAX_TORQUE):
             self.model.actuator_forcerange[:,:] = cfg.TORQUE_RANGES
+            # self.model.actuator_gear[:,:] = np.copy(self.model.actuator_gear)*50/300
         # for ET based on mocap distributions
         self.left_step_distrib, self.right_step_distrib = None, None
         # control desired walking speed
@@ -147,6 +150,10 @@ class MimicEnv:
 
         if cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
             a = self.mirror_acts(a)
+
+        if cfg.is_mod(cfg.MOD_GEAR1):
+            a = np.clip(a, -1, 1)
+            a *= cfg.MAX_TORQUE
 
         # execute simulation with desired action for multiple steps
         self.do_simulation(a, self._frame_skip)

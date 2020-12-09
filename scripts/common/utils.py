@@ -52,11 +52,11 @@ def config_pyplot(fig_size=0.25, font_size=PLOT_FONT_SIZE, tick_size=PLOT_TICKS_
     change_plot_properties(font_size, legend_fontsize, tick_size)
 
     # configure saving format and directory
-    PLOT_FIGURE_SAVE_FORMAT = 'pdf' #'eps'
+    PLOT_FIGURE_SAVE_FORMAT = 'png' # 'pdf' #'eps'
     plt.rcParams.update({'figure.autolayout': True})
     plt.rcParams.update({'savefig.format': PLOT_FIGURE_SAVE_FORMAT})
     plt.rcParams.update({"savefig.directory":
-                             '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Report/figures/results'})
+                             '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Presentation/figures'})
                               # '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/report'})
 
     if fig_size == 1:

@@ -17,7 +17,8 @@ def plot_violin(names, means, hist_data, x_label='', y_label='', text_size=18):
 
     performance_df = pd.DataFrame(performance_data, columns=[x_label, 'Mean Architecture Performance', y_label])
     # plot violins
-    sns.violinplot(x=x_label, y=y_label, data=performance_df, inner='stick', bw=0.4)
+    violin = sns.violinplot(x=x_label, y=y_label, data=performance_df, inner='stick', bw=0.5,
+                   width=1.5, linewidth=3)
 
     # plot horizontal lines indicating the means
     for i in range(len(means)):
@@ -25,7 +26,7 @@ def plot_violin(names, means, hist_data, x_label='', y_label='', text_size=18):
         plt.plot(np.arange(-1, len(names) + 1), np.ones((len(names) + 2,)) * means[i], c=color,
                  linestyle='--', linewidth=3, zorder=0)
 
-        vertical_offset = {0:0, 1:0, 2:-4e5, 3:0}[i]
+        vertical_offset = {0:0, 1:0, 2:0, 3:0, 4:-6.5e5}[i]
         plt.gca().text(-0.45, means[i]+1e5+vertical_offset,
                        f'{np.round(means[i]/1e6, 1)}M',
                        fontsize=text_size, color=color)
@@ -34,6 +35,7 @@ def plot_violin(names, means, hist_data, x_label='', y_label='', text_size=18):
     plt.scatter(names, means, linestyle='None', color='#ffffff', s=60, zorder=10)
     plt.xlim([-0.5, len(names)-0.5])
     ymin, ymax = np.min(hist_data), np.max(hist_data)
+    ymax -= 1e6
     margin = 0.1*(ymax - ymin)
     plt.ylim([ymin - margin, ymax + margin])
     # plt.yticks(np.linspace(275, 310, 8), np.linspace(275, 310, 8, dtype=int))
