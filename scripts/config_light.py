@@ -14,7 +14,7 @@ ENV_ID = None
 CTRL_FREQ = 200
 # does the model uses joint torques (True) or target angles (False)?
 ENV_OUT_TORQUE = False
-# peak joint torques [hip_sag, hip_front, knee_sag, ank_sag]
+# peak joint torques [hip_sag, hip_front, knee_sag, ank_sag], same for both sides
 PEAK_JOINT_TORQUES = [300, 300, 300, 300]
 
 

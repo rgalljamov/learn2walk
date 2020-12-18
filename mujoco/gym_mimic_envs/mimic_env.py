@@ -15,7 +15,7 @@ SCALE_MAX_VELS = 2
 
 # Workaround: MujocoEnv calls step() before calling reset()
 # Then, RSI is not executed yet and ET gets triggered during step()
-_rsinitialized = False
+_were_refs_initialized_already = False
 
 # flag if ref trajectories are played back
 _play_ref_trajecs = False
@@ -32,79 +32,70 @@ class MimicEnv:
     def __init__(self: gym.Env, ref_trajecs:RefTrajecs):
         '''@param: self: gym environment implementing the MimicEnv interface.'''
         self.refs = ref_trajecs
-        # adjust simulation properties (to the frequency of the ref trajec)
+        # make sure simulation and control run at the desired frequency
         self._sim_freq, self._frame_skip = self.get_sim_freq_and_frameskip()
         self.model.opt.timestep = 1 / self._sim_freq
         self.control_freq = self._sim_freq / self._frame_skip
+        # sync reference data with the control frequency
         self.refs.set_sampling_frequency(self.control_freq)
+        # The motor torque ranges should always be specified in the config file
+        # and overwrite the forcerange in the .MJCF file
+        self.model.actuator_forcerange[:,:] = cfg.TORQUE_RANGES
+
+
         # names of all robot kinematics
         self.kinem_labels = self.refs.get_kinematics_labels()
         # keep the body in the air for testing purposes
         self._FLY = False or cfg.is_mod(cfg.MOD_FLY)
+        # when we evaluate a model during or after the training,
+        # we might want to weaken ET conditions or monitor and plot data
         self._evaluation_on = False
-        # when investigating different peak joint torques,
-        # set the ranges as defined in the config
-        if cfg.is_mod(cfg.MOD_MAX_TORQUE):
-            self.model.actuator_forcerange[:,:] = cfg.TORQUE_RANGES
-            # self.model.actuator_gear[:,:] = np.copy(self.model.actuator_gear)*50/300
-        # for ET based on mocap distributions
-        self.left_step_distrib, self.right_step_distrib = None, None
+
         # control desired walking speed
         self.SPEED_CONTROL = False
-        # load kinematic stds for deviation normalization and better reward signal
-        self.kinem_stds = np.load(cfg.abs_project_path +
-                                  'assets/ref_trajecs/distributions/3d_mocap_stds_const_speed_400hz.npy')
-        # self.kinem_stds = self.kinem_stds[self.refs.qpos_is + self.refs.qvel_is]
-        # track different reward components
+
+        # track individual reward components
         self.pos_rew, self.vel_rew, self.com_rew = 0,0,0
         # track running mean of the return and use it for ET reward
         self.ep_rews = []
         self.mean_epret_smoothed = 0
-        # dense grnd contact info
-        self.last_contact_left = 0
-        self.last_contact_right = 0
-        self.left_contacts = []
-        self.right_contacts = []
+
 
     def step(self, a):
-        # Workaround (see doc string for _rsinitialized)
-        global _rsinitialized
-
-        # step(a) is called during mujoco environment initialization
-        # before env.reset() was called the first time
-        if not _rsinitialized:
+        # Workaround (see doc string for _were_refs_initialized_already)
+        global _were_refs_initialized_already
+        if not _were_refs_initialized_already:
             # do nothing in that case, return dummy values
             obs = self._get_obs()
             return obs, -3.33, False, {}
 
-        try:
-            if self.refs is None: pass
-        except:
-            # log("MimicEnv.step() called before refs were initialized!")
-            _rsinitialized = False
-            obs = self._get_obs()
-            return obs, -3.33, False, {}
+        # # sometimes, the reference trajectories we
+        # try:
+        #     if self.refs is None: pass
+        # except:
+        #     # log("MimicEnv.step() called before refs were initialized!")
+        #     _were_refs_initialized_already = False
+        #     obs = self._get_obs()
+        #     return obs, -3.33, False, {}
 
+        # increment the current position on the reference trajectories
         self.refs.next()
 
-        # pause sim on startup to be able to change rendering speed, camera perspective etc.
-        global pause_viewer_at_first_step
-        if pause_viewer_at_first_step:
+        # when rendering: pause sim on startup to change rendering speed, camera perspective etc.
+        global pause_mujoco_viewer_on_start
+        if pause_mujoco_viewer_on_start:
             self._get_viewer('human')._paused = True
-            pause_viewer_at_first_step = False
+            pause_mujoco_viewer_on_start = False
 
         # monitor episode and training durations
         global step_count, ep_dur
         step_count += 1
         ep_dur += 1
 
-        qpos_before = np.copy(self.sim.data.qpos)
-        qvel_before = np.copy(self.sim.data.qvel)
-
-        posbefore = qpos_before[0]
-
         # hold the agent in the air
         if self._FLY:
+            qpos_before = np.copy(self.sim.data.qpos)
+            qvel_before = np.copy(self.sim.data.qvel)
             # get current joint angles and velocities
             qpos_set = np.copy(qpos_before)
             qvel_set = np.copy(qvel_before)
@@ -235,8 +226,12 @@ class MimicEnv:
         What is the frequency the simulation is running at
         and how many frames should be skipped during step(action)?
         """
-        SIM_FREQ = 1000
-        return SIM_FREQ, int(SIM_FREQ/cfg.CTRL_FREQ)
+        skip_n_frames = cfg.SIM_FREQ/cfg.CTRL_FREQ
+        assert skip_n_frames.is_integer(), \
+            f"Please check the simulation and control frequency in the config! " \
+            f"The simulation frequency should be an integer multiple of the control frequency." \
+            f"Your simulation frequency is {cfg.SIM_FREQ} and control frequency is {cfg.CTRL_FREQ}"
+        return cfg.SIM_FREQ, int(skip_n_frames)
 
     def get_joint_kinematics(self, exclude_com=False, concat=False):
         '''Returns qpos and qvel of the agent.'''
@@ -410,11 +405,11 @@ class MimicEnv:
         self.i_speed = 0
 
     def _get_obs(self):
-        global _rsinitialized
+        global _were_refs_initialized_already
         qpos, qvel = self.get_joint_kinematics()
         # remove COM x position as the action should be independent of it
         qpos = qpos[1:]
-        if _rsinitialized and not cfg.approach == cfg.AP_RUN:
+        if _were_refs_initialized_already and not cfg.approach == cfg.AP_RUN:
 
             if self.SPEED_CONTROL:
                 self.desired_walking_speed = self.desired_walking_speeds[self.i_speed]
@@ -432,89 +427,7 @@ class MimicEnv:
         else:
             obs = np.concatenate([np.array([phase, self.desired_walking_speed]), qpos, qvel]).ravel()
 
-        DEBUG_GRND = False and _rsinitialized
-        if cfg.is_mod(cfg.MOD_GROUND_CONTACT) or DEBUG_GRND:
-            if _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GROUND_CONTACT_DENSE)):
-
-                label_left = 'grd_contact_left'
-                label_right = 'grd_contact_right'
-                has_contact_left, has_contact_right = np.array(self.has_ground_contact()).astype(np.float)
-
-                # avoid both feet having no contact with the ground:
-                if has_contact_right == 0 and has_contact_left == 0:
-                    has_contact_right = self.last_contact_right
-                    has_contact_left = self.last_contact_left
-
-                if self.last_contact_left != has_contact_left:
-                    reset_smooth(label_left, self.last_contact_left)
-                if self.last_contact_right != has_contact_right:
-                    reset_smooth(label_right, self.last_contact_right)
-                self.last_contact_left = has_contact_left
-                self.last_contact_right = has_contact_right
-
-                has_contact_left = smooth(label_left, has_contact_left, 0.002)
-                has_contact_right = smooth(label_right, has_contact_right, 0.002)
-                self.left_contacts.append(has_contact_left)
-                self.right_contacts.append(has_contact_right)
-
-                if len(self.left_contacts) >= 1600 and DEBUG_GRND:
-                    from matplotlib import pyplot as plt
-                    plt.subplot(1,2,1)
-                    plt.plot(self.left_contacts)
-                    plt.subplot(1,2,2)
-                    plt.plot(self.right_contacts)
-                    plt.show()
-                    exit(33)
-                has_contact = np.array([has_contact_left, has_contact_right]).astype(np.float)
-                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
-
-            elif _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GRND_STANCE_DUR)):
-                has_contact_left, has_contact_right = np.array(self.has_ground_contact()).astype(np.float)
-                self.last_contact_left = has_contact_left * (self.last_contact_left + 1/100)
-                self.last_contact_right = has_contact_right * (self.last_contact_right + 1/100)
-                has_contact = np.array([self.last_contact_left, self.last_contact_right]).astype(np.float)
-                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
-
-                self.left_contacts.append(self.last_contact_left)
-                self.right_contacts.append(self.last_contact_right)
-
-                if DEBUG_GRND and len(self.left_contacts) >= 1600:
-                    from matplotlib import pyplot as plt
-                    plt.subplot(1, 2, 1)
-                    plt.plot(self.left_contacts)
-                    plt.subplot(1, 2, 2)
-                    plt.plot(self.right_contacts)
-                    plt.show()
-                    exit(33)
-
-            elif _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GRND_INV_STANCE_DUR)):
-                has_contact_left, has_contact_right = np.array(self.has_ground_contact()).astype(np.float)
-                if has_contact_left == 1 and self.last_contact_left == 0:
-                    self.last_contact_left = 2
-                if has_contact_right == 1 and self.last_contact_right == 0:
-                    self.last_contact_right = 2
-                self.last_contact_left = has_contact_left * (self.last_contact_left - 1/100)
-                self.last_contact_right = has_contact_right * (self.last_contact_right - 1/100)
-                has_contact = np.array([self.last_contact_left, self.last_contact_right]).astype(np.float)
-                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
-
-                self.left_contacts.append(self.last_contact_left)
-                self.right_contacts.append(self.last_contact_right)
-
-                if DEBUG_GRND and len(self.left_contacts) >= 1600:
-                    from matplotlib import pyplot as plt
-                    plt.subplot(1, 2, 1)
-                    plt.plot(self.left_contacts)
-                    plt.subplot(1, 2, 2)
-                    plt.plot(self.right_contacts)
-                    plt.show()
-                    exit(33)
-            # just a binary ground contact
-            else:
-                has_contact = np.array(self.has_ground_contact()).astype(np.float)
-                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
-
-        if _rsinitialized and cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
+        if _were_refs_initialized_already and cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
             assert not cfg.is_mod(cfg.MOD_GROUND_CONTACT)
             obs = self.mirror_obs(obs)
         # round obs
@@ -620,8 +533,8 @@ class MimicEnv:
     def get_init_state(self, random=True):
         ''' Random State Initialization:
             @returns: qpos and qvel of a random step at a random position'''
-        global _rsinitialized
-        _rsinitialized = True
+        global _were_refs_initialized_already
+        _were_refs_initialized_already = True
         return self.refs.get_random_init_state() if random \
             else self.refs.get_deterministic_init_state()
 
@@ -643,22 +556,6 @@ class MimicEnv:
         if self._FLY:
             ref_pos[0] = 0
 
-        if cfg.is_mod(cfg.MOD_IMPROVE_REW):
-            difs = np.abs(qpos - ref_pos)
-            # normalize deviations to treat all joints the same
-            # use two standard deviations of refs for normalization
-            ref_pos_stds = 2 * self.kinem_stds[self.refs.qpos_is[2:]]
-            difs_normed = difs / ref_pos_stds
-            difs_mean = np.mean(difs_normed)
-            exp_rew = np.exp(-2.5 * difs_mean)
-
-            if cfg.is_mod(cfg.MOD_LIN_REW):
-                lin_rew = 1 - difs_mean * (0.5 if cfg.is_mod('half_slope') else 1)
-                return lin_rew
-            else:
-                return exp_rew
-
-
         dif = qpos - ref_pos
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
@@ -668,55 +565,21 @@ class MimicEnv:
     def get_vel_reward(self):
         _, qvel = self.get_joint_kinematics(exclude_com=True)
         _, ref_vel = self.get_ref_kinematics(exclude_com=True)
+
         if self._FLY:
             # set trunk angular velocity to zero
             ref_vel[0] = 0
-        if cfg.is_mod(cfg.MOD_IMPROVE_REW):
-            difs = np.abs(qvel - ref_vel)
-            # normalize deviations to treat all joints the same
-            # use two standard deviations or refs for normalization
-            ref_vel_stds = 2 * self.kinem_stds[self.refs.qvel_is[2:]]
-            dif_normed = difs / ref_vel_stds
-            dif_mean = np.mean(dif_normed)
-            if cfg.is_mod(cfg.MOD_LIN_REW):
-                vel_rew = 1 - dif_mean * (0.5 if cfg.is_mod('half_slope') else 1)
-            else:
-                vel_rew = np.exp(-2.5*dif_mean)
-        else:
-            difs = qvel - ref_vel
-            dif_sqrd = np.square(difs)
-            dif_sum = np.sum(dif_sqrd)
-            vel_rew = np.exp(-0.05 * dif_sum)
+
+        difs = qvel - ref_vel
+        dif_sqrd = np.square(difs)
+        dif_sum = np.sum(dif_sqrd)
+        vel_rew = np.exp(-0.05 * dif_sum)
         return vel_rew
 
     def get_com_reward(self):
         qpos, qvel = self.get_joint_kinematics()
         ref_pos, ref_vel = self.get_ref_kinematics()
         com_is = self._get_COM_indices()
-
-        if cfg.is_mod(cfg.MOD_IMPROVE_REW):
-            USE_COM_XVEL = cfg.is_mod(cfg.MOD_COM_X_VEL)
-            if USE_COM_XVEL:
-                com_pos = np.array([qpos[1], qvel[0]])
-                com_ref = np.array([ref_pos[1], ref_vel[0]])
-                # normalize the differences with 2*stds
-                max_deviats = [2 * self.kinem_stds[self.refs.qpos_is[1]],
-                               2 * self.kinem_stds[self.refs.qvel_is[0]]]
-            else:
-                com_pos, com_ref = qpos[com_is], ref_pos[com_is]
-                # normalize the differences with 2stds
-                inds = np.array(self.refs.qpos_is)[com_is]
-                max_deviats = 2 * self.kinem_stds[inds]
-
-            dif = np.abs(com_pos - com_ref)
-            dif_normed = dif / max_deviats
-            # dif_sqrd = np.square(dif_normed)
-            mean_dif_normed = np.mean(dif_normed)
-            exp_rew = np.exp(-2.5 * mean_dif_normed)
-            if cfg.is_mod(cfg.MOD_LIN_REW):
-                return 1 - mean_dif_normed * (0.5 if cfg.is_mod('half_slope') else 1)
-            return exp_rew
-
         com_pos, com_ref = qpos[com_is], ref_pos[com_is]
         dif = com_pos - com_ref
         dif_sqrd = np.square(dif)
@@ -772,8 +635,8 @@ class MimicEnv:
         :param qpos_act: qpos of actuated joints before step() exectuion.
         :param action: target angles for PD position controller
         """
-        global _rsinitialized
-        if not _rsinitialized:
+        global _were_refs_initialized_already
+        if not _were_refs_initialized_already:
             return -3.33
 
         # get rew weights from rew_weights_string
@@ -798,7 +661,7 @@ class MimicEnv:
         """
         Early Termination based on reward, falling and episode duration
         """
-        if (not _rsinitialized) or _play_ref_trajecs:
+        if (not _were_refs_initialized_already) or _play_ref_trajecs:
             # ET only works after RSI was executed
             return False
 
@@ -855,44 +718,6 @@ class MimicEnv:
         return terminate_early, com_height_too_low, trunk_ang_exceeded, is_drunk, rew_too_low
 
 
-    def is_out_of_ref_distribution(self, state, scale_pos_std=2, scale_vel_std=10):
-        """
-        Early Termination based on reference trajectory distributions:
-           @returns: True if qpos and qvel are out of the reference trajectory distributions.
-           @params: indicate how many stds deviation are allowed before being out of distribution.
-        """
-
-        if not cfg.is_mod(cfg.MOD_REFS_RAMP):
-            # load trajectory distributions if not done already
-            if self.left_step_distrib is None:
-                npz = np.load(cfg.abs_project_path +
-                                   'assets/ref_trajecs/distributions/2d_distributions_const_speed_400hz.npz')
-                self.left_step_distrib = [npz['means_left'], npz['stds_left']]
-                self.right_step_distrib = [npz['means_right'], npz['stds_right']]
-                self.step_len = min(self.left_step_distrib[0].shape[1], self.right_step_distrib[0].shape[1])
-
-            # left and right step distributions are different
-            step_dist = self.left_step_distrib if self.refs.is_step_left() else self.right_step_distrib
-
-            # get current mean on the mocap distribution, exlude com_x_pos
-            pos = min(self.refs._pos, self.step_len-1) # todo: think of a better handling of longer then usual steps
-            mean_state = step_dist[0][1:, pos]
-            # check distance of current state to the distribution mean
-            deviation = np.abs(mean_state - state[2:])
-            # terminate if distance is too big, ignore com x pos
-            std_state = 3*step_dist[1][1:, pos]
-            is_out = deviation > std_state
-            et = ( any((is_out[2:8])) or any((is_out[11:17])) ) if cfg.is_mod(cfg.MOD_FLY) \
-                else any((is_out[:9]))
-            et = any((is_out[:9]))
-            # if et:
-            #     print(self.refs.ep_dur)
-            return et
-
-
-        else: return NotImplementedError('Refs Distributions were so far only calculated '
-                                         'for the constant speed trajectories!')
-
 
     def has_exceeded_allowed_deviations(self, max_dev_pos=0.5, max_dev_vel=2):
         '''Early Termination based on trajectory deviations:
@@ -901,7 +726,7 @@ class MimicEnv:
            @params: max_dev_x are both percentages of maximum range
                     of the corresponding joint ref trajectories.'''
 
-        if not _rsinitialized:
+        if not _were_refs_initialized_already:
             # ET only works after RSI was executed
             return False
 
@@ -946,8 +771,8 @@ class MimicEnv:
 
     def close(self):
         # overwritten to set RSI init flag to False
-        global _rsinitialized
-        _rsinitialized = False
+        global _were_refs_initialized_already
+        _were_refs_initialized_already = False
         # calls MujocoEnv.close()
         super().close()
 

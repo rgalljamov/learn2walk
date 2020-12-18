@@ -145,6 +145,7 @@ MAX_TORQUE = 300
 
 # ------------------
 approach = AP_DEEPMIMIC
+SIM_FREQ = 1000
 CTRL_FREQ = 200
 # DO NOT CHANGE default modifications
 modification = MOD_CUSTOM_POLICY + '/'
@@ -179,12 +180,10 @@ EVAL_N_TIMES = 20
 # num of times a batch of experiences is used
 noptepochs = 4
 
-wb_project_name = 'body_weights'
+wb_project_name = 'cleanup'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               'CC3-Test, TRQ 8envs, 4mio'
-wb_run_notes = f'CC3: Start config_light.py, specify is3d, isTorque' \
-               f'CC2: made gear=1 default in all envs!' \
-               f'CC1: coarse config cleanup, deleted irrelevant hypers and modes. ' \
+               'CC1: REF mimic_env'
+wb_run_notes = f'Check if learning is still possible. ' \
                f'Use gear ratio 1 and scale actions by MAX_TORQUE in the environment. ' \
                f'Repeat Baseline experiment with original walker model.'
 

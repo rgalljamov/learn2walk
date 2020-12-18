@@ -180,21 +180,26 @@ class ReferenceTrajectories:
 
     def set_increment(self, increment):
         """
-        sets how many points to jump over when next() is called.
+        sets how many points to skip when next() is called.
         Goal is to simulate the data being collected at a lower sample frequency.
         Original sampling frequency of the data is 400Hz.
         Resulting frequency is 400/increment
          """
-        assert type(increment) == int
+        assert type(increment) == int, \
+            f'The increment/frameskip of the reference trajectories should be an integer but was {increment}'
         self.increment = increment
 
 
-    def set_sampling_frequency(self, frequency):
+    def set_sampling_frequency(self, control_freq):
         """
         Sampling frequency is controlled by the increment in next().
         """
-        increment = int(SAMPLE_FREQ/frequency)
-        self.set_increment(increment)
+        increment = SAMPLE_FREQ / control_freq
+        assert increment.is_integer(), \
+            f'Please check your control frequency and the sampling frequency of the reference data!' \
+            f'The sampling frequency of the reference data should be equal to ' \
+            f'or an integer multiple of the control frequency.'
+        self.set_increment(int(increment))
 
 
     def reset(self):
