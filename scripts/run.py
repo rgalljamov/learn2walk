@@ -71,7 +71,7 @@ if not isinstance(env, Monitor):
 if SPEED_CONTROL:
     env.activate_speed_control([0.8, 1.25])
 
-obs = env.reset()
+obs = vec_env.reset()
 if FLY: env.do_fly()
 env.activate_evaluation()
 
@@ -86,7 +86,8 @@ for i in range(10000):
         obs, reward, done, _ = vec_env.step(action)
     else:
         if cfg.env_out_torque:
-            obs, reward, done, _ = env.step(env.action_space.sample())
+            action = env.action_space.action()
+            obs, reward, done, _ = env.step(action)
         else:
             # try to follow desired trajecs with PD Position Controllers
             des_qpos = env.get_ref_qpos(exclude_not_actuated_joints=True)

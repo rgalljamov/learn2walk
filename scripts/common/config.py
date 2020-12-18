@@ -167,7 +167,7 @@ noptepochs = 4
 
 wb_project_name = 'cleanup'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               'CC33: REF mimic_env - no refs init check, acts norm'
+               'eval video fix, no catch'
 wb_run_notes = f'CC3: make action normalization default and remove mode; set init flag to True. ' \
                f'CC2.1: Set mimic_env.inited flag to False before starting evaluation! ' \
                f'CC2.0: Removed check if refs are None at the beginning of step(). ' \

@@ -29,10 +29,8 @@ class Monitor(gym.Wrapper):
 
         super(Monitor, self).__init__(self.env)
 
-        self.num_dofs = len(self.env.refs.get_kinematics_labels())
-        # for i, label in enumerate(self.env.kinem_labels):
-        #     print(f'{i}: {label}')
-        # exit(33)
+        self.kinem_labels = self.env.refs.get_kinematics_labels()
+        self.num_dofs = len(self.kinem_labels)
 
         # self.num_dofs = self.env.observation_space.high.size
         self.num_actions = self.env.action_space.high.size
