@@ -85,26 +85,17 @@ for i in range(10000):
         action, hid_states = model.predict(obs, deterministic=DETERMINISTIC_ACTIONS)
         obs, reward, done, _ = vec_env.step(action)
     else:
-        # save qpos of actuated joints for reward calculation
-        actq_pos_before_step = env.get_qpos(True, True)
-
-        # follow desired trajecs with PD Position Controllers
-        des_qpos = env.get_ref_qpos(exclude_not_actuated_joints=True)
-
-        if cfg.is_mod(cfg.MOD_PI_OUT_DELTAS):
-            des_qpos -= actq_pos_before_step
-            # rescale actions to [-1,1]
-            if cfg.is_mod(cfg.MOD_NORM_ACTS):
-                des_qpos /= env.get_max_qpos_deltas()
-
-        obs, reward, done, _ = env.step(des_qpos)
+        if cfg.env_out_torque:
+            obs, reward, done, _ = env.step(env.action_space.sample())
+        else:
+            # try to follow desired trajecs with PD Position Controllers
+            des_qpos = env.get_ref_qpos(exclude_not_actuated_joints=True)
+            obs, reward, done, _ = env.step(des_qpos)
 
     # only stop episode when agent has fallen
     done = env.data.qpos[env.env._get_COM_indices()[-1]] < 0.5
-    # done = i % 300 == 0
 
     if RENDER: env.render()
-    if done:
-        env.reset()
+    if done: env.reset()
 
 env.close()

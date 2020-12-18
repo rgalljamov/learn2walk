@@ -40,7 +40,7 @@ class TrainingMonitor(BaseCallback):
         self.min_walking_speed = 0
         self.mean_reward_means = 0
         self.count_stable_walks = 0
-        self.auc_stable_walks = 0
+        self.summary_score = 0
         self.has_reached_stable_walking = False
         # collect the frequency of failed walks during evaluation
         self.failed_eval_runs_indices = []
@@ -131,8 +131,8 @@ class TrainingMonitor(BaseCallback):
         NEW_LOG_STRUCTURE = True
         if NEW_LOG_STRUCTURE:
             logs = [
-                tf.Summary.Value(tag='_det_eval/1. AUC stable walks count',
-                                 simple_value=self.auc_stable_walks),
+                tf.Summary.Value(tag='_det_eval/1. Summary Score',
+                                 simple_value=self.summary_score),
                 tf.Summary.Value(tag='_det_eval/2. stable walks count',
                                  simple_value=self.count_stable_walks),
                 tf.Summary.Value(tag='_det_eval/4. mean eval distance',
@@ -357,8 +357,8 @@ class TrainingMonitor(BaseCallback):
         dt = EVAL_INTERVAL / (
             EVAL_INTERVAL_RARE if self.num_timesteps < EVAL_MORE_FREQUENT_THRES else
             EVAL_INTERVAL_FREQUENT)
-        self.auc_stable_walks += dt * 4 * self.mean_reward_means ** 2 \
-                                 * (self.count_stable_walks / cfg.EVAL_N_TIMES) ** 4 \
+        self.summary_score += dt * 4 * self.mean_reward_means ** 2 \
+                              * (self.count_stable_walks / cfg.EVAL_N_TIMES) ** 4 \
 
         if False: # runs_20m >= 20 and not cfg.is_mod(cfg.MOD_MIRR_QUERY_VF_ONLY):
             cfg.modification += f'/{cfg.MOD_QUERY_VF_ONLY}'

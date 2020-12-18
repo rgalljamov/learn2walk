@@ -88,7 +88,7 @@ def change_plot_properties(font_size=0, tick_size=0,
 
 
 def vec_env(env_name, num_envs=4, seed=33, norm_rew=True,
-            load_path=None, deltas=False):
+            load_path=None):
     '''creates environments, vectorizes them and sets different seeds
     :param norm_rew: reward should only be normalized during training
     :param load_path: if set, the VecNormalize environment will
@@ -108,8 +108,6 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True,
                 # wrap a MimicEnv in the EnvMonitor
                 # has to be done before converting into a VecEnv!
                 env = EnvMonitor(env)
-                if deltas:
-                    env.set_action_space_deltas()
             return env
         return make_env
 

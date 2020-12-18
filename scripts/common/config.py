@@ -26,18 +26,6 @@ def mod(mods:list):
     modification = modification[:-1]
     return modification
 
-def assert_mod_compatibility():
-    """
-    Some modes cannot be used together. In such cases,
-    this function throws an exception and provides explanations.
-    """
-    if False and is_mod(MOD_NORM_ACTS) and not is_mod(MOD_PI_OUT_DELTAS):
-        print("Normalized actions (ctrlrange [-1,1] for all joints) " \
-                        "currently only work when policy outputs delta angles.")
-    if (is_mod(MOD_BOUND_MEAN) or is_mod(MOD_SAC_ACTS)) and not is_mod(MOD_CUSTOM_POLICY):
-        raise TypeError("Using sac and tanh actions is only possible in combination"
-                        "with the custom policy: MOD_CUSTOM_NETS.")
-
 def get_torque_ranges(hip_sag, hip_front, knee, ankle):
     torque_ranges = np.ones((8,2))
     peaks = np.array([hip_sag, hip_front, knee, ankle] * 2)
@@ -70,8 +58,6 @@ MOD_CUSTOM_POLICY = 'cstm_pi'
 MOD_REW_MULT = 'rew_mult'
 # let the policy output deltas to current angle
 MOD_PI_OUT_DELTAS = 'pi_deltas'
-# normalize actions: programmatically set action space to be [-1,1]
-MOD_NORM_ACTS = 'norm_acts'
 
 # use a tanh activation function at the output layer
 MOD_BOUND_MEAN = 'tanh_mean'
@@ -151,7 +137,6 @@ CTRL_FREQ = 200
 modification = MOD_CUSTOM_POLICY + '/'
 # HERE modifications can be added
 modification += mod([MOD_MIRROR_EXPS])
-assert_mod_compatibility()
 
 # ----------------------------------------------------------------------------------
 # Weights and Biases
@@ -182,8 +167,12 @@ noptepochs = 4
 
 wb_project_name = 'cleanup'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               'CC1: REF mimic_env'
-wb_run_notes = f'Check if learning is still possible. ' \
+               'CC33: REF mimic_env - no refs init check, acts norm'
+wb_run_notes = f'CC3: make action normalization default and remove mode; set init flag to True. ' \
+               f'CC2.1: Set mimic_env.inited flag to False before starting evaluation! ' \
+               f'CC2.0: Removed check if refs are None at the beginning of step(). ' \
+               f'CC1.5:Removed possibility to add ground contact information! ' \
+               f'CC1: removed multiple properties and methods. Added assertions. ' \
                f'Use gear ratio 1 and scale actions by MAX_TORQUE in the environment. ' \
                f'Repeat Baseline experiment with original walker model.'
 

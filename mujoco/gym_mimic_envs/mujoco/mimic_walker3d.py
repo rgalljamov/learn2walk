@@ -8,7 +8,7 @@ from scripts.common import config as cfg
 from scripts.mocap import ref_trajecs as refs
 
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
-pause_viewer_at_first_step = True
+pause_mujoco_viewer_on_start = True
 
 # qpos and qvel indices for quick access to the reference trajectories
 qpos_indices = [refs.COM_POSX, refs.COM_POSY, refs.COM_POSZ,
@@ -43,12 +43,13 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         elif cfg.is_mod(cfg.MOD_140cm_40KG):
             walker_xml = 'walker3d_flat_feet_40kg_140cm.xml'
             # print('Using gear 1!')
-        mujoco_env.MujocoEnv.__init__(self,
-                                      join(dirname(__file__), "assets", walker_xml), 4)
-        utils.EzPickle.__init__(self)
         # init the mimic environment, automatically loads and inits ref trajectories
         global qpos_indices, qvel_indices
-        MimicEnv.__init__(self, refs.ReferenceTrajectories(qpos_indices, qvel_indices))
+        MimicEnv.__init__(self, join(dirname(__file__), "assets", walker_xml),
+                          refs.ReferenceTrajectories(qpos_indices, qvel_indices))
+        # mujoco_env.MujocoEnv.__init__(self,
+        #                               join(dirname(__file__), "assets", walker_xml), 4)
+        utils.EzPickle.__init__(self)
 
     def viewer_setup(self):
         self.viewer.cam.trackbodyid = 2

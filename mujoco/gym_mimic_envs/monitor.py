@@ -29,7 +29,7 @@ class Monitor(gym.Wrapper):
 
         super(Monitor, self).__init__(self.env)
 
-        self.num_dofs = len(self.env.kinem_labels)
+        self.num_dofs = len(self.env.refs.get_kinematics_labels())
         # for i, label in enumerate(self.env.kinem_labels):
         #     print(f'{i}: {label}')
         # exit(33)
