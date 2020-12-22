@@ -35,8 +35,9 @@ def init_wandb(model):
         "mod": cfg.modification,
         "ctrl_freq": cfg.CTRL_FREQ,
         "lr0": cfg.lr_start,
+        "et_rew": cfg.et_reward,
+        "ep_end_rew": cfg.ep_end_reward,
         "lr1": cfg.lr_final,
-        "lr_sched": 'exp' if cfg.is_mod(cfg.MOD_EXP_LR_SCHED) else 'lin',
         'hid_sizes': cfg.hid_layer_sizes_vf,
         'hid_sizes_vf': cfg.hid_layer_sizes_vf,
         'hid_sizes_pi': cfg.hid_layer_sizes_pi,
@@ -46,19 +47,14 @@ def init_wandb(model):
         "n_mini_batches": model.nminibatches,
         "cfg.minibatch_size": cfg.minibatch_size,
         "mini_batch_size": int(batch_size / model.nminibatches),
-        "mio_steps": cfg.mio_steps,
-        "mio_steps_to_lr1": cfg.mio_steps_to_lr1,
-        "lr_slope": cfg.slope,
+        "mio_steps": cfg.mio_samples,
         "ent_coef": model.ent_coef,
         "ep_dur": cfg.ep_dur_max,
         "imit_rew": cfg.rew_weights,
         "logstd": cfg.init_logstd,
         "min_logstd": LOG_STD_MIN,
         "max_logstd": LOG_STD_MAX,
-        "et_rew": cfg.et_reward,
-        "ep_end_rew": cfg.ep_end_reward,
-        "et_rew_thres": cfg.et_rew_thres,
-        "env": cfg.env_name,
+        "env": cfg.env_abbrev,
         "gam": model.gamma,
         "lam": model.lam,
         "n_envs": model.n_envs,
@@ -94,28 +90,22 @@ def train():
         os.makedirs(cfg.save_path + 'envs')
 
     # setup environment
-    env = utils.vec_env(cfg.env_id, norm_rew=True, num_envs=cfg.n_envs,
-                        deltas=cfg.is_mod(cfg.MOD_PI_OUT_DELTAS) or cfg.is_mod(cfg.MOD_NORM_ACTS))
+    env = utils.vec_env(cfg.env_id, norm_rew=True, num_envs=cfg.n_envs)
 
     # setup model/algorithm
-    training_timesteps = int(cfg.mio_steps * 1e6)
-    lr_start = cfg.lr_start * (1e-6)
-    lr_end = cfg.lr_final * (1e-6)
-    if cfg.is_mod(cfg.MOD_EXP_LR_SCHED):
-        learning_rate_schedule = ExponentialSchedule(lr_start, lr_end).value
-    else:
-        learning_rate_schedule = LinearSchedule(lr_start, lr_end).value
-    clip_schedule = ExponentialSchedule(cfg.clip_start, cfg.clip_end, cfg.clip_exp_slope).value
+    training_timesteps = int(cfg.mio_samples * 1e6)
+    lr_start = cfg.lr_start
+    lr_end = cfg.lr_final
 
-    if cfg.is_mod(cfg.MOD_N_OPT_EPS_SCHED):
-        cfg.opt_eps_sched = ExponentialSchedule(cfg.opt_eps_start, cfg.opt_eps_end, cfg.opt_eps_slope)
+    learning_rate_schedule = LinearSchedule(lr_start, lr_end).value
+    clip_schedule = ExponentialSchedule(cfg.clip_start, cfg.clip_end, cfg.clip_exp_slope).value
 
     network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes_vf, 'pi': cfg.hid_layer_sizes_pi}],
                     'act_fun': tf.nn.relu} if not cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else {}
 
     model = CustomPPO2(CustomPolicy if cfg.is_mod(cfg.MOD_CUSTOM_POLICY) else MlpPolicy,
                        env, verbose=1, n_steps=int(cfg.batch_size/cfg.n_envs),
-                       policy_kwargs=network_args, nminibatches=cfg.n_mini_batches,
+                       policy_kwargs=network_args,
                        learning_rate=learning_rate_schedule, ent_coef=cfg.ent_coef,
                        gamma=cfg.gamma, noptepochs=cfg.noptepochs,
                        cliprange_vf=clip_schedule if cfg.is_mod(cfg.MOD_CLIPRANGE_SCHED) else cfg.cliprange,
@@ -125,7 +115,8 @@ def train():
     # init wandb
     if not cfg.DEBUG: init_wandb(model)
 
-    # automatically launch tensorboard
+    # automatically launch tensorboard, only if wandb is not used!
+    # otherwise wandb automatically uploads all TB logs to wandb
     # run_tensorboard()
 
     # save model and weights before training
@@ -143,3 +134,7 @@ def train():
 
     # evaluate last saved model
     eval.eval_model()
+
+
+if __name__ == '__main__':
+    train()

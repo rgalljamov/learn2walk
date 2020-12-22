@@ -1,5 +1,5 @@
 import numpy as np
-from gym import utils
+import gym
 from os.path import join, dirname
 from gym.envs.mujoco import mujoco_env
 from gym_mimic_envs.mimic_env import MimicEnv
@@ -8,7 +8,7 @@ from scripts.common import config as cfg
 from scripts.mocap import ref_trajecs as refs
 
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
-pause_viewer_at_first_step = True
+pause_mujoco_viewer_on_start = True
 
 # qpos and qvel indices for quick access to the reference trajectories
 qpos_indices = [refs.COM_POSX, refs.COM_POSY, refs.COM_POSZ,
@@ -27,22 +27,23 @@ qvel_indices = [refs.COM_VELX, refs.COM_VELY, refs.COM_VELZ,
 
 ref_trajec_adapts = {}
 
-class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
+class MimicWalker3dEnv(MimicEnv):
     '''
     The 2D Mujoco Walker from OpenAI Gym extended to match
     the 3D bipedal walker model from Guoping Zhao.
     '''
 
     def __init__(self):
-        walker_xml = {'mim3d': 'walker3pd.xml',
-                      'mim_trq3d': 'walker3d.xml',
-                      'mim_trq_ff3d': 'walker3d_flat_feet.xml'}[cfg.env_name]
-        mujoco_env.MujocoEnv.__init__(self,
-                                      join(dirname(__file__), "assets", walker_xml), 4)
-        utils.EzPickle.__init__(self)
-        # init the mimic environment, automatically loads and inits ref trajectories
+        # specify the name of the environment XML file
+        walker_xml = 'walker3d_flat_feet.xml'
+        # init reference trajectories
+        # by specifying the indices in the mocap data to use for qpos and qvel
         global qpos_indices, qvel_indices
-        MimicEnv.__init__(self, refs.ReferenceTrajectories(qpos_indices, qvel_indices))
+        reference_trajectories = refs.ReferenceTrajectories(qpos_indices, qvel_indices)
+        # specify absolute path to the MJCF file
+        mujoco_xml_file = join(dirname(__file__), "assets", walker_xml)
+        # init the mimic environment
+        MimicEnv.__init__(self, mujoco_xml_file, reference_trajectories)
 
     def viewer_setup(self):
         self.viewer.cam.trackbodyid = 2
@@ -63,7 +64,7 @@ class MimicWalker3dEnv(MimicEnv, mujoco_env.MujocoEnv, utils.EzPickle):
         """
         return [0,1,2]
 
-    def _get_trunk_joint_indices(self):
+    def _get_trunk_rot_joint_indices(self):
         return [3, 4, 5]
 
     def _get_not_actuated_joint_indices(self):

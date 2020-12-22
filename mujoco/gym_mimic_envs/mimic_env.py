@@ -3,108 +3,81 @@ Interface for environments using reference trajectories.
 '''
 import gym, mujoco_py
 import numpy as np
+from os.path import join, dirname
+from gym.envs.mujoco.mujoco_env import MujocoEnv
+from scripts import config_light as cfgl
 from scripts.common import config as cfg
 from scripts.common.utils import log, is_remote, \
     exponential_running_smoothing as smooth, resetExponentialRunningSmoothing as reset_smooth
 from scripts.mocap.ref_trajecs import ReferenceTrajectories as RefTrajecs
 
-# double max deltas for better perturbation recovery. To keep balance,
-# the agent might require to output angles that are not reachable and saturate the motors.
-SCALE_MAX_VELS = 2
 
-# Workaround: MujocoEnv calls step() before calling reset()
-# Then, RSI is not executed yet and ET gets triggered during step()
-_rsinitialized = False
 
 # flag if ref trajectories are played back
 _play_ref_trajecs = False
 
 # pause sim on startup to be able to change rendering speed, camera perspective etc.
-pause_viewer_at_first_step = True and not is_remote()
+pause_mujoco_viewer_on_start = True and not is_remote()
 
 # monitor episode and training duration
 step_count = 0
 ep_dur = 0
 
-class MimicEnv:
+class MimicEnv(MujocoEnv, gym.utils.EzPickle):
+    """ The base class to derive from to train an environment using the DeepMimic Approach."""
+    def __init__(self: MujocoEnv, xml_path, ref_trajecs:RefTrajecs):
+        '''@param: self: gym environment class extending the MimicEnv class
+           @param: xml_path: path to the mujoco environment XML file
+           @param: ref_trajecs: Instance of the ReferenceTrajectory'''
 
-    def __init__(self: gym.Env, ref_trajecs:RefTrajecs):
-        '''@param: self: gym environment implementing the MimicEnv interface.'''
         self.refs = ref_trajecs
-        # adjust simulation properties (to the frequency of the ref trajec)
+        # set simulation and control frequency
         self._sim_freq, self._frame_skip = self.get_sim_freq_and_frameskip()
-        self.model.opt.timestep = 1 / self._sim_freq
-        self.control_freq = self._sim_freq / self._frame_skip
-        self.refs.set_sampling_frequency(self.control_freq)
-        # names of all robot kinematics
-        self.kinem_labels = self.refs.get_kinematics_labels()
+
         # keep the body in the air for testing purposes
         self._FLY = False or cfg.is_mod(cfg.MOD_FLY)
-        self._evaluation_on = False
-        if cfg.is_mod(cfg.MOD_MAX_TORQUE):
-            self.model.actuator_forcerange[:,:] = cfg.TORQUE_RANGES
-        # for ET based on mocap distributions
-        self.left_step_distrib, self.right_step_distrib = None, None
+        # when we evaluate a model during or after the training,
+        # we might want to weaken ET conditions or monitor and plot data
+        self._EVAL_MODEL = False
         # control desired walking speed
-        self.SPEED_CONTROL = False
-        # load kinematic stds for deviation normalization and better reward signal
-        self.kinem_stds = np.load(cfg.abs_project_path +
-                                  'assets/ref_trajecs/distributions/3d_mocap_stds_const_speed_400hz.npy')
-        # self.kinem_stds = self.kinem_stds[self.refs.qpos_is + self.refs.qvel_is]
-        # track different reward components
+        self.FOLLOW_DESIRED_SPEED_PROFILE = False
+
+        # track individual reward components
         self.pos_rew, self.vel_rew, self.com_rew = 0,0,0
+        self.mean_epret_smoothed = 0
         # track running mean of the return and use it for ET reward
         self.ep_rews = []
-        self.mean_epret_smoothed = 0
-        # dense grnd contact info
-        self.last_contact_left = 0
-        self.last_contact_right = 0
-        self.left_contacts = []
-        self.right_contacts = []
 
-    def step(self, a):
-        """
-        Returns
-        -------
-        True if MimicEnv was already instantiated.
-        Workaround (see doc string for _rsinitialized)
-        """
-        global _rsinitialized
+        # initialize Mujoco Environment
+        MujocoEnv.__init__(self, xml_path, self._frame_skip)
+        # init EzPickle (think it is required to be able to save and load models)
+        gym.utils.EzPickle.__init__(self)
+        # make sure simulation and control run at the desired frequency
+        self.model.opt.timestep = 1 / self._sim_freq
+        self.control_freq = self._sim_freq / self._frame_skip
+        # sync reference data with the control frequency
+        self.refs.set_sampling_frequency(self.control_freq)
+        # The motor torque ranges should always be specified in the config file
+        # and overwrite the forcerange in the .MJCF file
+        self.model.actuator_forcerange[:, :] = cfg.TORQUE_RANGES
 
-        if not _rsinitialized:
-            obs = self._get_obs()
-            return obs, -3.33, False, {}
 
-        try:
-            if self.refs is None: pass
-        except:
-            # log("MimicEnv.step() called before refs were initialized!")
-            _rsinitialized = False
-            obs = self._get_obs()
-            return obs, -3.33, False, {}
-
-        self.joint_pow_sum_normed = self.get_joint_power_sum_normed()
-        self.refs.next()
-
-        # pause sim on startup to be able to change rendering speed, camera perspective etc.
-        global pause_viewer_at_first_step
-        if pause_viewer_at_first_step:
+    def step(self, action):
+        # when rendering: pause sim on startup to change rendering speed, camera perspective etc.
+        global pause_mujoco_viewer_on_start
+        if pause_mujoco_viewer_on_start:
             self._get_viewer('human')._paused = True
-            pause_viewer_at_first_step = False
+            pause_mujoco_viewer_on_start = False
 
-        DEBUG = False
-
+        # monitor episode and training durations
         global step_count, ep_dur
         step_count += 1
         ep_dur += 1
 
-        qpos_before = np.copy(self.sim.data.qpos)
-        qvel_before = np.copy(self.sim.data.qvel)
-
-        posbefore = qpos_before[0]
-
         # hold the agent in the air
         if self._FLY:
+            qpos_before = np.copy(self.sim.data.qpos)
+            qvel_before = np.copy(self.sim.data.qvel)
             # get current joint angles and velocities
             qpos_set = np.copy(qpos_before)
             qvel_set = np.copy(qvel_before)
@@ -113,145 +86,106 @@ class MimicEnv:
             qvel_set[[0, 1, 2, ]] = [0, 0, 0]
             self.set_joint_kinematics_in_sim(qpos_set, qvel_set)
 
-        # save qpos of actuated joints for reward calculation
-        qpos_act_before_step = self.get_qpos(True, True)
+        action = self.rescale_actions(action)
 
-        # policy outputs qpos deltas
-        if cfg.is_mod(cfg.MOD_PI_OUT_DELTAS):
-            if cfg.is_mod(cfg.MOD_NORM_ACTS):
-                # rescale actions to actual bounds
-                a *= self.get_max_qpos_deltas()
-            a = qpos_act_before_step + a
-        elif cfg.is_mod(cfg.MOD_NORM_ACTS):
-            qpos_min, qpos_max = self.get_qpos_ranges()
-            # qpos_min: [-0.8727 -0.7854  0.     -0.3491 -0.8727 -0.0873  0.     -0.3491]
-            # qpos_max: [0.8727  0.0873   2.618  0.6981  0.8727  0.7854   2.618  0.6981]
-            if cfg.is_mod(cfg.MOD_NORM_CONSIDER_SIGN):
-                # todo: add mean actions. this way we shift the normal distribution to be around the mean...
-                a_unnormalized = []
-                for i, act in enumerate(a):
-                    if act > 0:
-                        a_unnormalized.append(qpos_max[i]*act)
-                    else:
-                        a_unnormalized.append(qpos_min[i]*np.abs(act))
-                a = np.array(a_unnormalized)
-            else:
-                act_prct = (a + 1) / 2
-                qpos_ranges = (qpos_max - qpos_min)
-                a = qpos_min + act_prct * qpos_ranges
-
-        if cfg.is_mod(cfg.MOD_TORQUE_DELTAS):
-            last_action = np.copy(self.sim.data.actuator_force)
-            deltas = a * cfg.trq_delta
-            a = last_action + deltas
-
-        if cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
-            a = self.mirror_acts(a)
+        # when we're mirroring the policy (phase based mirroring), mirror the action
+        if cfg.is_mod(cfg.MOD_MIRR_PHASE) and self.refs.is_step_left():
+            action = self.mirror_action(action)
 
         # execute simulation with desired action for multiple steps
-        self.do_simulation(a, self._frame_skip)
+        self.do_simulation(action, self._frame_skip)
 
-        qpos_after = self.sim.data.qpos
-        qvel_after = self.sim.data.qvel
-
-        posafter, _, ang = qpos_after[0:3]
-        com_z_pos = qpos_after[self._get_COM_indices()[-1]]
-
-        qpos_delta0 = qpos_before[0] - qpos_after[0]
-        qpos_delta = qpos_after - qpos_before
-
-        alive_bonus = 1.0
-        com_x_vel_finite_difs = (posafter - posbefore) / self.dt
-        com_x_vel_qvel = self.sim.data.qvel[0]
-        com_x_vel_delta = com_x_vel_finite_difs - com_x_vel_qvel
-        qvel_findifs = (qpos_delta) / self.dt
-        qvel_delta = qvel_after - qvel_findifs
+        # increment the current position on the reference trajectories
+        self.refs.next()
 
         # get state observation after simulation step
         obs = self._get_obs()
 
-        USE_DMM_REW = True and not cfg.do_run()
-        if USE_DMM_REW:
-            reward = self.get_imitation_reward(qpos_act_before_step, a)
-            self.ep_rews.append(reward)
-        else:
-            reward = (com_x_vel_finite_difs)
-            reward += alive_bonus
-            reward -= 1e-3 * np.square(a).sum()
+        # get imitation reward
+        reward = self.get_imitation_reward()
 
-        USE_ET = False or cfg.is_mod(cfg.MOD_REF_STATS_ET)
-        USE_REW_ET = True and not cfg.do_run() and not USE_ET
-        walked_distance = qpos_after[0]
-        is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > cfg.max_distance + 0.01
+        # check if we entered a terminal state
+        com_z_pos = self.sim.data.qpos[self._get_COM_indices()[-1]]
+        walked_distance = self.sim.data.qpos[0]
+        # was max episode duration or max walking distance reached?
+        max_eplen_reached = ep_dur >= cfg.ep_dur_max or walked_distance > cfg.max_distance + 0.01
+        # terminate the episode?
+        done = com_z_pos < 0.5 or max_eplen_reached
+
         if self.is_evaluation_on():
-            # is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > 22.05
-            done = com_z_pos < 0.5 or is_ep_end
-        elif USE_ET:
-            if cfg.is_mod(cfg.MOD_REF_STATS_ET):
-                done = self.is_out_of_ref_distribution(obs)
-            else:
-                done = self.has_exceeded_allowed_deviations()
-        elif USE_REW_ET:
-            done, com_height_too_low, trunk_ang_exceeded, is_drunk, \
-            rew_too_low = self.do_terminate_early(reward, rew_threshold=cfg.et_rew_thres)
-            done = done or is_ep_end
+            done = com_z_pos < 0.5 or max_eplen_reached
         else:
-            done = not (com_z_pos > 0.8 and com_z_pos < 2.0 and
-                        ang > -1.0 and ang < 1.0)
-            done = done or is_ep_end
-        if DEBUG and done: print('Done')
+            terminate_early, _, _, _ = self.do_terminate_early()
+            done = done or terminate_early
+            if done:
+                # if episode finished, recalculate the reward
+                # to punish falling hard and rewarding reaching episode's end a lot
+                reward = self.get_ET_reward(max_eplen_reached, terminate_early)
 
-        # punish episode termination
-        if done:
-            # calculated a running mean of the ep_return
-            self.mean_epret_smoothed = smooth('mimic_env_epret', np.sum(self.ep_rews), 0.5)
-            self.ep_rews = []
-
-            # don't punish if episode just reached max length
-            if not is_ep_end:
-                # punish only falling hard
-                if not self.is_evaluation_on():
-                    et_rew = -1 * self.mean_epret_smoothed
-                    if rew_too_low:
-                        reward = -1
-                    elif com_height_too_low or trunk_ang_exceeded:
-                        reward = et_rew
-                    else:
-                        reward = 0.5 * et_rew
-            else:
-                # reward = cfg.ep_end_reward
-
-                # estimate mean state value / mean action return
-                mean_step_rew = self.mean_epret_smoothed / ep_dur
-                act_ret_est = np.sum(mean_step_rew * np.power(cfg.gamma, np.arange(ep_dur)))
-                reward = act_ret_est
-                # print(f'Successfully reached the end of the episode '
-                #       f'after {ep_dur} steps and got reward of ', reward)
-            ep_dur = 0
-
-        if cfg.is_mod(cfg.MOD_REW_DELTA):
-            rew_delta = reward - self.last_reward
-            # print(f'cur. reward: \t {reward}\n'
-            #       f'last reward: \t {self.last_reward}\n'
-            #       f'reward delta:\t {rew_delta}\n')
-            self.last_reward = reward
-            reward = reward + cfg.rew_delta_scale * rew_delta
-            if reward < 0: reward = 0
-
-        if walked_distance > cfg.alive_min_dist and not done:
-            reward += cfg.alive_bonus
-            # alive_bonus = 1 * cfg.rew_scale * step_count / (cfg.mio_steps * 1e6)
-            # reward += alive_bonus
+        # reset episode duration if episode has finished
+        if done: ep_dur = 0
+        # add alive bonus else
+        else: reward += cfg.alive_bonus
 
         return obs, reward, done, {}
+
+
+    def get_ET_reward(self, max_eplen_reached, terminate_early):
+        """ Punish falling hard and reward reaching episode's end a lot. """
+
+        # calculate a running mean of the ep_return
+        self.mean_epret_smoothed = smooth('mimic_env_epret', np.sum(self.ep_rews), 0.5)
+        self.ep_rews = []
+
+        # reward reaching the end of the episode without falling
+        # reward = expected cumulative future reward
+        if max_eplen_reached:
+            # estimate future cumulative reward expecting getting the mean reward per step
+            mean_step_rew = self.mean_epret_smoothed / ep_dur
+            act_ret_est = np.sum(mean_step_rew * np.power(cfg.gamma, np.arange(ep_dur)))
+            reward = act_ret_est
+        # punish for ending the episode early
+        else:
+            reward = -1 * self.mean_epret_smoothed
+
+        return reward
+
+
+    def rescale_actions(self, a):
+        """Policy samples actions from normal Gaussian distribution around 0 with init std of 0.5.
+           In this method, we rescale the actions to the actual action ranges."""
+        # policy outputs (normalized) joint torques
+        if cfg.env_out_torque:
+            # clip the actions to the range of [-1,1]
+            a = np.clip(a, -1, 1)
+            # scale the actions with joint peak torques
+            # *2: peak torques are the same for both sides
+            a *= cfgl.PEAK_JOINT_TORQUES * 2
+
+        # policy outputs target angles for PD position controllers
+        else:
+            if cfg.is_mod(cfg.MOD_PI_OUT_DELTAS):
+                # qpos of actuated joints
+                qpos_act_before_step = self.get_qpos(True, True)
+                # unnormalize the normalized deltas
+                a *= self.get_max_qpos_deltas()
+                # add the deltas to current position
+                a = qpos_act_before_step + a
+        return a
+
+
 
     def get_sim_freq_and_frameskip(self):
         """
         What is the frequency the simulation is running at
         and how many frames should be skipped during step(action)?
         """
-        SIM_FREQ = 1000
-        return SIM_FREQ, int(SIM_FREQ/cfg.CTRL_FREQ)
+        skip_n_frames = cfg.SIM_FREQ/cfg.CTRL_FREQ
+        assert skip_n_frames.is_integer(), \
+            f"Please check the simulation and control frequency in the config! " \
+            f"The simulation frequency should be an integer multiple of the control frequency." \
+            f"Your simulation frequency is {cfg.SIM_FREQ} and control frequency is {cfg.CTRL_FREQ}"
+        return cfg.SIM_FREQ, int(skip_n_frames)
 
     def get_joint_kinematics(self, exclude_com=False, concat=False):
         '''Returns qpos and qvel of the agent.'''
@@ -265,6 +199,8 @@ class MimicEnv:
         return qpos, qvel
 
     def _exclude_joints(self, qvals, exclude_com, exclude_not_actuated_joints):
+        """ Takes qpos or qvel as input and outputs only a portion of the values
+            dependent on which indices has to be excluded. """
         if exclude_not_actuated_joints:
             qvals = self._remove_by_indices(qvals, self._get_not_actuated_joint_indices())
         elif exclude_com:
@@ -288,19 +224,16 @@ class MimicEnv:
         return self._exclude_joints(qvel, exclude_com, exclude_not_actuated_joints)
 
     def activate_evaluation(self):
-        self._evaluation_on = True
+        self._EVAL_MODEL = True
 
     def is_evaluation_on(self):
-        return self._evaluation_on
+        return self._EVAL_MODEL
 
     def do_fly(self, fly=True):
         self._FLY = fly
 
     def get_actuator_torques(self, abs_mean=False):
         tors = np.copy(self.sim.data.actuator_force)
-        # if ctrl_force is [-1:1] and gear = 300
-        if np.max(tors) <= 1:
-            tors *= 300
         return np.mean(np.abs(tors)) if abs_mean else tors
 
     def get_force_ranges(self):
@@ -312,15 +245,17 @@ class MimicEnv:
         high = ctrl_ranges[:, 1]
         return low, high
 
+
     def get_max_qpos_deltas(self):
         """Returns the scalars needed to rescale the normalized actions from the agent."""
         # get max allowed deviations in actuated joints
         max_vels = self._get_max_actuator_velocities()
-        # double max deltas for better perturbation recovery
-        # to keep balance the agent might require to output
-        # angles that are not reachable to saturate the motors
+        # double max deltas for better perturbation recovery. To keep balance,
+        # the agent might require to output angles that are not reachable and saturate the motors.
+        SCALE_MAX_VELS = 2
         max_qpos_deltas = SCALE_MAX_VELS * max_vels / self.control_freq
         return max_qpos_deltas
+
 
     def playback_ref_trajectories(self, timesteps=2000, pd_pos_control=False):
         global _play_ref_trajecs
@@ -396,149 +331,50 @@ class MimicEnv:
         self.close()
         raise SystemExit('Environment intentionally closed after playing back trajectories.')
 
-    def set_action_space_deltas(self):
-        if cfg.is_mod(cfg.MOD_NORM_ACTS):
-            ones = np.ones_like(self.action_space.high)
-            self.action_space.high = ones
-            self.action_space.low = -1*ones
-            return
-        # get max allowed deviations in actuated joints
-        max_vels = self._get_max_actuator_velocities()
-        max_qpos_deltas = max_vels/self.control_freq
-        self.action_space.high = SCALE_MAX_VELS * max_qpos_deltas
-        self.action_space.low = SCALE_MAX_VELS * -max_qpos_deltas
-        if cfg.DEBUG:
-            log(f'Changed action space to scaled ({SCALE_MAX_VELS}x) deltas:'
-                f'\nhigh: {self.action_space.high}, low: {self.action_space.low}')
 
     def set_joint_kinematics_in_sim(self, qpos=None, qvel=None):
+        """ Specify the desired qpos and qvel and do a forward step in the simulation
+            to set the specified qpos and qvel values. """
         old_state = self.sim.get_state()
-        if qpos is None:
+        if qpos is None or qvel is None:
             qpos, qvel = self.refs.get_ref_kinmeatics()
         new_state = mujoco_py.MjSimState(old_state.time, qpos, qvel,
                                          old_state.act, old_state.udd_state)
         self.sim.set_state(new_state)
 
     def activate_speed_control(self, desired_walking_speeds):
-        self.SPEED_CONTROL = True
+        self.FOLLOW_DESIRED_SPEED_PROFILE = True
         self.desired_walking_speeds = desired_walking_speeds
         self.i_speed = 0
 
     def _get_obs(self):
-        global _rsinitialized
         qpos, qvel = self.get_joint_kinematics()
         # remove COM x position as the action should be independent of it
         qpos = qpos[1:]
-        if _rsinitialized and not cfg.approach == cfg.AP_RUN:
 
-            if self.SPEED_CONTROL:
-                self.desired_walking_speed = self.desired_walking_speeds[self.i_speed]
-                self.i_speed += 1
-                if self.i_speed >= len(self.desired_walking_speeds): self.i_speed = 0
-            else:
-                self.desired_walking_speed = self.refs.get_step_velocity()
-
-            phase = self.refs.get_phase_variable()
+        if self.FOLLOW_DESIRED_SPEED_PROFILE:
+            self.desired_walking_speed = self.desired_walking_speeds[self.i_speed]
+            self.i_speed += 1
+            if self.i_speed >= len(self.desired_walking_speeds): self.i_speed = 0
         else:
-            self.desired_walking_speed = -3.33
-            phase = 0
-        if cfg.approach == cfg.AP_RUN:
-            obs = np.concatenate([qpos, qvel]).ravel()
-        else:
-            obs = np.concatenate([np.array([phase, self.desired_walking_speed]), qpos, qvel]).ravel()
+            # TODO: during evaluation when speed control is inactive, we should just specify a constant speed
+            #  when speed control is not active, set the speed to a constant value from the config
+            #  During training, we still should use the step vel from the mocap!
+            self.desired_walking_speed = self.refs.get_step_velocity()
 
-        DEBUG_GRND = False and _rsinitialized
-        if cfg.is_mod(cfg.MOD_GROUND_CONTACT) or DEBUG_GRND:
-            if _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GROUND_CONTACT_DENSE)):
+        phase = self.refs.get_phase_variable()
 
-                label_left = 'grd_contact_left'
-                label_right = 'grd_contact_right'
-                has_contact_left, has_contact_right = np.array(self.has_ground_contact()).astype(np.float)
+        obs = np.concatenate([np.array([phase, self.desired_walking_speed]), qpos, qvel]).ravel()
 
-                # avoid both feet having no contact with the ground:
-                if has_contact_right == 0 and has_contact_left == 0:
-                    has_contact_right = self.last_contact_right
-                    has_contact_left = self.last_contact_left
-
-                if self.last_contact_left != has_contact_left:
-                    reset_smooth(label_left, self.last_contact_left)
-                if self.last_contact_right != has_contact_right:
-                    reset_smooth(label_right, self.last_contact_right)
-                self.last_contact_left = has_contact_left
-                self.last_contact_right = has_contact_right
-
-                has_contact_left = smooth(label_left, has_contact_left, 0.002)
-                has_contact_right = smooth(label_right, has_contact_right, 0.002)
-                self.left_contacts.append(has_contact_left)
-                self.right_contacts.append(has_contact_right)
-
-                if len(self.left_contacts) >= 1600 and DEBUG_GRND:
-                    from matplotlib import pyplot as plt
-                    plt.subplot(1,2,1)
-                    plt.plot(self.left_contacts)
-                    plt.subplot(1,2,2)
-                    plt.plot(self.right_contacts)
-                    plt.show()
-                    exit(33)
-                has_contact = np.array([has_contact_left, has_contact_right]).astype(np.float)
-                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
-
-            elif _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GRND_STANCE_DUR)):
-                has_contact_left, has_contact_right = np.array(self.has_ground_contact()).astype(np.float)
-                self.last_contact_left = has_contact_left * (self.last_contact_left + 1/100)
-                self.last_contact_right = has_contact_right * (self.last_contact_right + 1/100)
-                has_contact = np.array([self.last_contact_left, self.last_contact_right]).astype(np.float)
-                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
-
-                self.left_contacts.append(self.last_contact_left)
-                self.right_contacts.append(self.last_contact_right)
-
-                if DEBUG_GRND and len(self.left_contacts) >= 1600:
-                    from matplotlib import pyplot as plt
-                    plt.subplot(1, 2, 1)
-                    plt.plot(self.left_contacts)
-                    plt.subplot(1, 2, 2)
-                    plt.plot(self.right_contacts)
-                    plt.show()
-                    exit(33)
-
-            elif _rsinitialized and (DEBUG_GRND or cfg.is_mod(cfg.MOD_GRND_INV_STANCE_DUR)):
-                has_contact_left, has_contact_right = np.array(self.has_ground_contact()).astype(np.float)
-                if has_contact_left == 1 and self.last_contact_left == 0:
-                    self.last_contact_left = 2
-                if has_contact_right == 1 and self.last_contact_right == 0:
-                    self.last_contact_right = 2
-                self.last_contact_left = has_contact_left * (self.last_contact_left - 1/100)
-                self.last_contact_right = has_contact_right * (self.last_contact_right - 1/100)
-                has_contact = np.array([self.last_contact_left, self.last_contact_right]).astype(np.float)
-                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
-
-                self.left_contacts.append(self.last_contact_left)
-                self.right_contacts.append(self.last_contact_right)
-
-                if DEBUG_GRND and len(self.left_contacts) >= 1600:
-                    from matplotlib import pyplot as plt
-                    plt.subplot(1, 2, 1)
-                    plt.plot(self.left_contacts)
-                    plt.subplot(1, 2, 2)
-                    plt.plot(self.right_contacts)
-                    plt.show()
-                    exit(33)
-            # just a binary ground contact
-            else:
-                has_contact = np.array(self.has_ground_contact()).astype(np.float)
-                obs = np.concatenate([has_contact, obs]).ravel() if not DEBUG_GRND else obs
-
-        if _rsinitialized and cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
-            assert not cfg.is_mod(cfg.MOD_GROUND_CONTACT)
+        # when we mirror the policy (phase based mirr), mirror left step
+        if cfg.is_mod(cfg.MOD_MIRR_PHASE) and self.refs.is_step_left():
             obs = self.mirror_obs(obs)
-        # round obs
-        # obs = np.round(obs, decimals=3)
+
         return obs
 
 
     def mirror_obs(self, obs):
-        is3d = '3d' in cfg.env_name or '3pd' in cfg.env_name
+        is3d = cfg.IS3D
         if is3d:
             # 3D Walker obs indices:
             #           0: phase, 1: des_vel, 2: com_y, 3: com_z,
@@ -578,8 +414,8 @@ class MimicEnv:
         return obs_mirred
 
 
-    def mirror_acts(self, acts):
-        is3d = '3d' in cfg.env_name or '3pd' in cfg.env_name
+    def mirror_action(self, acts):
+        is3d = '3d' in cfg.env_abbrev or '3pd' in cfg.env_abbrev
         if is3d:
             mirred_acts_indices = [4, 5, 6, 7, 0, 1, 2, 3]
             # some observations and actions retain the same absolute value but change the sign
@@ -601,42 +437,27 @@ class MimicEnv:
 
 
     def reset_model(self):
-        '''WARNING: This method seems to be specific to MujocoEnv.
-           Other gym environments just use reset().'''
-        self.joint_pow_sum_normed = 0
-        qpos, qvel = self.get_init_state(not self.is_evaluation_on() and not self.SPEED_CONTROL)
 
-        ### avoid huge joint toqrues from PD servos after RSI
-        # Explanation: on reset, ctrl is set to all zeros.
-        # When we set a desired state during RSI, we suddenly change the current state.
-        # Without also changing the target angles, there will be a huge difference
-        # between target and current angles and PD Servos will kick in with high torques
-        # todo: not sure we need it. The agent should have the chance to choose a first action
-        # todo: ... and overwrite the zero ctrl!
-        # if not cfg.is_torque_model:
-        #     self.data.ctrl[:] = self._remove_by_indices(qpos, self._get_not_actuated_joint_indices())
-
+        qpos, qvel = self.get_init_state(not self.is_evaluation_on() and not self.FOLLOW_DESIRED_SPEED_PROFILE)
         self.set_state(qpos, qvel)
-        # check reward function
+
+        # sanity check: reward should be around 1 after initialization
         rew = self.get_imitation_reward()
-        self.last_reward = rew
         assert (rew > 0.95 * cfg.rew_scale) if not self._FLY else 0.5, \
             f"Reward should be around 1 after RSI, but was {rew}!"
-        # assert not self.has_exceeded_allowed_deviations()
+
         # set the reference trajectories to the next state,
         # otherwise the first step after initialization has always zero error
         self.refs.next()
-        # print(self.refs._i_step, self.refs._pos)
+
+        # get and return current observations
         obs = self._get_obs()
-        # print(f'init obs: {obs[:8]}')
         return obs
 
 
     def get_init_state(self, random=True):
         ''' Random State Initialization:
             @returns: qpos and qvel of a random step at a random position'''
-        global _rsinitialized
-        _rsinitialized = True
         return self.refs.get_random_init_state() if random \
             else self.refs.get_deterministic_init_state()
 
@@ -658,22 +479,6 @@ class MimicEnv:
         if self._FLY:
             ref_pos[0] = 0
 
-        if cfg.is_mod(cfg.MOD_IMPROVE_REW):
-            difs = np.abs(qpos - ref_pos)
-            # normalize deviations to treat all joints the same
-            # use two standard deviations of refs for normalization
-            ref_pos_stds = 2 * self.kinem_stds[self.refs.qpos_is[2:]]
-            difs_normed = difs / ref_pos_stds
-            difs_mean = np.mean(difs_normed)
-            exp_rew = np.exp(-2.5 * difs_mean)
-
-            if cfg.is_mod(cfg.MOD_LIN_REW):
-                lin_rew = 1 - difs_mean * (0.5 if cfg.is_mod('half_slope') else 1)
-                return lin_rew
-            else:
-                return exp_rew
-
-
         dif = qpos - ref_pos
         dif_sqrd = np.square(dif)
         sum = np.sum(dif_sqrd)
@@ -683,55 +488,21 @@ class MimicEnv:
     def get_vel_reward(self):
         _, qvel = self.get_joint_kinematics(exclude_com=True)
         _, ref_vel = self.get_ref_kinematics(exclude_com=True)
+
         if self._FLY:
             # set trunk angular velocity to zero
             ref_vel[0] = 0
-        if cfg.is_mod(cfg.MOD_IMPROVE_REW):
-            difs = np.abs(qvel - ref_vel)
-            # normalize deviations to treat all joints the same
-            # use two standard deviations or refs for normalization
-            ref_vel_stds = 2 * self.kinem_stds[self.refs.qvel_is[2:]]
-            dif_normed = difs / ref_vel_stds
-            dif_mean = np.mean(dif_normed)
-            if cfg.is_mod(cfg.MOD_LIN_REW):
-                vel_rew = 1 - dif_mean * (0.5 if cfg.is_mod('half_slope') else 1)
-            else:
-                vel_rew = np.exp(-2.5*dif_mean)
-        else:
-            difs = qvel - ref_vel
-            dif_sqrd = np.square(difs)
-            dif_sum = np.sum(dif_sqrd)
-            vel_rew = np.exp(-0.05 * dif_sum)
+
+        difs = qvel - ref_vel
+        dif_sqrd = np.square(difs)
+        dif_sum = np.sum(dif_sqrd)
+        vel_rew = np.exp(-0.05 * dif_sum)
         return vel_rew
 
     def get_com_reward(self):
         qpos, qvel = self.get_joint_kinematics()
         ref_pos, ref_vel = self.get_ref_kinematics()
         com_is = self._get_COM_indices()
-
-        if cfg.is_mod(cfg.MOD_IMPROVE_REW):
-            USE_COM_XVEL = cfg.is_mod(cfg.MOD_COM_X_VEL)
-            if USE_COM_XVEL:
-                com_pos = np.array([qpos[1], qvel[0]])
-                com_ref = np.array([ref_pos[1], ref_vel[0]])
-                # normalize the differences with 2*stds
-                max_deviats = [2 * self.kinem_stds[self.refs.qpos_is[1]],
-                               2 * self.kinem_stds[self.refs.qvel_is[0]]]
-            else:
-                com_pos, com_ref = qpos[com_is], ref_pos[com_is]
-                # normalize the differences with 2stds
-                inds = np.array(self.refs.qpos_is)[com_is]
-                max_deviats = 2 * self.kinem_stds[inds]
-
-            dif = np.abs(com_pos - com_ref)
-            dif_normed = dif / max_deviats
-            # dif_sqrd = np.square(dif_normed)
-            mean_dif_normed = np.mean(dif_normed)
-            exp_rew = np.exp(-2.5 * mean_dif_normed)
-            if cfg.is_mod(cfg.MOD_LIN_REW):
-                return 1 - mean_dif_normed * (0.5 if cfg.is_mod('half_slope') else 1)
-            return exp_rew
-
         com_pos, com_ref = qpos[com_is], ref_pos[com_is]
         dif = com_pos - com_ref
         dif_sqrd = np.square(dif)
@@ -739,57 +510,6 @@ class MimicEnv:
         com_rew = np.exp(-16 * sum)
         return com_rew
 
-    def get_energy_reward(self):
-        """
-        Reward based on percentage of max possible joint power.
-        """
-        pow_prct = self.joint_pow_sum_normed
-        energy_rew = 1 - pow_prct
-        assert energy_rew <= 1, \
-            f'Energy Reward should be between 0 and 1 but was {energy_rew}'
-        return energy_rew
-
-    def get_joint_power_sum_normed(self):
-        torques = np.abs(self.get_actuator_torques())
-        max_tors = self.get_force_ranges().max(axis=1)
-        # log(f'Max Torques: {max_tors}')
-        qvels = np.abs(self.get_qvel(exclude_not_actuated_joints=True))
-        max_vels = self._get_max_actuator_velocities()
-        assert torques.shape == max_tors.shape
-        assert qvels.shape == max_vels.shape
-        pows = np.multiply(torques, qvels)
-        max_pows = np.multiply(max_tors, max_vels)
-        abs_pows = np.abs(pows)
-        abs_max_pows = np.abs(max_pows)
-        sum_pows = np.sum(abs_pows)
-        sum_max_pows = np.sum(abs_max_pows)
-        pow_normed = sum_pows / sum_max_pows
-        return pow_normed
-
-    def get_angle_deltas_reward(self, qpos_act, action):
-        """
-        Goal: Prevent the agent from outputting unrealistic target angles.
-        Example of unrealistic angles: current is 45°, desired -45°.
-        Realistic target angles (actions) are such close to the previous qpos.
-        """
-        # ignore zero qpos during environment reset
-        if np.count_nonzero(qpos_act) == 0 : return 1
-
-        # get max allowed deviations in actuated joints
-        max_vels = self._get_max_actuator_velocities()
-        # double max deltas for better perturbation recovery
-        # to keep balance the agent might require to output
-        # angles that are not reachable to saturate the motors
-        max_qpos_deltas = SCALE_MAX_VELS * max_vels / self.control_freq
-        # get angle deltas
-        qpos_deltas_abs = np.abs(action - qpos_act)
-        qpos_deltas_sum = np.sum(qpos_deltas_abs)
-        # determine if max deviations were exceeded
-        qpos_delta_too_high = qpos_deltas_abs > (max_qpos_deltas + 0.01)
-        if qpos_delta_too_high.any(): return 0.75
-        else: return 1
-
-        return np.exp(-0.1 * qpos_deltas_sum)
 
     def _remove_by_indices(self, list, indices):
         """
@@ -798,14 +518,9 @@ class MimicEnv:
         new_list = [item for i, item in enumerate(list) if i not in indices]
         return np.array(new_list)
 
-    def get_imitation_reward(self, qpos_act=None, action=None):
-        """
-        :param qpos_act: qpos of actuated joints before step() exectuion.
-        :param action: target angles for PD position controller
-        """
-        global _rsinitialized
-        if not _rsinitialized:
-            return -3.33
+
+    def get_imitation_reward(self):
+        """ DeepMimic imitation reward function """
 
         # get rew weights from rew_weights_string
         weights = [float(digit)/10 for digit in cfg.rew_weights]
@@ -823,25 +538,23 @@ class MimicEnv:
         else:
             imit_rew = w_pos * pos_rew + w_vel * vel_rew + w_com * com_rew + w_pow * pow_rew
 
-        if cfg.is_mod(cfg.MOD_PUNISH_UNREAL_TARGET_ANGS):
-            # punish unrealistic joint target angles
-            delta_rew = self.get_angle_deltas_reward(qpos_act, action)
-            imit_rew *= delta_rew
-
         return imit_rew * cfg.rew_scale
 
-    def do_terminate_early(self, rew, rew_threshold = 0.05):
+
+    def do_terminate_early(self):
         """
-        Early Termination based on reward, falling and episode duration
+        Early Termination based on multiple checks:
+        - does the character exceeds allowed trunk angle deviations
+        - does the characters COM in Z direction is below a certain point
+        - does the characters COM in Y direction deviated from straight walking
         """
-        if (not _rsinitialized) or _play_ref_trajecs:
-            # ET only works after RSI was executed
+        if _play_ref_trajecs:
             return False
 
         qpos = self.get_qpos()
         ref_qpos = self.refs.get_qpos()
         com_indices = self._get_COM_indices()
-        trunk_ang_indices = self._get_trunk_joint_indices()
+        trunk_ang_indices = self._get_trunk_rot_joint_indices()
 
         com_height = qpos[com_indices[-1]]
         com_y_pos = qpos[com_indices[1]]
@@ -854,7 +567,6 @@ class MimicEnv:
         is2d = len(trunk_ang_indices) == 1
         if is2d:
             trunk_ang_saggit = trunk_angs # is the saggital ang
-            sag_dev = np.abs(trunk_ang_saggit - ref_trunk_angs)
             trunk_ang_sag_exceeded = trunk_ang_saggit > max_pos_sag or trunk_ang_saggit < max_neg_sag
             trunk_ang_exceeded = trunk_ang_sag_exceeded
         else:
@@ -869,121 +581,22 @@ class MimicEnv:
                                  or trunk_ang_axial_exceeded
 
         # check if agent has deviated too much in the y direction
-        is_drunk = np.abs(com_y_pos) > 0.15
+        is_drunk = np.abs(com_y_pos) > 0.2
 
         # is com height too low (e.g. walker felt down)?
-        min_com_height = 0.95
+        min_com_height = 0.75
         com_height_too_low = com_height < min_com_height
         if self._FLY: com_height_too_low = False
 
-        rew_too_low = False # rew < rew_threshold
-        terminate_early = com_height_too_low or trunk_ang_exceeded or is_drunk or rew_too_low
-        if False: #(terminate_early and np.random.randint(low=1, high=500) == 7) \
-                # or np.random.randint(low=1, high=77700) == 777:
-             log(("" if terminate_early else "NO ") + "Early Termination",
-                [f'COM Z too low:   \t{com_height_too_low} \t {com_height}',
-                 f'COM Y too high:  \t{is_drunk} \t {com_y_pos}',
-                 f'Trunk Angles:    \t{trunk_ang_exceeded} \t '
-                    f'{sag_dev if is2d else np.round([front_dev, sag_dev, ax_dev], 3)}',
-                 # f'Reward too low:  \t{rew_too_low} \t {rew}',
-                 f'Reward was:      \t {"    "} \t {rew}'
-                 ])
-        return terminate_early, com_height_too_low, trunk_ang_exceeded, is_drunk, rew_too_low
+        terminate_early = com_height_too_low or trunk_ang_exceeded or is_drunk
+        return terminate_early, com_height_too_low, trunk_ang_exceeded, is_drunk
 
-
-    def is_out_of_ref_distribution(self, state, scale_pos_std=2, scale_vel_std=10):
-        """
-        Early Termination based on reference trajectory distributions:
-           @returns: True if qpos and qvel are out of the reference trajectory distributions.
-           @params: indicate how many stds deviation are allowed before being out of distribution.
-        """
-
-        if not cfg.is_mod(cfg.MOD_REFS_RAMP):
-            # load trajectory distributions if not done already
-            if self.left_step_distrib is None:
-                npz = np.load(cfg.abs_project_path +
-                                   'assets/ref_trajecs/distributions/2d_distributions_const_speed_400hz.npz')
-                self.left_step_distrib = [npz['means_left'], npz['stds_left']]
-                self.right_step_distrib = [npz['means_right'], npz['stds_right']]
-                self.step_len = min(self.left_step_distrib[0].shape[1], self.right_step_distrib[0].shape[1])
-
-            # left and right step distributions are different
-            step_dist = self.left_step_distrib if self.refs.is_step_left() else self.right_step_distrib
-
-            # get current mean on the mocap distribution, exlude com_x_pos
-            pos = min(self.refs._pos, self.step_len-1) # todo: think of a better handling of longer then usual steps
-            mean_state = step_dist[0][1:, pos]
-            # check distance of current state to the distribution mean
-            deviation = np.abs(mean_state - state[2:])
-            # terminate if distance is too big, ignore com x pos
-            std_state = 3*step_dist[1][1:, pos]
-            is_out = deviation > std_state
-            et = ( any((is_out[2:8])) or any((is_out[11:17])) ) if cfg.is_mod(cfg.MOD_FLY) \
-                else any((is_out[:9]))
-            et = any((is_out[:9]))
-            # if et:
-            #     print(self.refs.ep_dur)
-            return et
-
-
-        else: return NotImplementedError('Refs Distributions were so far only calculated '
-                                         'for the constant speed trajectories!')
-
-
-    def has_exceeded_allowed_deviations(self, max_dev_pos=0.5, max_dev_vel=2):
-        '''Early Termination based on trajectory deviations:
-           @returns: True if qpos and qvel have deviated
-           too much from the reference trajectories.
-           @params: max_dev_x are both percentages of maximum range
-                    of the corresponding joint ref trajectories.'''
-
-        if not _rsinitialized:
-            # ET only works after RSI was executed
-            return False
-
-        qpos, qvel = self.get_joint_kinematics()
-        ref_qpos, ref_qvel = self.get_ref_kinematics()
-        pos_ranges, vel_ranges = self.refs.get_kinematic_ranges()
-        # increase trunk y rotation range
-        pos_ranges[2] *= 5
-        vel_ranges[2] *= 5
-        delta_pos = np.abs(ref_qpos - qpos)
-        delta_vel = np.abs(ref_qvel - qvel)
-
-        # was the maximum allowed deviation exceeded
-        pos_exceeded = delta_pos > max_dev_pos * pos_ranges
-        vel_exceeded = delta_vel > max_dev_vel * vel_ranges
-
-        # investigate deviations:
-        # which kinematics have exceeded the allowed deviations
-        pos_is = np.where(pos_exceeded==True)[0]
-        vel_is = np.where(vel_exceeded==True)[0]
-        pos_labels, vel_labels = self.refs.get_labels_by_model_index(pos_is, vel_is)
-
-        DEBUG_ET = False
-        if DEBUG_ET and (pos_is.any() or vel_is.any()):
-            print()
-            for i_pos, pos_label in zip(pos_is, pos_labels):
-                print(f"{pos_label} \t exceeded the allowed deviation ({int(100*max_dev_pos)}% "
-                      f"of the max range of {pos_ranges[i_pos]}) after {self.refs.ep_dur} steps:"
-                      f"{delta_pos[i_pos]}")
-
-            print()
-            for i_vel, vel_label in zip(vel_is, vel_labels):
-                print(f"{vel_label} \t exceeded the allowed deviation ({int(100*max_dev_vel)}% "
-                      f"of the max range of {vel_ranges[i_vel]}) after {self.refs.ep_dur} steps:"
-                      f"{delta_vel[i_vel]}")
-
-        return pos_exceeded.any() or vel_exceeded.any()
 
     # ----------------------------
     # Methods we override:
     # ----------------------------
 
     def close(self):
-        # overwritten to set RSI init flag to False
-        global _rsinitialized
-        _rsinitialized = False
         # calls MujocoEnv.close()
         super().close()
 
@@ -998,12 +611,12 @@ class MimicEnv:
         Returns a list of indices pointing at COM joint position/index
         in the considered robot model, e.g. [0,1,2]
 
-        Caution: Do not include trunk joints here.
+        Caution: Do not include trunk rotational joints here.
         """
         raise NotImplementedError
 
-    def _get_trunk_joint_indices(self):
-        """ Return the index of the trunk euler rotation in the saggital plane. """
+    def _get_trunk_rot_joint_indices(self):
+        """ Return the indices of the rotational joints of the trunk."""
         raise NotImplementedError
 
     def _get_not_actuated_joint_indices(self):

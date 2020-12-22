@@ -26,7 +26,7 @@ class CustomPolicy(ActorCriticPolicy):
             log("Using Bounded Gaussian Distribution")
 
         with tf.variable_scope("model", reuse=reuse):
-            obs = self.processed_obs # shape (?,19)
+            obs = self.processed_obs # shape: (?, obs_dim)
             act_func_hid = tf.nn.relu
 
             # reduce dim of observations
@@ -35,16 +35,6 @@ class CustomPolicy(ActorCriticPolicy):
                     f'Input dim original: {obs.shape[1]}\n'
                     f'Hidden Layer Sizes (E2E): {cfg.enc_layer_sizes + cfg.hid_layer_sizes_pi}')
                 obs_reduced = self.fc_hidden_layers('obs_enc_hid', obs, cfg.enc_layer_sizes, act_func_hid)
-            elif cfg.is_mod(cfg.MOD_ENC_DIM_RED_PRETRAINED):
-                # load encoder matrices
-                ws, bs = load_encoder_weights()
-                # transform input (reduce dim)
-                for w, b in zip(ws,bs):
-                    obs = tf.matmul(obs, w)
-                    obs += b
-                assert obs.shape[1] == 8
-                log('Reducing obs dimension by multiplication '
-                    'with weight matrices from the encoder network.')
 
 
             # build the policy network's hidden layers
@@ -65,6 +55,7 @@ class CustomPolicy(ActorCriticPolicy):
                      + tf.multiply(has_ground_contact_both, pi_double)),
                     (has_ground_contact_left+has_ground_contact_right+has_ground_contact_both))
             else:
+                # simple two hidden layer fully connected policy network
                 pi_obs_input = obs if not cfg.is_mod(cfg.MOD_E2E_ENC_OBS) else obs_reduced
                 pi_h = self.fc_hidden_layers('pi_fc_hid', pi_obs_input, cfg.hid_layer_sizes_pi, act_func_hid)
             # build the value network's hidden layers
@@ -95,7 +86,7 @@ class CustomPolicy(ActorCriticPolicy):
             hid = act_func(self.fc(f'{name}{i}', hid, size))
         return hid
 
-    def linear(self, input_tensor, scope, n_hidden, *, init_scale=1.0, init_bias=0.0):
+    def build_linear_layer(self, input_tensor, scope, n_hidden, *, init_scale=1.0, init_bias=0.0):
         """
         Creates a fully connected layer for TensorFlow
 
@@ -117,9 +108,9 @@ class CustomPolicy(ActorCriticPolicy):
     def fc(self, name, input, size, zero=False):
         """
         Builds a single fully connected layer. Initial values taken from stable-baselines.
-        :param zero: if True,
+        :param zero: if True, scale down init weights and biases by a small value of 0.01
         """
-        return self.linear(input, name, size, init_scale=0 if zero else np.sqrt(2), init_bias=0)
+        return self.build_linear_layer(input, name, size, init_scale=0.01 if zero else np.sqrt(2), init_bias=0)
 
     def load_pretrained_policy_hid_layers(self, scope, input, act_func=tf.nn.relu):
         """
