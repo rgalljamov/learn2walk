@@ -34,19 +34,8 @@ class MimicWalker3dEnv(MimicEnv):
     '''
 
     def __init__(self):
-        # --------- can be ignored (start) ----------------
-        # workaround to try out different xml environments
-        # without creating a new environment class for each.
-        walker_xml = {'mim3d': 'walker3pd.xml',
-                      'mim_trq3d': 'walker3d.xml',
-                      'mim_trq_ff3d': 'walker3d_flat_feet.xml'}[cfg.env_abbrev]
-        if cfg.is_mod(cfg.MOD_40KG):
-            walker_xml = 'walker3d_flat_feet_40kg.xml'
-            print('Training 40kg walker!')
-        elif cfg.is_mod(cfg.MOD_140cm_40KG):
-            walker_xml = 'walker3d_flat_feet_40kg_140cm.xml'
-        # --------- can be ignored (end) ------------------
-
+        # specify the name of the environment XML file
+        walker_xml = 'walker3d_flat_feet.xml'
         # init reference trajectories
         # by specifying the indices in the mocap data to use for qpos and qvel
         global qpos_indices, qvel_indices

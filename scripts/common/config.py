@@ -153,8 +153,9 @@ noptepochs = 4
 
 wb_project_name = 'cleanup'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               'CC5: refactor refs'
-wb_run_notes = f'added alive bonus back, was removed accidentally! ' \
+               'CC6.1: test ENV_ID, ref with Guoping'
+wb_run_notes = f'CC6: Smaller changes during the talk with Guoping.' \
+               f'added alive bonus back, was removed accidentally! ' \
                f'changed ET to the more strict angle ranges, just changed com z pos to 0.75' \
                f'Refactored ET rew calculation and solved smaller issues.' \
                f'Made ET a bit more strict again, retained min com z pos at 0.5. Refactored mimic and derived classes.' \
@@ -177,7 +178,7 @@ if cfgl.ENV_ID is not None:
     env_id = cfgl.ENV_ID
     # short description of the env used in the save path
     env_abbrev = env_id
-    env_is3d = cfgl.ENV_IS_3D
+    env_is3d = True
     env_out_torque = cfgl.ENV_OUT_TORQUE
 else:
     env_ids = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
@@ -211,8 +212,8 @@ if is_mod(MOD_MIRR_PHASE): batch_size = int(batch_size / 2)
 # to reach the same batch size
 if exp_replay: batch_size = int(batch_size/(replay_buf_size+1))
 
-lr_start = 500
-lr_final = 1
+lr_start = 500 * (1e-6)
+lr_final = 1 * (1e-6)
 _ep_dur_in_k = {400: 6, 200: 3, 100: 1.5, 50: 0.75}[CTRL_FREQ]
 ep_dur_max = int(_ep_dur_in_k * 1e3)
 max_distance = 22

@@ -24,9 +24,12 @@ step_count = 0
 ep_dur = 0
 
 class MimicEnv(MujocoEnv, gym.utils.EzPickle):
-
+    """ The base class to derive from to train an environment using the DeepMimic Approach."""
     def __init__(self: MujocoEnv, xml_path, ref_trajecs:RefTrajecs):
-        '''@param: self: gym environment implementing the MimicEnv interface.'''
+        '''@param: self: gym environment class extending the MimicEnv class
+           @param: xml_path: path to the mujoco environment XML file
+           @param: ref_trajecs: Instance of the ReferenceTrajectory'''
+        
         self.refs = ref_trajecs
         # set simulation and control frequency
         self._sim_freq, self._frame_skip = self.get_sim_freq_and_frameskip()
@@ -37,7 +40,7 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
         # we might want to weaken ET conditions or monitor and plot data
         self._EVAL_MODEL = False
         # control desired walking speed
-        self.SPEED_CONTROL = False
+        self.FOLLOW_DESIRED_SPEED_PROFILE = False
 
         # track individual reward components
         self.pos_rew, self.vel_rew, self.com_rew = 0,0,0
@@ -60,9 +63,6 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
 
 
     def step(self, action):
-        # increment the current position on the reference trajectories
-        self.refs.next()
-
         # when rendering: pause sim on startup to change rendering speed, camera perspective etc.
         global pause_mujoco_viewer_on_start
         if pause_mujoco_viewer_on_start:
@@ -86,7 +86,7 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
             qvel_set[[0, 1, 2, ]] = [0, 0, 0]
             self.set_joint_kinematics_in_sim(qpos_set, qvel_set)
 
-        action = self.unnormalize_action(action)
+        action = self.rescale_actions(action)
 
         # when we're mirroring the policy (phase based mirroring), mirror the action
         if cfg.is_mod(cfg.MOD_MIRR_PHASE) and self.refs.is_step_left():
@@ -94,6 +94,9 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
 
         # execute simulation with desired action for multiple steps
         self.do_simulation(action, self._frame_skip)
+
+        # increment the current position on the reference trajectories
+        self.refs.next()
 
         # get state observation after simulation step
         obs = self._get_obs()
@@ -148,7 +151,9 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
         return reward
 
 
-    def unnormalize_action(self, a):
+    def rescale_actions(self, a):
+        """Policy samples actions from normal Gaussian distribution around 0 with init std of 0.5.
+           In this method, we rescale the actions to the actual action ranges."""
         # policy outputs (normalized) joint torques
         if cfg.env_out_torque:
             # clip the actions to the range of [-1,1]
@@ -338,7 +343,7 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
         self.sim.set_state(new_state)
 
     def activate_speed_control(self, desired_walking_speeds):
-        self.SPEED_CONTROL = True
+        self.FOLLOW_DESIRED_SPEED_PROFILE = True
         self.desired_walking_speeds = desired_walking_speeds
         self.i_speed = 0
 
@@ -347,11 +352,14 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
         # remove COM x position as the action should be independent of it
         qpos = qpos[1:]
 
-        if self.SPEED_CONTROL:
+        if self.FOLLOW_DESIRED_SPEED_PROFILE:
             self.desired_walking_speed = self.desired_walking_speeds[self.i_speed]
             self.i_speed += 1
             if self.i_speed >= len(self.desired_walking_speeds): self.i_speed = 0
         else:
+            # TODO: during evaluation when speed control is inactive, we should just specify a constant speed
+            #  when speed control is not active, set the speed to a constant value from the config
+            #  During training, we still should use the step vel from the mocap!
             self.desired_walking_speed = self.refs.get_step_velocity()
 
         phase = self.refs.get_phase_variable()
@@ -430,7 +438,7 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
 
     def reset_model(self):
 
-        qpos, qvel = self.get_init_state(not self.is_evaluation_on() and not self.SPEED_CONTROL)
+        qpos, qvel = self.get_init_state(not self.is_evaluation_on() and not self.FOLLOW_DESIRED_SPEED_PROFILE)
         self.set_state(qpos, qvel)
 
         # sanity check: reward should be around 1 after initialization

@@ -95,8 +95,8 @@ def train():
 
     # setup model/algorithm
     training_timesteps = int(cfg.mio_samples * 1e6)
-    lr_start = cfg.lr_start * (1e-6)
-    lr_end = cfg.lr_final * (1e-6)
+    lr_start = cfg.lr_start
+    lr_end = cfg.lr_final
 
     learning_rate_schedule = LinearSchedule(lr_start, lr_end).value
     clip_schedule = ExponentialSchedule(cfg.clip_start, cfg.clip_end, cfg.clip_exp_slope).value
