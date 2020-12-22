@@ -186,9 +186,6 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
     video_len_secs = 10
     video_n_steps = video_len_secs * fps
 
-    # if epoch is not interesting, choose a bad action to finish it quickly
-    zero_actions = np.zeros_like(model.action_space.high)
-
     # build the video path
     pi_string = 'determin' if DETERMINISTIC_ACTIONS else 'stochastic'
     video_path = save_path + 'videos_' + pi_string
@@ -228,13 +225,9 @@ def record_video(model, checkpoint, all_returns, relevant_eps):
             utils.log(f"Saved performance video after {step} steps.")
             step = 0
 
-        # irrelevant episode, finish as quickly as possible
+        # irrelevant episode, just reset the environment
         else:
-            # reset the environment to init RSI and ET
             env.reset()
-            while True:
-                obs, reward, done, info = env.step(env.action_space.sample())
-                if done.any(): break
 
         # log progress
         if ep_count % 10 == 0:

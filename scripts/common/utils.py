@@ -88,13 +88,11 @@ def change_plot_properties(font_size=0, tick_size=0,
 
 
 def vec_env(env_name, num_envs=4, seed=33, norm_rew=True,
-            load_path=None, deltas=False):
+            load_path=None):
     '''creates environments, vectorizes them and sets different seeds
     :param norm_rew: reward should only be normalized during training
     :param load_path: if set, the VecNormalize environment will
                       load the running means from this path.
-    :param deltas: if True, set the action space of the environment
-                   to max joint deltas inctead of joint angles
     :returns: VecNormalize (wrapped Subproc- or Dummy-VecEnv) '''
 
     from gym_mimic_envs.mimic_env import MimicEnv
@@ -108,8 +106,6 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True,
                 # wrap a MimicEnv in the EnvMonitor
                 # has to be done before converting into a VecEnv!
                 env = EnvMonitor(env)
-                if deltas:
-                    env.set_action_space_deltas()
             return env
         return make_env
 
@@ -120,8 +116,13 @@ def vec_env(env_name, num_envs=4, seed=33, norm_rew=True,
         vec_env = SubprocVecEnv(env_fncts)
 
     # normalize environments
+    # if a load_path was specified, load the running mean and std of obs and rets from this path
     if load_path is not None:
         vec_normed = VecNormalize.load(load_path, vec_env)
+    # todo: think the whole else statement can be deleted.
+    #  In case, we want to load obs_rms from an earlier run,
+    #  we should be able to do it by just specifying a load_path...
+    #  the same way as when we load a complete trained model.
     else:
         try:
             from scripts.common.config import is_mod, MOD_LOAD_OBS_RMS
