@@ -29,7 +29,7 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
         '''@param: self: gym environment class extending the MimicEnv class
            @param: xml_path: path to the mujoco environment XML file
            @param: ref_trajecs: Instance of the ReferenceTrajectory'''
-        
+
         self.refs = ref_trajecs
         # set simulation and control frequency
         self._sim_freq, self._frame_skip = self.get_sim_freq_and_frameskip()

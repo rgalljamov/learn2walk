@@ -50,8 +50,9 @@ MOD_ORIG = 'orig'
 MOD_REFS_CONST = 'refs_const'
 MOD_REFS_RAMP = 'refs_ramp'
 
+# use our own policy extending the ActorCriticPolicy
+# to change network topology etc. Used as default mode!
 MOD_CUSTOM_POLICY = 'cstm_pi'
-MOD_REW_MULT = 'rew_mult'
 # let the policy output deltas to current angle
 MOD_PI_OUT_DELTAS = 'pi_deltas'
 
@@ -63,25 +64,26 @@ MOD_SAC_ACTS = 'sac_acts'
 # use running statistics from previous runs
 MOD_LOAD_OBS_RMS = 'obs_rms'
 init_obs_rms_path = abs_project_path + 'models/behav_clone/models/rms/env_999'
+
 # load pretrained policy (behavior cloning)
 MOD_PRETRAIN_PI = 'pretrain_pi'
 # init the weights in the output layer of the value function to all zeros
 MOD_VF_ZERO = 'vf_zero'
-# checking if learning is possible with weaker motors too
-MOD_MAX_TORQUE = 'max_torque'
-TORQUE_RANGES = get_torque_ranges(*cfgl.PEAK_JOINT_TORQUES)
 
-
-# mirror experiences
+# mirror experiences # TODO: Will this still be possible with domain randomization?
 MOD_MIRROR_EXPS = 'mirr_exps'
 # query the policy and the value functions to get neglogpacs and values
 MOD_QUERY_NETS = 'query_nets'
-# improve reward function by normalizing individual joints etc.
-MOD_IMPROVE_REW = 'improve_rew'
 # use linear instead of exponential reward to have better gradient away from trajecs
+MOD_QUERY_VF_ONLY = 'query_vf_only'
+
+# multiply the individual reward components instead of using a weighted sum
+MOD_REW_MULT = 'rew_mult'
+# use linear instead of exponential function in the reward calculation
 MOD_LIN_REW = 'lin_rew'
 # use com x velocity instead of x position for com reward
 MOD_COM_X_VEL = 'com_x_vel'
+
 # use reference trajectories as a replay buffer
 MOD_REFS_REPLAY = 'ref_replay'
 
@@ -100,20 +102,12 @@ l2_coef = 5e-4
 MOD_CONST_EXPLORE = 'const_explor'
 # learn policy for right step only, mirror states and actions for the left step
 MOD_MIRR_PHASE = 'mirr_phase'
-# TODO: Will this still be possible with domain randomization?
-MOD_QUERY_VF_ONLY = 'query_vf_only'
-MOD_REW_DELTA = 'rew_delta'
-rew_delta_scale = 20
 MOD_EXP_REPLAY = 'exp_replay'
 replay_buf_size = 1
 
 # only when training to accelerate with the velocity ramp trajectories
 SKIP_N_STEPS = 1
 STEPS_PER_VEL = 1
-
-MOD_40KG = 'half_weight_40kg'
-MOD_140cm_40KG = '140cm_40kg'
-MAX_TORQUE = 300
 
 # ------------------
 approach = AP_DEEPMIMIC
@@ -127,8 +121,9 @@ modification += mod([MOD_MIRROR_EXPS])
 # ----------------------------------------------------------------------------------
 # Weights and Biases
 # ----------------------------------------------------------------------------------
-DEBUG = False or not sys.gettrace() is None or not utils.is_remote()
+DEBUG = cfgl.DEBUG_TRAINING or not sys.gettrace() is None
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
+TORQUE_RANGES = get_torque_ranges(*cfgl.PEAK_JOINT_TORQUES)
 
 rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
 ent_coef = {200: -0.0075, 400: -0.00375}[CTRL_FREQ]
@@ -140,37 +135,20 @@ clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_exp_slope = 5
 
 enc_layer_sizes = [512]*2 + [16]
-hid_layer_sizes_vf = [512]*2
-hid_layer_sizes_pi = [512]*2
+hid_layer_sizes_vf = cfgl.hid_layer_sizes_vf
+hid_layer_sizes_pi = cfgl.hid_layer_sizes_pi
 gamma = {50:0.99, 100: 0.99, 200:0.995, 400:0.998}[CTRL_FREQ]
 rew_scale = 1
-et_rew_thres = 0.1 * rew_scale
 alive_bonus = 0.2 * rew_scale
 # number of episodes per model evaluation
 EVAL_N_TIMES = 20
 # num of times a batch of experiences is used
 noptepochs = 4
 
-wb_project_name = 'cleanup'
+wb_project_name = cfgl.WB_PROJECT_NAME
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               'CC6.1: test ENV_ID, ref with Guoping'
-wb_run_notes = f'CC6: Smaller changes during the talk with Guoping.' \
-               f'added alive bonus back, was removed accidentally! ' \
-               f'changed ET to the more strict angle ranges, just changed com z pos to 0.75' \
-               f'Refactored ET rew calculation and solved smaller issues.' \
-               f'Made ET a bit more strict again, retained min com z pos at 0.5. Refactored mimic and derived classes.' \
-               f'CC4.2: old ET (weakened) and old ET rew calculation + Changed what class MimicEnv is derived from! ' \
-               f'Weaken ET by increasing allowed angle deviations and lowering min COM Z Pos.' \
-               f'CC4.2 added ET based on angles again, as otherwise Mujoco Exception! ' \
-               f'CC4: removed ET based on angles and simplified ET reward calculation.' \
-               f'CC3: make action normalization default and remove mode; set init flag to True. ' \
-               f'CC2.1: Set mimic_env.inited flag to False before starting evaluation! ' \
-               f'CC2.0: Removed check if refs are None at the beginning of step(). ' \
-               f'CC1.5:Removed possibility to add ground contact information! ' \
-               f'CC1: removed multiple properties and methods. Added assertions. ' \
-               f'Use gear ratio 1 and scale actions by MAX_TORQUE in the environment. ' \
-               f'Repeat Baseline experiment with original walker model.'
-
+               cfgl.WB_EXPERIMENT_NAME
+wb_run_notes = cfgl.WB_EXPERIMENT_DESCRIPTION
 # ----------------------------------------------------------------------------------
 
 # choose environment
@@ -190,20 +168,15 @@ else:
     env_out_torque = True
     env_is3d = True
 
-
 # choose hyperparams
 algo = 'ppo2'
-# reward the agent gets when max episode length was reached
-ep_end_reward = 10
-# reward for an early terminal state
-et_reward = -100
 # number of experiences to collect, not training steps.
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mirr_exps = is_mod(MOD_MIRROR_EXPS)
 exp_replay = is_mod(MOD_EXP_REPLAY)
-mio_samples = 4
+mio_samples = cfgl.MIO_SAMPLES
 if mirr_exps: mio_samples *= 2
-n_envs = 8 if utils.is_remote() and not DEBUG else 2
+n_envs = cfgl.N_PARALLEL_ENVS if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
 batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
 # to make PHASE based mirroring comparable with DUP, reduce the batch size
@@ -215,8 +188,8 @@ if exp_replay: batch_size = int(batch_size/(replay_buf_size+1))
 lr_start = 500 * (1e-6)
 lr_final = 1 * (1e-6)
 _ep_dur_in_k = {400: 6, 200: 3, 100: 1.5, 50: 0.75}[CTRL_FREQ]
-ep_dur_max = int(_ep_dur_in_k * 1e3)
-max_distance = 22
+ep_dur_max = cfgl.MAX_EPISODE_STEPS # int(_ep_dur_in_k * 1e3)
+max_distance = cfgl.MAX_WALKING_DISTANCE
 
 run_id = s(np.random.random_integers(0, 1000))
 info_baseline_hyp_tune = f'hl{s(hid_layer_sizes_vf)}_ent{int(ent_coef * 1000)}_lr{lr_start}to{lr_final}_epdur{_ep_dur_in_k}_' \
