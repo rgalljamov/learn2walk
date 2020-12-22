@@ -23,7 +23,7 @@ pause_mujoco_viewer_on_start = True and not is_remote()
 step_count = 0
 ep_dur = 0
 
-class MimicEnv(MujocoEnv):
+class MimicEnv(MujocoEnv, gym.utils.EzPickle):
 
     def __init__(self: MujocoEnv, xml_path, ref_trajecs:RefTrajecs):
         '''@param: self: gym environment implementing the MimicEnv interface.'''
@@ -35,19 +35,20 @@ class MimicEnv(MujocoEnv):
         self._FLY = False or cfg.is_mod(cfg.MOD_FLY)
         # when we evaluate a model during or after the training,
         # we might want to weaken ET conditions or monitor and plot data
-        self._evaluation_on = False
-
+        self._EVAL_MODEL = False
         # control desired walking speed
         self.SPEED_CONTROL = False
 
         # track individual reward components
         self.pos_rew, self.vel_rew, self.com_rew = 0,0,0
+        self.mean_epret_smoothed = 0
         # track running mean of the return and use it for ET reward
         self.ep_rews = []
-        self.mean_epret_smoothed = 0
 
         # initialize Mujoco Environment
         MujocoEnv.__init__(self, xml_path, self._frame_skip)
+        # init EzPickle (think it is required to be able to save and load models)
+        gym.utils.EzPickle.__init__(self)
         # make sure simulation and control run at the desired frequency
         self.model.opt.timestep = 1 / self._sim_freq
         self.control_freq = self._sim_freq / self._frame_skip
@@ -58,7 +59,7 @@ class MimicEnv(MujocoEnv):
         self.model.actuator_forcerange[:, :] = cfg.TORQUE_RANGES
 
 
-    def step(self, a):
+    def step(self, action):
         # increment the current position on the reference trajectories
         self.refs.next()
 
@@ -85,13 +86,76 @@ class MimicEnv(MujocoEnv):
             qvel_set[[0, 1, 2, ]] = [0, 0, 0]
             self.set_joint_kinematics_in_sim(qpos_set, qvel_set)
 
+        action = self.unnormalize_action(action)
+
+        # when we're mirroring the policy (phase based mirroring), mirror the action
+        if cfg.is_mod(cfg.MOD_MIRR_PHASE) and self.refs.is_step_left():
+            action = self.mirror_action(action)
+
+        # execute simulation with desired action for multiple steps
+        self.do_simulation(action, self._frame_skip)
+
+        # get state observation after simulation step
+        obs = self._get_obs()
+
+        # get imitation reward
+        reward = self.get_imitation_reward()
+
+        # check if we entered a terminal state
+        com_z_pos = self.sim.data.qpos[self._get_COM_indices()[-1]]
+        walked_distance = self.sim.data.qpos[0]
+        # was max episode duration or max walking distance reached?
+        max_eplen_reached = ep_dur >= cfg.ep_dur_max or walked_distance > cfg.max_distance + 0.01
+        # terminate the episode?
+        done = com_z_pos < 0.5 or max_eplen_reached
+
+        if self.is_evaluation_on():
+            done = com_z_pos < 0.5 or max_eplen_reached
+        else:
+            terminate_early, _, _, _ = self.do_terminate_early()
+            done = done or terminate_early
+            if done:
+                # if episode finished, recalculate the reward
+                # to punish falling hard and rewarding reaching episode's end a lot
+                reward = self.get_ET_reward(max_eplen_reached, terminate_early)
+
+        # reset episode duration if episode has finished
+        if done: ep_dur = 0
+        # add alive bonus else
+        else: reward += cfg.alive_bonus
+
+        return obs, reward, done, {}
+
+
+    def get_ET_reward(self, max_eplen_reached, terminate_early):
+        """ Punish falling hard and reward reaching episode's end a lot. """
+
+        # calculate a running mean of the ep_return
+        self.mean_epret_smoothed = smooth('mimic_env_epret', np.sum(self.ep_rews), 0.5)
+        self.ep_rews = []
+
+        # reward reaching the end of the episode without falling
+        # reward = expected cumulative future reward
+        if max_eplen_reached:
+            # estimate future cumulative reward expecting getting the mean reward per step
+            mean_step_rew = self.mean_epret_smoothed / ep_dur
+            act_ret_est = np.sum(mean_step_rew * np.power(cfg.gamma, np.arange(ep_dur)))
+            reward = act_ret_est
+        # punish for ending the episode early
+        else:
+            reward = -1 * self.mean_epret_smoothed
+
+        return reward
+
+
+    def unnormalize_action(self, a):
         # policy outputs (normalized) joint torques
         if cfg.env_out_torque:
             # clip the actions to the range of [-1,1]
             a = np.clip(a, -1, 1)
             # scale the actions with joint peak torques
             # *2: peak torques are the same for both sides
-            a *= cfgl.PEAK_JOINT_TORQUES*2
+            a *= cfgl.PEAK_JOINT_TORQUES * 2
 
         # policy outputs target angles for PD position controllers
         else:
@@ -102,78 +166,9 @@ class MimicEnv(MujocoEnv):
                 a *= self.get_max_qpos_deltas()
                 # add the deltas to current position
                 a = qpos_act_before_step + a
+        return a
 
 
-        if cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
-            a = self.mirror_acts(a)
-
-        # execute simulation with desired action for multiple steps
-        self.do_simulation(a, self._frame_skip)
-
-        # get state observation after simulation step
-        obs = self._get_obs()
-
-        reward = self.get_imitation_reward()
-        self.ep_rews.append(reward)
-
-
-        USE_ET = False
-        USE_REW_ET = True and not cfg.do_run() and not USE_ET
-        qpos_after = self.sim.data.qpos
-        com_z_pos = qpos_after[self._get_COM_indices()[-1]]
-        walked_distance = qpos_after[0]
-        is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > cfg.max_distance + 0.01
-        if self.is_evaluation_on():
-            # is_ep_end = ep_dur >= cfg.ep_dur_max or walked_distance > 22.05
-            done = com_z_pos < 0.5 or is_ep_end
-        elif USE_ET:
-            done = self.has_exceeded_allowed_deviations()
-        elif USE_REW_ET:
-            done, com_height_too_low, trunk_ang_exceeded, is_drunk, \
-            rew_too_low = self.do_terminate_early(reward, rew_threshold=cfg.et_rew_thres)
-            done = done or is_ep_end
-
-        # punish episode termination
-        if done:
-            # calculated a running mean of the ep_return
-            self.mean_epret_smoothed = smooth('mimic_env_epret', np.sum(self.ep_rews), 0.5)
-            self.ep_rews = []
-
-            # don't punish if episode just reached max length
-            if not is_ep_end:
-                # punish only falling hard
-                if not self.is_evaluation_on():
-                    et_rew = -1 * self.mean_epret_smoothed
-                    if rew_too_low:
-                        reward = -1
-                    elif com_height_too_low or trunk_ang_exceeded:
-                        reward = et_rew
-                    else:
-                        reward = 0.5 * et_rew
-            else:
-                # reward = cfg.ep_end_reward
-
-                # estimate mean state value / mean action return
-                mean_step_rew = self.mean_epret_smoothed / ep_dur
-                act_ret_est = np.sum(mean_step_rew * np.power(cfg.gamma, np.arange(ep_dur)))
-                reward = act_ret_est
-                # print(f'Successfully reached the end of the episode '
-                #       f'after {ep_dur} steps and got reward of ', reward)
-            ep_dur = 0
-
-        if cfg.is_mod(cfg.MOD_REW_DELTA):
-            rew_delta = reward - self.last_reward
-            # print(f'cur. reward: \t {reward}\n'
-            #       f'last reward: \t {self.last_reward}\n'
-            #       f'reward delta:\t {rew_delta}\n')
-            self.last_reward = reward
-            reward = reward + cfg.rew_delta_scale * rew_delta
-            if reward < 0: reward = 0
-
-        if not done:
-            reward += cfg.alive_bonus
-
-        return obs, reward, done, {}
 
     def get_sim_freq_and_frameskip(self):
         """
@@ -199,6 +194,8 @@ class MimicEnv(MujocoEnv):
         return qpos, qvel
 
     def _exclude_joints(self, qvals, exclude_com, exclude_not_actuated_joints):
+        """ Takes qpos or qvel as input and outputs only a portion of the values
+            dependent on which indices has to be excluded. """
         if exclude_not_actuated_joints:
             qvals = self._remove_by_indices(qvals, self._get_not_actuated_joint_indices())
         elif exclude_com:
@@ -222,19 +219,16 @@ class MimicEnv(MujocoEnv):
         return self._exclude_joints(qvel, exclude_com, exclude_not_actuated_joints)
 
     def activate_evaluation(self):
-        self._evaluation_on = True
+        self._EVAL_MODEL = True
 
     def is_evaluation_on(self):
-        return self._evaluation_on
+        return self._EVAL_MODEL
 
     def do_fly(self, fly=True):
         self._FLY = fly
 
     def get_actuator_torques(self, abs_mean=False):
         tors = np.copy(self.sim.data.actuator_force)
-        # if ctrl_force is [-1:1] and gear = 300
-        if np.max(tors) <= 1:
-            tors *= 300
         return np.mean(np.abs(tors)) if abs_mean else tors
 
     def get_force_ranges(self):
@@ -334,6 +328,8 @@ class MimicEnv(MujocoEnv):
 
 
     def set_joint_kinematics_in_sim(self, qpos=None, qvel=None):
+        """ Specify the desired qpos and qvel and do a forward step in the simulation
+            to set the specified qpos and qvel values. """
         old_state = self.sim.get_state()
         if qpos is None:
             qpos, qvel = self.refs.get_ref_kinmeatics()
@@ -350,27 +346,22 @@ class MimicEnv(MujocoEnv):
         qpos, qvel = self.get_joint_kinematics()
         # remove COM x position as the action should be independent of it
         qpos = qpos[1:]
-        if not cfg.approach == cfg.AP_RUN:
 
-            if self.SPEED_CONTROL:
-                self.desired_walking_speed = self.desired_walking_speeds[self.i_speed]
-                self.i_speed += 1
-                if self.i_speed >= len(self.desired_walking_speeds): self.i_speed = 0
-            else:
-                self.desired_walking_speed = self.refs.get_step_velocity()
-
-            phase = self.refs.get_phase_variable()
+        if self.SPEED_CONTROL:
+            self.desired_walking_speed = self.desired_walking_speeds[self.i_speed]
+            self.i_speed += 1
+            if self.i_speed >= len(self.desired_walking_speeds): self.i_speed = 0
         else:
-            self.desired_walking_speed = -3.33
-            phase = 0
-        if cfg.approach == cfg.AP_RUN:
-            obs = np.concatenate([qpos, qvel]).ravel()
-        else:
-            obs = np.concatenate([np.array([phase, self.desired_walking_speed]), qpos, qvel]).ravel()
+            self.desired_walking_speed = self.refs.get_step_velocity()
 
-        if cfg.is_mod(cfg.MOD_MIRR_STEPS) and self.refs.is_step_left():
-            assert not cfg.is_mod(cfg.MOD_GROUND_CONTACT)
+        phase = self.refs.get_phase_variable()
+
+        obs = np.concatenate([np.array([phase, self.desired_walking_speed]), qpos, qvel]).ravel()
+
+        # when we mirror the policy (phase based mirr), mirror left step
+        if cfg.is_mod(cfg.MOD_MIRR_PHASE) and self.refs.is_step_left():
             obs = self.mirror_obs(obs)
+
         return obs
 
 
@@ -415,7 +406,7 @@ class MimicEnv(MujocoEnv):
         return obs_mirred
 
 
-    def mirror_acts(self, acts):
+    def mirror_action(self, acts):
         is3d = '3d' in cfg.env_abbrev or '3pd' in cfg.env_abbrev
         if is3d:
             mirred_acts_indices = [4, 5, 6, 7, 0, 1, 2, 3]
@@ -438,34 +429,21 @@ class MimicEnv(MujocoEnv):
 
 
     def reset_model(self):
-        '''WARNING: This method seems to be specific to MujocoEnv.
-           Other gym environments just use reset().'''
-        self.joint_pow_sum_normed = 0
+
         qpos, qvel = self.get_init_state(not self.is_evaluation_on() and not self.SPEED_CONTROL)
-
-        ### avoid huge joint toqrues from PD servos after RSI
-        # Explanation: on reset, ctrl is set to all zeros.
-        # When we set a desired state during RSI, we suddenly change the current state.
-        # Without also changing the target angles, there will be a huge difference
-        # between target and current angles and PD Servos will kick in with high torques
-        # todo: not sure we need it. The agent should have the chance to choose a first action
-        # todo: ... and overwrite the zero ctrl!
-        # if not cfg.is_torque_model:
-        #     self.data.ctrl[:] = self._remove_by_indices(qpos, self._get_not_actuated_joint_indices())
-
         self.set_state(qpos, qvel)
-        # check reward function
+
+        # sanity check: reward should be around 1 after initialization
         rew = self.get_imitation_reward()
-        self.last_reward = rew
         assert (rew > 0.95 * cfg.rew_scale) if not self._FLY else 0.5, \
             f"Reward should be around 1 after RSI, but was {rew}!"
-        # assert not self.has_exceeded_allowed_deviations()
+
         # set the reference trajectories to the next state,
         # otherwise the first step after initialization has always zero error
         self.refs.next()
-        # print(self.refs._i_step, self.refs._pos)
+
+        # get and return current observations
         obs = self._get_obs()
-        # print(f'init obs: {obs[:8]}')
         return obs
 
 
@@ -524,16 +502,6 @@ class MimicEnv(MujocoEnv):
         com_rew = np.exp(-16 * sum)
         return com_rew
 
-    def get_energy_reward(self):
-        """
-        Reward based on percentage of max possible joint power.
-        """
-        pow_prct = self.joint_pow_sum_normed
-        energy_rew = 1 - pow_prct
-        assert energy_rew <= 1, \
-            f'Energy Reward should be between 0 and 1 but was {energy_rew}'
-        return energy_rew
-
 
     def _remove_by_indices(self, list, indices):
         """
@@ -541,6 +509,7 @@ class MimicEnv(MujocoEnv):
         """
         new_list = [item for i, item in enumerate(list) if i not in indices]
         return np.array(new_list)
+
 
     def get_imitation_reward(self):
         """ DeepMimic imitation reward function """
@@ -563,18 +532,21 @@ class MimicEnv(MujocoEnv):
 
         return imit_rew * cfg.rew_scale
 
-    def do_terminate_early(self, rew, rew_threshold = 0.05):
+
+    def do_terminate_early(self):
         """
-        Early Termination based on reward, falling and episode duration
+        Early Termination based on multiple checks:
+        - does the character exceeds allowed trunk angle deviations
+        - does the characters COM in Z direction is below a certain point
+        - does the characters COM in Y direction deviated from straight walking
         """
         if _play_ref_trajecs:
-            # ET only works after RSI was executed
             return False
 
         qpos = self.get_qpos()
         ref_qpos = self.refs.get_qpos()
         com_indices = self._get_COM_indices()
-        trunk_ang_indices = self._get_trunk_joint_indices()
+        trunk_ang_indices = self._get_trunk_rot_joint_indices()
 
         com_height = qpos[com_indices[-1]]
         com_y_pos = qpos[com_indices[1]]
@@ -587,7 +559,6 @@ class MimicEnv(MujocoEnv):
         is2d = len(trunk_ang_indices) == 1
         if is2d:
             trunk_ang_saggit = trunk_angs # is the saggital ang
-            sag_dev = np.abs(trunk_ang_saggit - ref_trunk_angs)
             trunk_ang_sag_exceeded = trunk_ang_saggit > max_pos_sag or trunk_ang_saggit < max_neg_sag
             trunk_ang_exceeded = trunk_ang_sag_exceeded
         else:
@@ -602,26 +573,15 @@ class MimicEnv(MujocoEnv):
                                  or trunk_ang_axial_exceeded
 
         # check if agent has deviated too much in the y direction
-        is_drunk = np.abs(com_y_pos) > 0.15
+        is_drunk = np.abs(com_y_pos) > 0.2
 
         # is com height too low (e.g. walker felt down)?
-        min_com_height = 0.95
+        min_com_height = 0.75
         com_height_too_low = com_height < min_com_height
         if self._FLY: com_height_too_low = False
 
-        rew_too_low = False # rew < rew_threshold
-        terminate_early = com_height_too_low or trunk_ang_exceeded or is_drunk or rew_too_low
-        if False: #(terminate_early and np.random.randint(low=1, high=500) == 7) \
-                # or np.random.randint(low=1, high=77700) == 777:
-             log(("" if terminate_early else "NO ") + "Early Termination",
-                [f'COM Z too low:   \t{com_height_too_low} \t {com_height}',
-                 f'COM Y too high:  \t{is_drunk} \t {com_y_pos}',
-                 f'Trunk Angles:    \t{trunk_ang_exceeded} \t '
-                    f'{sag_dev if is2d else np.round([front_dev, sag_dev, ax_dev], 3)}',
-                 # f'Reward too low:  \t{rew_too_low} \t {rew}',
-                 f'Reward was:      \t {"    "} \t {rew}'
-                 ])
-        return terminate_early, com_height_too_low, trunk_ang_exceeded, is_drunk, rew_too_low
+        terminate_early = com_height_too_low or trunk_ang_exceeded or is_drunk
+        return terminate_early, com_height_too_low, trunk_ang_exceeded, is_drunk
 
 
     # ----------------------------
@@ -643,12 +603,12 @@ class MimicEnv(MujocoEnv):
         Returns a list of indices pointing at COM joint position/index
         in the considered robot model, e.g. [0,1,2]
 
-        Caution: Do not include trunk joints here.
+        Caution: Do not include trunk rotational joints here.
         """
         raise NotImplementedError
 
-    def _get_trunk_joint_indices(self):
-        """ Return the index of the trunk euler rotation in the saggital plane. """
+    def _get_trunk_rot_joint_indices(self):
+        """ Return the indices of the rotational joints of the trunk."""
         raise NotImplementedError
 
     def _get_not_actuated_joint_indices(self):

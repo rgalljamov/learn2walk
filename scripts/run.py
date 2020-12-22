@@ -61,6 +61,7 @@ if FROM_PATH:
 else:
     env = gym.make(cfg.env_id)
     env = Monitor(env)
+    vec_env = env
     # env.playback_ref_trajectories(10000, pd_pos_control=True)
 
 if not isinstance(env, Monitor):
@@ -86,7 +87,7 @@ for i in range(10000):
         obs, reward, done, _ = vec_env.step(action)
     else:
         if cfg.env_out_torque:
-            action = env.action_space.action()
+            action = env.action_space.sample()
             obs, reward, done, _ = env.step(action)
         else:
             # try to follow desired trajecs with PD Position Controllers

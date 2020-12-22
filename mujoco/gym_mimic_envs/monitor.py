@@ -43,6 +43,11 @@ class Monitor(gym.Wrapper):
                                  tick_size=12, legend_fontsize=16)
 
     def activate_speed_control(self, speeds):
+        """TODO: Work in progress. Build desired speed trajectory from speeds.
+            @param speeds: list of desired velocities, this method should linearly interpolate between
+            and use them as the desired walking speed.
+           Currently speeds should be a list of two speeds.
+           The desired speed trajectory is then a ramp from speeds[0] to speeds[1] and back, repeated several times."""
         self.SPEED_CONTROL = True
         desired_walking_speeds = np.concatenate(
             [np.linspace(speeds[0], speeds[1], int(_trajec_buffer_length/6)),
@@ -77,8 +82,6 @@ class Monitor(gym.Wrapper):
         self.ep_torques_abs = []
         self.mean_abs_ep_torque_smoothed = 0
         self.median_abs_torque_smoothed = 0
-        self.ep_joint_pow_sum_normed = []
-        self.mean_ep_joint_pow_sum_normed_smoothed = 0
 
         # monitor sim and ref trajecs for comparison (sim/ref, kinem_indices, timesteps)
         # 3 and 4 in first dimension are for mean and std of ref trajec distribution
@@ -109,7 +112,6 @@ class Monitor(gym.Wrapper):
         self.ep_vel_rews.append(self.env.vel_rew)
         self.ep_com_rews.append(self.env.com_rew)
 
-        self.ep_joint_pow_sum_normed.append(self.env.joint_pow_sum_normed)
         self.ep_torques_abs.append(self.env.get_actuator_torques(True))
 
         if done:
@@ -143,10 +145,6 @@ class Monitor(gym.Wrapper):
                 smooth('med_ep_tor', np.median(self.ep_torques_abs), 0.75)
             self.ep_torques_abs = []
 
-
-
-            self.mean_ep_joint_pow_sum_normed_smoothed = \
-                smooth('joint_pow', np.mean(self.ep_joint_pow_sum_normed), 0.75)
 
         COMPARE_TRAJECS = True and not is_remote()
         if COMPARE_TRAJECS:

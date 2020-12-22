@@ -10,6 +10,8 @@
 
 # the registered gym environment id, e.g. 'Walker2d-v2'
 ENV_ID = None
+# simulation frequency... overwrite the frequency specified in the xml file
+SIM_FREQ = 1000
 # control frequency in Hz
 CTRL_FREQ = 200
 # does the model uses joint torques (True) or target angles (False)?

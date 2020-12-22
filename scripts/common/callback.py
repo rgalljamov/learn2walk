@@ -10,10 +10,9 @@ from stable_baselines.common.callbacks import BaseCallback
 # define intervals/criteria for saving the model
 # save everytime the agent achieved an additional 10% of the max possible return
 MAX_RETURN = cfg.ep_dur_max * 1 * cfg.rew_scale
-EP_RETURN_INCREMENT = 0.1 * MAX_RETURN if not cfg.do_run() \
-    else (1000 if cfg.is_mod(cfg.MOD_FLY) else 5000)
+EP_RETURN_INCREMENT = 0.1 * MAX_RETURN
 # 10% of max possible reward
-MEAN_REW_INCREMENT = 0.1 * cfg.rew_scale if not cfg.do_run() else 2.5
+MEAN_REW_INCREMENT = 0.1 * cfg.rew_scale
 
 # define evaluation interval
 EVAL_MORE_FREQUENT_THRES = 3.2e6
@@ -124,7 +123,6 @@ class TrainingMonitor(BaseCallback):
 
     def log_to_tb(self, mean_rew, ep_len, ep_ret):
         moved_distance = self.get_mean('moved_distance_smooth')
-        mean_ep_joint_pow_sum = self.get_mean('mean_ep_joint_pow_sum_normed_smoothed')
         mean_abs_torque_smoothed = self.get_mean('mean_abs_ep_torque_smoothed')
 
         # Log scalar values

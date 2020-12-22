@@ -37,15 +37,11 @@ def get_torque_ranges(hip_sag, hip_front, knee, ankle):
 def is_mod(mod_str):
     return mod_str in modification
 
-def do_run():
-    return AP_RUN in approach
-
 # get the absolute path of the current project
 abs_project_path = utils.get_absolute_project_path()
 
 # approaches
 AP_DEEPMIMIC = 'dmm'
-AP_RUN = 'run'
 
 # modifications / modes of the approach
 MOD_FLY = 'fly'
@@ -89,16 +85,6 @@ MOD_COM_X_VEL = 'com_x_vel'
 # use reference trajectories as a replay buffer
 MOD_REFS_REPLAY = 'ref_replay'
 
-# input ground contact information
-MOD_GROUND_CONTACT = 'grnd_contact'
-MOD_GROUND_CONTACT_DENSE = 'grnd_dense'
-# the flags are zero in flight phase and indicate the duration of stance phase in flight phase
-MOD_GRND_STANCE_DUR = 'grnd_stance_dur'
-# because touchdown should correspond to higher values, start with higher values
-MOD_GRND_INV_STANCE_DUR = 'grnd_inv_stance_dur'
-# double stance results in 0, 0, 1
-MOD_GRND_CONTACT_ONE_HOT = 'grnd_1hot'
-
 # train multiple networks for different phases (left/right step, double stance)
 MOD_GROUND_CONTACT_NNS = 'grnd_contact_nns'
 MOD_3_PHASES = '3_phases'
@@ -113,7 +99,7 @@ l2_coef = 5e-4
 # set a fixed logstd of the policy
 MOD_CONST_EXPLORE = 'const_explor'
 # learn policy for right step only, mirror states and actions for the left step
-MOD_MIRR_STEPS = 'steps_mirr'
+MOD_MIRR_PHASE = 'mirr_phase'
 # TODO: Will this still be possible with domain randomization?
 MOD_QUERY_VF_ONLY = 'query_vf_only'
 MOD_REW_DELTA = 'rew_delta'
@@ -131,8 +117,8 @@ MAX_TORQUE = 300
 
 # ------------------
 approach = AP_DEEPMIMIC
-SIM_FREQ = 1000
-CTRL_FREQ = 200
+SIM_FREQ = cfgl.SIM_FREQ
+CTRL_FREQ = cfgl.CTRL_FREQ
 # DO NOT CHANGE default modifications
 modification = MOD_CUSTOM_POLICY + '/'
 # HERE modifications can be added
@@ -167,8 +153,16 @@ noptepochs = 4
 
 wb_project_name = 'cleanup'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               'eval video fix, no catch'
-wb_run_notes = f'CC3: make action normalization default and remove mode; set init flag to True. ' \
+               'CC4.4: ALIVE bonus, REALLY pre commit, more strict angET'
+wb_run_notes = f'added alive bonus back, was removed accidentally! ' \
+               f'changed ET to the more strict angle ranges, just changed com z pos to 0.75' \
+               f'Refactored ET rew calculation and solved smaller issues.' \
+               f'Made ET a bit more strict again, retained min com z pos at 0.5. Refactored mimic and derived classes.' \
+               f'CC4.2: old ET (weakened) and old ET rew calculation + Changed what class MimicEnv is derived from! ' \
+               f'Weaken ET by increasing allowed angle deviations and lowering min COM Z Pos.' \
+               f'CC4.2 added ET based on angles again, as otherwise Mujoco Exception! ' \
+               f'CC4: removed ET based on angles and simplified ET reward calculation.' \
+               f'CC3: make action normalization default and remove mode; set init flag to True. ' \
                f'CC2.1: Set mimic_env.inited flag to False before starting evaluation! ' \
                f'CC2.0: Removed check if refs are None at the beginning of step(). ' \
                f'CC1.5:Removed possibility to add ground contact information! ' \
@@ -212,7 +206,7 @@ n_envs = 8 if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
 batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
 # to make PHASE based mirroring comparable with DUP, reduce the batch size
-if is_mod(MOD_MIRR_STEPS): batch_size = int(batch_size/2)
+if is_mod(MOD_MIRR_PHASE): batch_size = int(batch_size / 2)
 # if using a replay buffer, we have to collect less experiences
 # to reach the same batch size
 if exp_replay: batch_size = int(batch_size/(replay_buf_size+1))
