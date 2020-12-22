@@ -28,8 +28,7 @@ FLY = False
 DETERMINISTIC_ACTIONS = True
 RENDER = True
 
-IS_TORQUE_MODEL = True
-if IS_TORQUE_MODEL:
+if cfg.env_out_torque:
     cfg.env_id = cfg.env_ids[4]
 else:
     cfg.env_id = cfg.env_ids[2]
@@ -37,10 +36,9 @@ else:
 SPEED_CONTROL = False
 
 
+# which model would you like to run
 FROM_PATH = True
-PATH = path_mirr_exps # path_pd_normed_deltas # path_pd_baseline # path_trq_baseline #
-    # "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
-    #    "cstm_pi/mim_trq3d/8envs/ppo2/16mio/658-evaled-ret78"
+PATH = path_mirr_exps
 if not PATH.endswith('/'): PATH += '/'
 checkpoint = 'final' # '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
 
@@ -50,14 +48,13 @@ if FROM_PATH:
     # check if correct reference trajectories are used
     if cfg.MOD_REFS_RAMP in PATH and not cfg.is_mod(cfg.MOD_REFS_RAMP):
         raise AssertionError('Model trained on ramp-trajecs but is used with constant speed trajecs!')
+
     # load model
     model_path = PATH + f'models/model_{checkpoint}.zip'
     model = PPO2.load(load_path=model_path)
-
     print('\nModel:\n', model_path + '\n')
 
     env = load_env(checkpoint, PATH, cfg.env_id)
-
 else:
     env = gym.make(cfg.env_id)
     env = Monitor(env)
@@ -77,10 +74,6 @@ if FLY: env.do_fly()
 env.activate_evaluation()
 
 for i in range(10000):
-
-    # obs, reward, done, _ = env.step(np.zeros_like(env.action_space.sample()))
-    # obs, reward, done, _ = env.step(np.ones_like(env.action_space.sample()))
-    # obs, reward, done, _ = env.step(env.action_space.sample())
 
     if FROM_PATH:
         action, hid_states = model.predict(obs, deterministic=DETERMINISTIC_ACTIONS)

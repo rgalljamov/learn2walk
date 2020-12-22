@@ -18,16 +18,19 @@ from scripts.common.utils import log, is_remote, config_pyplot, smooth_exponenti
 PATH_CONSTANT_SPEED = 'assets/ref_trajecs/Trajecs_Constant_Speed_400Hz.mat'
 PATH_SPEED_RAMP = 'assets/ref_trajecs/Trajecs_Ramp_Slow_400Hz_EulerTrunkAdded.mat'
 PATH_TRAJEC_RANGES = 'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
-PATH_RAMP_1KHZ = 'assets/ref_trajecs/original/Traj_Ramp_Slow_1000Hz.mat'
 
+# execute on my private PC or on the remote Lauflabor PC
 REMOTE = is_remote()
 
+# path to the assets folder, where the mocap data is stored
 assets_path = '/home/rustam/code/remote/' if REMOTE \
     else '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/'
 
+# path to the saved trajectory ranges (no longer used)
 PATH_TRAJEC_RANGES = assets_path + \
                      'assets/ref_trajecs/Trajec_Ranges_Ramp_Slow_200Hz_EulerTrunkAdded.npz'
 
+# path to the reference trajectories
 PATH_REF_TRAJECS = assets_path + \
                    (PATH_SPEED_RAMP if is_mod(MOD_REFS_RAMP) else PATH_CONSTANT_SPEED)
 
@@ -39,7 +42,7 @@ log('Trajecs Path:\n' + PATH_REF_TRAJECS)
 # is the trajectory with the constant speed chosen?
 _is_constant_speed = PATH_CONSTANT_SPEED in PATH_REF_TRAJECS
 
-# label every trajectory with the corresponding name
+# label every trajectory in the mocap data with the corresponding name
 labels = ['COM Pos (X)', 'COM Pos (Y)', 'COM Pos (Z)',
           'Trunk Rot (quat,w)', 'Trunk Rot (quat,x)', 'Trunk Rot (quat,y)', 'Trunk Rot (quat,z)',
           'Ang Hip Frontal R', 'Ang Hip Sagittal R',
@@ -115,10 +118,10 @@ class ReferenceTrajectories:
         # setup pyplot
         self.plt = config_pyplot(fig_size=True, font_size=12,
                                  tick_size=12, legend_fontsize=16)
-        # data contains 250 steps consisting of 40 trajectories
+        # velocity ramp trajecs: 250 steps consisting of 40 trajectories (250x(n_dofs,n_timesteps)
         self.data = self._load_trajecs()
         # calculate ranges needed for Early Termination
-        self.ranges = self._determine_trajectory_ranges()
+        # self.ranges = self._determine_trajectory_ranges()
         # calculate walking speeds for each step
         self.step_velocities = self._calculate_walking_speed()
         # adapt trajectories to other environments
@@ -133,7 +136,7 @@ class ReferenceTrajectories:
         self._step = self._get_random_step()
         # how many points to jump over when next() is called
         # to get lower sample frequency data
-        self.set_increment(int(400/CTRL_FREQ))
+        self._set_increment(int(400 / CTRL_FREQ))
         # position on the reference trajectory of the current step
         self._pos = 0
         # distance walked so far (COM X Position)
@@ -178,7 +181,7 @@ class ReferenceTrajectories:
             # make sure to do the required increment
             self._pos = dif
 
-    def set_increment(self, increment):
+    def _set_increment(self, increment):
         """
         sets how many points to skip when next() is called.
         Goal is to simulate the data being collected at a lower sample frequency.
@@ -186,7 +189,8 @@ class ReferenceTrajectories:
         Resulting frequency is 400/increment
          """
         assert type(increment) == int, \
-            f'The increment/frameskip of the reference trajectories should be an integer but was {increment}'
+            f'The increment/frameskip of the reference trajectories ' \
+            f'should be an integer but was {increment}'
         self.increment = increment
 
 
@@ -199,7 +203,7 @@ class ReferenceTrajectories:
             f'Please check your control frequency and the sampling frequency of the reference data!' \
             f'The sampling frequency of the reference data should be equal to ' \
             f'or an integer multiple of the control frequency.'
-        self.set_increment(int(increment))
+        self._set_increment(int(increment))
 
 
     def reset(self):
@@ -265,7 +269,6 @@ class ReferenceTrajectories:
             scalar = adapts[index]
             # also adapt the kinematic ranges
             self.ranges[index] *= np.abs(scalar)
-            # todo: ask Guoping if we also need to adjust velocity
             for i_step in range(len(self.data)):
                 self.data[i_step][index,:] *= scalar
 

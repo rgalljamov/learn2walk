@@ -153,7 +153,7 @@ noptepochs = 4
 
 wb_project_name = 'cleanup'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               'CC4.4: ALIVE bonus, REALLY pre commit, more strict angET'
+               'CC5: refactor refs'
 wb_run_notes = f'added alive bonus back, was removed accidentally! ' \
                f'changed ET to the more strict angle ranges, just changed com z pos to 0.75' \
                f'Refactored ET rew calculation and solved smaller issues.' \

@@ -331,7 +331,7 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
         """ Specify the desired qpos and qvel and do a forward step in the simulation
             to set the specified qpos and qvel values. """
         old_state = self.sim.get_state()
-        if qpos is None:
+        if qpos is None or qvel is None:
             qpos, qvel = self.refs.get_ref_kinmeatics()
         new_state = mujoco_py.MjSimState(old_state.time, qpos, qvel,
                                          old_state.act, old_state.udd_state)
