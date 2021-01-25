@@ -439,6 +439,7 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
     def reset_model(self):
 
         qpos, qvel = self.get_init_state(not self.is_evaluation_on() and not self.FOLLOW_DESIRED_SPEED_PROFILE)
+        qpos[0] -= 0.2
         self.set_state(qpos, qvel)
 
         # sanity check: reward should be around 1 after initialization

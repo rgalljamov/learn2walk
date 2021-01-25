@@ -4,6 +4,7 @@ from os.path import join, dirname
 from gym.envs.mujoco import mujoco_env
 from gym_mimic_envs.mimic_env import MimicEnv
 
+from scripts import config_light as cfgl
 from scripts.common import config as cfg
 from scripts.mocap import ref_trajecs as refs
 
@@ -35,7 +36,7 @@ class MimicWalker3dEnv(MimicEnv):
 
     def __init__(self):
         # specify the name of the environment XML file
-        walker_xml = 'walker3d_flat_feet.xml'
+        walker_xml = cfgl.WALKER_MJC_XML_FILE
         # init reference trajectories
         # by specifying the indices in the mocap data to use for qpos and qvel
         global qpos_indices, qvel_indices
