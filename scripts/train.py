@@ -35,8 +35,6 @@ def init_wandb(model):
         "mod": cfg.modification,
         "ctrl_freq": cfg.CTRL_FREQ,
         "lr0": cfg.lr_start,
-        "et_rew": cfg.et_reward,
-        "ep_end_rew": cfg.ep_end_reward,
         "lr1": cfg.lr_final,
         'hid_sizes': cfg.hid_layer_sizes_vf,
         'hid_sizes_vf': cfg.hid_layer_sizes_vf,
