@@ -17,7 +17,7 @@
       <camera name="track" mode="trackcom" pos="0 -4 0" xyaxes="1 0 0 0 0 1"/>
       <joint armature="0" axis="1 0 0" damping="0" limited="false" name="com_x" pos="0 0 0" stiffness="0" type="slide"/>
       <joint armature="0" axis="0 1 0" damping="0" limited="false" name="com_y" pos="0 0 0" stiffness="0" type="slide"/>
-      <joint armature="0" axis="0 0 1" damping="0" limited="false" name="com_z" pos="0 0 -1.08" ref="1.08" stiffness="0" type="slide"/>
+      <joint armature="0" axis="0 0 1" damping="0" limited="false" name="com_z" pos="0 0 -0.86" ref="0.86" stiffness="0" type="slide"/>
       <joint armature="0" axis="1 0 0" damping="0" limited="false" name="trunk_rot_x" pos="0 0 0" stiffness="0" type="hinge"/>
       <joint armature="0" axis="0 1 0" damping="0" limited="false" name="trunk_rot_y" pos="0 0 0" stiffness="0" type="hinge"/>
       <joint armature="0" axis="0 0 1" damping="0" limited="false" name="trunk_rot_z" pos="0 0 0" stiffness="0" type="hinge"/>
@@ -37,6 +37,10 @@
             <joint axis="0 1 0" name="ankle_joint_right" damping="20"  range="-0.3491 0.6981" type="hinge"/>
             <geom friction="0.9" axisangle="0 0 1 -.05" name="right_foot" size="0.11 0.05 0.04" pos="0.0675 -0.005 -0.04" type="box"/>
 <!--            <geom friction="0.9" fromto="0 0 -0.04 0.2 0 -0.04" name="foot_geom" size="0.05" type="capsule"/>-->
+            <site name='right_foot_front_left' type="sphere" size="0.005" pos="0.1775 0.04 -0.08" rgba="0 0 .99 0.5" />
+            <site name='right_foot_front_right' type="sphere" size="0.005" pos="0.1775 -0.06 -0.08" rgba="0 0 .99 0.5" />
+            <site name='right_foot_back_left' type="sphere" size="0.005" pos="-0.0425 0.05 -0.08" rgba="0 0 .99 0.5" />
+            <site name='right_foot_back_right' type="sphere" size="0.005" pos="-0.0425 -0.05 -0.08" rgba="0 0 .99 0.5" />
           </body>
         </body>
       </body>
@@ -54,6 +58,10 @@
             <inertial pos="0.04662 0 -0.05439" mass="0.75" diaginertia="0.0015 0.003 0.0025"/>
             <joint axis="0 1 0" name="ankle_left_joint" damping="20" range="-0.3491 0.6981" type="hinge"/>
             <geom friction="0.9" axisangle="0 0 1 .05" name="left_foot" size="0.11 0.05 0.04" pos="0.0675 0.005 -0.04" rgba=".7 .3 .6 1" type="box"/>
+            <site name='left_foot_front_left' type="sphere" size="0.005" pos="0.1775 0.06 -0.08" rgba="0 0 .99 0.5" />
+            <site name='left_foot_front_right' type="sphere" size="0.005" pos="0.1775 -0.04 -0.08" rgba="0 0 .99 0.5" />
+            <site name='left_foot_back_left' type="sphere" size="0.005" pos="-0.0425 0.05 -0.08" rgba="0 0 .99 0.5" />
+            <site name='left_foot_back_right' type="sphere" size="0.005" pos="-0.0425 -0.05 -0.08" rgba="0 0 .99 0.5" />
 <!--            <geom friction="1.9" fromto="0 0 -0.04 0.2 0 -0.04" name="foot_left_geom" rgba=".7 .3 .6 1" size="0.05" type="capsule"/>-->
           </body>
         </body>

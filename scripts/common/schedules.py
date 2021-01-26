@@ -33,6 +33,12 @@ class LinearDecay(Schedule):
         return f'LinearSchedule: {self.start} -> {self.end}'
 
 
+class LinearSchedule(LinearDecay):
+    """This class is just required to be able to load models trained with the LinearSchedule
+       which we later renamed to LinearDecay."""
+    pass
+
+
 class ExponentialSchedule(Schedule):
     def __init__(self, start_value, final_value, slope=5):
         """@param slope: determines how fast the scheduled value decreases.

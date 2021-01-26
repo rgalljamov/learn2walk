@@ -10,6 +10,7 @@ from gym_mimic_envs.mujoco.mimic_walker2d import MimicWalker2dEnv
 from stable_baselines import PPO2
 from scripts.common.utils import load_env
 from scripts.common import config as cfg
+from scripts import config_light as cfgl
 
 # paths
 # PD baseline
@@ -23,6 +24,11 @@ path_mirr_steps = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/' 
                   'steps_mirr/cstm_pi/mim_trq_ff3d/8envs/ppo2/8mio/280'
 path_mirr_exps = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/' \
                  'mirr_exps/cstm_pi/mim_trq_ff3d/8envs/ppo2/16mio/331-evaled-ret86'
+path_guoping = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/cstm_pi/' \
+               'mirr_exps/MimicWalker3d-v0/8envs/ppo2/8mio/361'
+path_140cm_40kg = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/cstm_pi/' \
+                  'refs_ramp/mirr_exps/MimicWalker3d-v0/8envs/ppo2/16mio/197-evaled-ret78'
+
 
 FLY = False
 DETERMINISTIC_ACTIONS = True
@@ -38,9 +44,9 @@ SPEED_CONTROL = False
 
 # which model would you like to run
 FROM_PATH = True
-PATH = path_mirr_exps
+PATH = path_guoping # path_mirr_exps
 if not PATH.endswith('/'): PATH += '/'
-checkpoint = 'final' # '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
+checkpoint = 'final' # 'ep_ret2100_20M' # '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
 
 if FLY: cfg.rew_weights = "6400"
 
