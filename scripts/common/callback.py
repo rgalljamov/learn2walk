@@ -344,14 +344,15 @@ class TrainingMonitor(BaseCallback):
         self.mean_reward_means = (self.mean_reward_means - cfg.alive_bonus)/cfg.rew_scale
 
         # how many times 20m were reached
-        runs_below_20 = np.where(np.array(moved_distances) < 20)[0]
-        runs_20m = eval_n_times - len(runs_below_20)
+        min_required_distance = 20 if not cfg.is_mod(cfg.MOD_REFS_RAMP) else 9
+        runs_below_min_distance = np.where(np.array(moved_distances) < min_required_distance)[0]
+        count_runs_reached_min_distance = eval_n_times - len(runs_below_min_distance)
         runs_no_falling = np.where(
             (np.array(ep_durs) == cfg.ep_dur_max)
-            & (np.array(moved_distances) >= 18))[0]
+            & (np.array(moved_distances) >= 0.5*min_required_distance))[0]
         if eval_n_times == cfg.EVAL_N_TIMES:
-            self.failed_eval_runs_indices = runs_below_20.tolist()
-        self.count_stable_walks = max(runs_20m, len(runs_no_falling))
+            self.failed_eval_runs_indices = runs_below_min_distance.tolist()
+        self.count_stable_walks = max(count_runs_reached_min_distance, len(runs_no_falling))
         dt = EVAL_INTERVAL / (
             EVAL_INTERVAL_RARE if self.num_timesteps < EVAL_MORE_FREQUENT_THRES else
             EVAL_INTERVAL_FREQUENT)
@@ -361,7 +362,7 @@ class TrainingMonitor(BaseCallback):
         if False: # runs_20m >= 20 and not cfg.is_mod(cfg.MOD_MIRR_QUERY_VF_ONLY):
             cfg.modification += f'/{cfg.MOD_QUERY_VF_ONLY}'
             utils.log('Starting to query VF only!',
-                      [f'Stable walks: {runs_20m}',
+                      [f'Stable walks: {count_runs_reached_min_distance}',
                        f'Mean distance: {self.mean_walked_distance}'])
 
         ## delete evaluation model if stable walking was not achieved yet
@@ -393,7 +394,7 @@ class TrainingMonitor(BaseCallback):
         else:
             utils.log('Deleting Model:', distances_report +
                       [f'Mean step reward: {self.mean_reward_means}',
-                       f'Runs below 20m: {runs_below_20}'])
+                       f'Runs below 20m: {runs_below_min_distance}'])
             remove(model_path)
             remove(env_path)
 

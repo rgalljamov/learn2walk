@@ -40,6 +40,7 @@ def init_wandb(model):
         'hid_sizes_vf': cfg.hid_layer_sizes_vf,
         'hid_sizes_pi': cfg.hid_layer_sizes_pi,
         'peak_joint_torques': cfg.peak_joint_torques,
+        'walker_xml_file': cfg.walker_xml_file,
         "noptepochs": cfg.noptepochs,
         "batch_size": batch_size,
         "cfg.batch_size": cfg.batch_size,

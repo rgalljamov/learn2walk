@@ -134,7 +134,9 @@ clip_start = 0.55 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_exp_slope = 5
 
+# just for logging to wandb
 peak_joint_torques = cfgl.PEAK_JOINT_TORQUES
+walker_xml_file = cfgl.WALKER_MJC_XML_FILE
 
 enc_layer_sizes = [512]*2 + [16]
 hid_layer_sizes_vf = cfgl.hid_layer_sizes_vf
