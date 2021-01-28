@@ -437,9 +437,26 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
 
 
     def reset_model(self):
-
+        # get desired qpos and qvel from the refs (also include the trunk COM positions and vels)
         qpos, qvel = self.get_init_state(not self.is_evaluation_on() and not self.FOLLOW_DESIRED_SPEED_PROFILE)
+        # apply the refs kinematics to the simulation
         self.set_state(qpos, qvel)
+
+        # applying refs kinematics to the model might init the model
+        # without ground contact or with significant ground perturbation
+        # Set the following constant to True to initialize walker always in ground contact
+        OPTIMIZE_GROUND_CONTANT_ON_INITIALIZATION = True
+        if OPTIMIZE_GROUND_CONTANT_ON_INITIALIZATION:
+            # we determine the lowest foot position (4 sites at the bottom of each foot in the XML file)
+            foot_corner_positions = self.data.site_xpos
+            assert foot_corner_positions is not None, \
+                "In order to optimize foot-ground-contact on episode initialization, " \
+                "please add sites to each corner of your walker's feet (MJCF file)!"
+            lowest_foot_z_pos = np.min(foot_corner_positions[:, -1])
+            # and shift the trunks COM Z position to have contact between ground and lowest foot point
+            qpos[2] -= lowest_foot_z_pos
+            # set the new state with adjusted trunk COM position in the simulation
+            self.set_state(qpos, qvel)
 
         # sanity check: reward should be around 1 after initialization
         rew = self.get_imitation_reward()

@@ -116,7 +116,7 @@ CTRL_FREQ = cfgl.CTRL_FREQ
 # DO NOT CHANGE default modifications
 modification = MOD_CUSTOM_POLICY + '/'
 # HERE modifications can be added
-modification += mod([MOD_MIRROR_EXPS])
+modification += mod([MOD_REFS_RAMP, MOD_MIRROR_EXPS])
 
 # ----------------------------------------------------------------------------------
 # Weights and Biases
@@ -125,7 +125,7 @@ DEBUG = cfgl.DEBUG_TRAINING or not sys.gettrace() is None
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
 TORQUE_RANGES = get_torque_ranges(*cfgl.PEAK_JOINT_TORQUES)
 
-rew_weights = '8110' if not is_mod(MOD_FLY) else '7300'
+rew_weights = '8200' if not is_mod(MOD_FLY) else '7300'
 ent_coef = {200: -0.0075, 400: -0.00375}[CTRL_FREQ]
 init_logstd = -0.7
 pi_out_init_scale = 0.001
@@ -133,6 +133,10 @@ cliprange = 0.15
 clip_start = 0.55 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_end = 0.1 if is_mod(MOD_CLIPRANGE_SCHED) else cliprange
 clip_exp_slope = 5
+
+# just for logging to wandb
+peak_joint_torques = cfgl.PEAK_JOINT_TORQUES
+walker_xml_file = cfgl.WALKER_MJC_XML_FILE
 
 enc_layer_sizes = [512]*2 + [16]
 hid_layer_sizes_vf = cfgl.hid_layer_sizes_vf
@@ -158,6 +162,9 @@ if cfgl.ENV_ID is not None:
     env_abbrev = env_id
     env_is3d = True
     env_out_torque = cfgl.ENV_OUT_TORQUE
+    env_ids = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
+    env_abbrevs = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']
+
 else:
     env_ids = ['MimicWalker2d-v0', 'MimicWalker2d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'MimicWalker3d-v0', 'Walker2d-v2', 'Walker2d-v3', 'Humanoid-v3', 'Blind-BipedalWalker-v2', 'BipedalWalker-v2']
     env_abbrevs = ['mim2d', 'mim_trq2d', 'mim3d', 'mim_trq3d', 'mim_trq_ff3d', 'walker2dv2', 'walker2dv3', 'humanoid', 'blind_walker', 'walker']

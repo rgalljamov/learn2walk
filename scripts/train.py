@@ -2,7 +2,7 @@ import os.path
 import wandb
 from scripts import eval
 from scripts.common import config as cfg, utils
-from scripts.common.schedules import LinearSchedule, ExponentialSchedule
+from scripts.common.schedules import LinearDecay, ExponentialSchedule
 from scripts.common.callback import TrainingMonitor
 from scripts.common.policies import CustomPolicy
 from scripts.common.distributions import LOG_STD_MIN, LOG_STD_MAX
@@ -39,6 +39,8 @@ def init_wandb(model):
         'hid_sizes': cfg.hid_layer_sizes_vf,
         'hid_sizes_vf': cfg.hid_layer_sizes_vf,
         'hid_sizes_pi': cfg.hid_layer_sizes_pi,
+        'peak_joint_torques': cfg.peak_joint_torques,
+        'walker_xml_file': cfg.walker_xml_file,
         "noptepochs": cfg.noptepochs,
         "batch_size": batch_size,
         "cfg.batch_size": cfg.batch_size,
@@ -95,7 +97,7 @@ def train():
     lr_start = cfg.lr_start
     lr_end = cfg.lr_final
 
-    learning_rate_schedule = LinearSchedule(lr_start, lr_end).value
+    learning_rate_schedule = LinearDecay(lr_start, lr_end).value
     clip_schedule = ExponentialSchedule(cfg.clip_start, cfg.clip_end, cfg.clip_exp_slope).value
 
     network_args = {'net_arch': [{'vf': cfg.hid_layer_sizes_vf, 'pi': cfg.hid_layer_sizes_pi}],

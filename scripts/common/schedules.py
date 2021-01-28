@@ -1,4 +1,5 @@
 import numpy as np
+from scripts.config_light import lr_scale
 
 class Schedule(object):
     def value(self, fraction_timesteps_left):
@@ -12,15 +13,17 @@ class Schedule(object):
         """
         raise NotImplementedError
 
-class LinearSchedule(Schedule):
+class LinearDecay(Schedule):
     def __init__(self, start_value, final_value):
         self.start = start_value
         self.end = final_value
-        self.slope = final_value - start_value
+        self.slope = lr_scale * (final_value - start_value)
 
     def value(self, fraction_timesteps_left):
         fraction_passed = 1 - fraction_timesteps_left
         val = self.start + fraction_passed * self.slope
+        # value should not be smaller then the minimum specified
+        val = np.max([val, self.end])
         return val
 
     def __str__(self):
@@ -28,6 +31,12 @@ class LinearSchedule(Schedule):
 
     def __repr__(self):
         return f'LinearSchedule: {self.start} -> {self.end}'
+
+
+class LinearSchedule(LinearDecay):
+    """This class is just required to be able to load models trained with the LinearSchedule
+       which we later renamed to LinearDecay."""
+    pass
 
 
 class ExponentialSchedule(Schedule):
