@@ -26,9 +26,10 @@ def mod(mods:list):
     modification = modification[:-1]
     return modification
 
-def get_torque_ranges(hip_sag, hip_front, knee, ankle):
-    torque_ranges = np.ones((8,2))
-    peaks = np.array([hip_sag, hip_front, knee, ankle] * 2)
+def get_torque_ranges(torque_ranges_list):
+    """@param: torque_ranges_list: [hip_sag, hip_front, (hip_trav), knee, ankle]"""
+    torque_ranges = np.ones((2*len(torque_ranges_list),2))
+    peaks = np.array(torque_ranges_list * 2)
     torque_ranges[:,0] = -peaks
     torque_ranges[:,1] = peaks
     # print('Torque ranges (hip_sag, hip_front, knee, ankle): ', torque_ranges)
@@ -116,14 +117,14 @@ CTRL_FREQ = cfgl.CTRL_FREQ
 # DO NOT CHANGE default modifications
 modification = MOD_CUSTOM_POLICY + '/'
 # HERE modifications can be added
-modification += mod([MOD_REFS_RAMP, MOD_MIRROR_EXPS])
+modification += mod([MOD_REFS_RAMP])
 
 # ----------------------------------------------------------------------------------
 # Weights and Biases
 # ----------------------------------------------------------------------------------
 DEBUG = cfgl.DEBUG_TRAINING or not sys.gettrace() is None
 MAX_DEBUG_STEPS = int(2e4) # stop training thereafter!
-TORQUE_RANGES = get_torque_ranges(*cfgl.PEAK_JOINT_TORQUES)
+TORQUE_RANGES = get_torque_ranges(cfgl.PEAK_JOINT_TORQUES)
 
 rew_weights = '8200' if not is_mod(MOD_FLY) else '7300'
 ent_coef = {200: -0.0075, 400: -0.00375}[CTRL_FREQ]
@@ -137,6 +138,7 @@ clip_exp_slope = 5
 # just for logging to wandb
 peak_joint_torques = cfgl.PEAK_JOINT_TORQUES
 walker_xml_file = cfgl.WALKER_MJC_XML_FILE
+is_hip_3d = cfgl.IS_HIP_3D
 
 enc_layer_sizes = [512]*2 + [16]
 hid_layer_sizes_vf = cfgl.hid_layer_sizes_vf

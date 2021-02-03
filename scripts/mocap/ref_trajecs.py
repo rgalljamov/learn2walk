@@ -10,7 +10,7 @@ import random
 import numpy as np
 import scipy.io as spio
 from scripts.common.config import is_mod, MOD_REFS_RAMP, MOD_SYMMETRIC_WALK, \
-    SKIP_N_STEPS, STEPS_PER_VEL, EVAL_N_TIMES, CTRL_FREQ
+    SKIP_N_STEPS, STEPS_PER_VEL, EVAL_N_TIMES, CTRL_FREQ, is_hip_3d
 from scripts.common.utils import log, is_remote, config_pyplot, smooth_exponential
 
 
@@ -308,6 +308,12 @@ class ReferenceTrajectories:
         on the current step trajectory.
         """
         joint_kinematics = self._step[indices, self._pos]
+        if is_hip_3d:
+            # add dummy ref value for the right hip traversal joint
+            joint_kinematics = np.insert(joint_kinematics, 8, 0.0)
+            # add dummy ref value for the left hip traversal joint
+            # (careful: array already contains the 3d joints of the right foot here)
+            joint_kinematics = np.insert(joint_kinematics, 13, 0.0)
         return joint_kinematics
 
     def get_random_init_state(self):

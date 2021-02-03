@@ -30,6 +30,10 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
            @param: xml_path: path to the mujoco environment XML file
            @param: ref_trajecs: Instance of the ReferenceTrajectory'''
 
+        # todo: improve! hotfix for training models with an additional hip joint
+        self.hip_traversal_joint_indices = [8, 13]
+        self.refs_wo_com_hip_trav_indives = [5, 10]
+
         self.refs = ref_trajecs
         # set simulation and control frequency
         self._sim_freq, self._frame_skip = self.get_sim_freq_and_frameskip()
@@ -191,6 +195,9 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
         '''Returns qpos and qvel of the agent.'''
         qpos = np.copy(self.sim.data.qpos)
         qvel = np.copy(self.sim.data.qvel)
+        if cfgl.IS_HIP_3D:
+            qpos = np.delete(qpos, self.hip_traversal_joint_indices)
+            qvel = np.delete(qvel, self.hip_traversal_joint_indices)
         if exclude_com:
             qpos = self._remove_by_indices(qpos, self._get_COM_indices())
             qvel = self._remove_by_indices(qvel, self._get_COM_indices())
@@ -209,10 +216,14 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
 
     def get_qpos(self, exclude_com=False, exclude_not_actuated_joints=False):
         qpos = np.copy(self.sim.data.qpos)
+        if cfgl.IS_HIP_3D:
+            qpos = np.delete(qpos, self.hip_traversal_joint_indices)
         return self._exclude_joints(qpos, exclude_com, exclude_not_actuated_joints)
 
     def get_qvel(self, exclude_com=False, exclude_not_actuated_joints=False):
         qvel = np.copy(self.sim.data.qvel)
+        if cfgl.IS_HIP_3D:
+            qvel = np.delete(qvel, self.hip_traversal_joint_indices)
         return self._exclude_joints(qvel, exclude_com, exclude_not_actuated_joints)
 
     def get_ref_qpos(self, exclude_com=False, exclude_not_actuated_joints=False):
@@ -493,6 +504,11 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
         # get sim and ref joint positions excluding com position
         qpos, _ = self.get_joint_kinematics(exclude_com=True)
         ref_pos, _ = self.get_ref_kinematics(exclude_com=True)
+
+        if cfgl.IS_HIP_3D:
+            # remove the 3rd hip joint ref data
+            ref_pos = np.delete(ref_pos, self.refs_wo_com_hip_trav_indives)
+
         if self._FLY:
             ref_pos[0] = 0
 
@@ -505,6 +521,10 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
     def get_vel_reward(self):
         _, qvel = self.get_joint_kinematics(exclude_com=True)
         _, ref_vel = self.get_ref_kinematics(exclude_com=True)
+
+        if cfgl.IS_HIP_3D:
+            # remove the 3rd hip joint ref data
+            ref_vel = np.delete(ref_vel, self.refs_wo_com_hip_trav_indives)
 
         if self._FLY:
             # set trunk angular velocity to zero
