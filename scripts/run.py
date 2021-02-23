@@ -22,18 +22,14 @@ path_trq_baseline = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/
 
 FLY = False
 DETERMINISTIC_ACTIONS = True
-RENDER = False
-
-IS_TORQUE_MODEL = False
-if IS_TORQUE_MODEL:
-    cfg.env_id = cfg.envs[4]
-else:
-    cfg.env_id = cfg.envs[2]
+RENDER = True
 
 SPEED_CONTROL = False
 
 FROM_PATH = True
-PATH = path_pd_normed_deltas # path_pd_baseline # path_trq_baseline #
+# WARNING: Besides changing the paths,
+# also the approach modification in config.py and the environment has to be changed!
+PATH = path_trq_baseline # path_pd_baseline # path_pd_normed_deltas #
     # "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
     #    "cstm_pi/mim_trq3d/8envs/ppo2/16mio/658-evaled-ret78"
 if not PATH.endswith('/'): PATH += '/'

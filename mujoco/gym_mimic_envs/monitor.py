@@ -228,6 +228,10 @@ class Monitor(gym.Wrapper):
             self.kinem_labels = self.kinem_labels[inds]
             plt.rcParams.update({'figure.autolayout': False})
 
+        # save trajectories
+        # np.save('torque', self.trajecs_buffer)
+        # exit(33)
+
         if self.SPEED_CONTROL:
             # plt.rcParams.update({'axes.labelsize': 14})
             num_joints = 2
