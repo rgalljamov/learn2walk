@@ -135,8 +135,8 @@ MOD_N_OPT_EPS_SCHED = 'opt_eps_sched'
 # ------------------
 approach = AP_DEEPMIMIC
 CTRL_FREQ = 200
-modification = mod([MOD_MIRR_STEPS,
-    MOD_CUSTOM_POLICY,
+modification = mod([
+    MOD_CUSTOM_POLICY, MOD_NORM_ACTS, MOD_PI_OUT_DELTAS,
     ])
 assert_mod_compatibility()
 
@@ -176,15 +176,15 @@ alive_bonus = 0.2 * rew_scale
 EVAL_N_TIMES = 20
 rew_delta_scale = 20
 
-wb_project_name = 'mrr_phase3d'
+wb_project_name = 'pd_approaches'
 wb_run_name = ('SYM ' if is_mod(MOD_SYMMETRIC_WALK) else '') + \
-               f'MRR steps, half BS'
+               f'DELTAS 8M'
                # f'exp clip decay (VF too): {clip_start} - {clip_end}'
                # f'PI E2ENC {enc_layer_sizes}, pi {hid_layer_sizes_pi[0]}'
                # f'exp noptepochs schedule: slope {opt_eps_slope}, {opt_eps_start} - {opt_eps_end}'
                # f'Replay BUF{replay_buf_size}, retain BS, ent_coef{ent_coef}, query both, delete pacs'
                # f'MRR no query, init logstd {init_logstd}, half ent_coef{ent_coef}'
-wb_run_notes = f'' \
+wb_run_notes = f'CAN WE STILL CLOSELY REPRODUCE PREVIOUS RESULTS!?' \
                'Changed evaluation of stable walks to consider 18m without falling as stable. '\
                'Evaluate the agent starting at 75% of the step cycle. ' \
                'Removed reward scaling! Reduced episode duration to 3k instead of 3.2k; ' \
@@ -234,7 +234,7 @@ et_reward = -100
 # In case of mirroring, during 4M training steps, we collect 8M samples.
 mirr_exps = is_mod(MOD_MIRROR_EXPS)
 exp_replay = is_mod(MOD_EXP_REPLAY)
-mio_steps = (8 if is_torque_model else 16) * (2 if mirr_exps else 1)
+mio_steps = 8 # (8 if is_torque_model else 16) * (2 if mirr_exps else 1)
 n_envs = 8 if utils.is_remote() and not DEBUG else 2
 minibatch_size = 512 * 4
 batch_size = (4096 * 4 * (2 if not mirr_exps else 1)) if not DEBUG else 2*minibatch_size
