@@ -19,6 +19,8 @@ path_pd_normed_deltas = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/
                         'pi_deltas/norm_acts/cstm_pi/mim3d/8envs/ppo2/16mio/431-evaled-ret81'
 path_trq_baseline = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/' \
                     'cstm_pi/mim_trq_ff3d/8envs/ppo2/8mio/296-evaled-ret79'
+path_trq_dif_imitation = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/' \
+                         'dmm/cstm_pi/mim_trq_ff3d/8envs/ppo2/16mio/580'
 
 
 FLY = False
@@ -33,8 +35,9 @@ FROM_PATH = True
 PATH = path_trq_baseline # path_pd_baseline # path_pd_normed_deltas #
     # "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
     #    "cstm_pi/mim_trq3d/8envs/ppo2/16mio/658-evaled-ret78"
+PATH = path_trq_dif_imitation
 if not PATH.endswith('/'): PATH += '/'
-checkpoint = 'final' # '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
+checkpoint = '37_min22mean22' #'mean_rew80_7M' # '39_min22mean22' #'final' # '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
 
 if FLY: cfg.rew_weights = "6400"
 
