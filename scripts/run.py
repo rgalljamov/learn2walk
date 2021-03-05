@@ -20,6 +20,7 @@ path_pd_normed_deltas = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/
 path_trq_baseline = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/' \
                     'cstm_pi/mim_trq_ff3d/8envs/ppo2/8mio/296-evaled-ret79'
 
+
 FLY = False
 DETERMINISTIC_ACTIONS = True
 RENDER = True

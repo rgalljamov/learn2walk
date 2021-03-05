@@ -210,12 +210,12 @@ class Monitor(gym.Wrapper):
         to compare them.
         """
         plt = self.plt
-        plt.rcParams.update({'figure.autolayout': False})
+        plt.rcParams.update({'figure.autolayout': True})
         plt.rcParams['figure.figsize'] = (19.2, 6.8)
-        plt.subplots_adjust(top=0.974, bottom=0.13, left=0.06, right=0.978, hspace=0.15, wspace=0.44)
+        plt.subplots_adjust(top=0.974, bottom=0.2, left=0.06, right=0.978, hspace=0.15, wspace=0.44)
         font_size, _, _ = change_plot_properties(-4, -2, -2, 1)
         sns.set_style("whitegrid", {'axes.edgecolor':'#ffffff00'})
-        names = ['Simulation'] # line names (legend)
+        names = ['Model'] # line names (legend)
         second_y_axis_pos = 1.0
 
         ONLY_ACTUATED_JOINTS = True
@@ -224,9 +224,11 @@ class Monitor(gym.Wrapper):
             # inds = list(range(6,14)) + list(range(20, 27))
             # right leg only
             inds = list(range(6,10)) + list(range(20, 24))
+            # remove the hip in the frontal plane
+            inds = [6, 8, 9] + [20, 22, 23]
             self.trajecs_buffer = self.trajecs_buffer[:, inds, :]
             self.kinem_labels = self.kinem_labels[inds]
-            plt.rcParams.update({'figure.autolayout': False})
+            plt.rcParams.update({'figure.autolayout': True})
 
         # save trajectories
         # np.save('torque', self.trajecs_buffer)
@@ -246,7 +248,7 @@ class Monitor(gym.Wrapper):
             cols = 5
             rows = int((num_joints+1)/cols) + 1
             if ONLY_ACTUATED_JOINTS:
-                cols = 4
+                cols = 3
                 rows = 2
         # plot sim trajecs
         trajecs = self.trajecs_buffer[0,:,:]
@@ -291,7 +293,7 @@ class Monitor(gym.Wrapper):
                 line = axes[i_joint].plot(trajec, color='red' if PLOT_REF_DISTRIB else 'orange')
 
             lines.append(line[0])
-            names.append('Reference')
+            names.append('Human')
 
         def plot_actions(buffer, name, line_color='#777777'):
             with sns.axes_style("white", {"axes.edgecolor": '#ffffff00',
@@ -323,7 +325,7 @@ class Monitor(gym.Wrapper):
             plot_actions(self.action_buf, 'PD Target', '#ff0000')
 
         # remove x ticks from upper graphs
-        for i_graph in (range(len(axes) - cols + 1) if not ONLY_ACTUATED_JOINTS else range(4)):
+        for i_graph in (range(len(axes) - cols + 1) if not ONLY_ACTUATED_JOINTS else range(3)):
             axes[i_graph].tick_params(axis='x', which='both',
                                       labelbottom=False)
 
@@ -335,9 +337,13 @@ class Monitor(gym.Wrapper):
             axes[0].legend(lines, names)
         elif ONLY_ACTUATED_JOINTS:
             axes[-1].legend(lines, names, loc='upper right')
-            plt.gcf().text(0.5, 0.04, r'Simulation Timesteps', ha='center', fontsize=font_size+2)
-            plt.subplots_adjust(top=0.974, bottom=0.13, left=0.06, right=0.978, hspace=0.15, wspace=0.44)
+            axes[-2].set_xlabel('Time [ms]')
+            # plt.gcf().text(0.5, 0.04, r'Simulation Timesteps', ha='center', fontsize=font_size+2)
+            plt.subplots_adjust(top=0.974, bottom=0.2, left=0.06, right=0.978, hspace=0.45, wspace=0.6)
             axes[-1].set_xlim([1400, 2000])
+            axes[-1].set_xticks(range(1400, 2001, 100))
+            axes[-1].set_xticklabels((np.arange(0, 601, 100)/250))
+
         else:
             # plot the legend in a separate subplot
             with sns.axes_style("white", {"axes.edgecolor": 'white'}):
@@ -370,8 +376,8 @@ class Monitor(gym.Wrapper):
                 plt.title('Rewards & Returns')
 
         # fix title overlapping when tight_layout is true
-        plt.gcf().tight_layout() # rect=[0, 0, 1, 0.95])
-        plt.subplots_adjust(wspace=0.25, hspace=0.4)
+        # plt.gcf().tight_layout() # rect=[0, 0, 1, 0.95])
+        plt.subplots_adjust(wspace=0.5, hspace=0.6, bottom=0.2)
         PD_TUNING = False
         if PD_TUNING:
             rew_plot.set_xlim([-5, 250])
