@@ -19,7 +19,7 @@ class Api:
         runs = [run for run in self.runs if (run.name == approach.run_name)]
         i = 1
         for run in runs:
-            print(f'Fething run {i} of {len(runs)} runs')
+            print(f'Fetching run {i} of {len(runs)} runs')
             i += 1
             history = run.history(samples=int(1e5))
             for metric in approach.metrics:
@@ -30,7 +30,7 @@ class Api:
                         metric.append_run(sum[MET_STEPS_TO_CONV])
                     else:
                         print('WARNING! One run has not converged!')
-                        metric.append_run(10e6)
+                        metric.append_run(16e6)
                     continue
                 metric.append_run(history[metric.label].dropna().tolist())
 

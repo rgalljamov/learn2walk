@@ -53,9 +53,15 @@ class Metric:
 
 class Approach:
     def __init__(self, approach_name, project_name=None, run_name=None, metrics_names=[]):
+        """To load the data for a new approach, just instantiate a new Approach
+        specifying the project and run name like so:
+        Approach(APT_BSLN_16M, 'pd_approaches', 'TORQUE 16M')
+        Once an approach has been downloaded, it is saved locally in the graphs folder
+        where it will be loaded from the next time the approach will be instantiated."""
         self.name = approach_name
         self.project_name = project_name
-        self.train_duration_mio = 16 if 'pd' in approach_name else 8
+        # TODO: the training duration in mio steps should be passed to the constructor
+        self.train_duration_mio = 16 if ('pd' in approach_name or "16" in approach_name) else 8
         self.run_name = run_name
         self.path = utils.get_absolute_project_path() + f'graphs/{self.name}/'
         self.metrics_names = metrics_names
@@ -63,6 +69,9 @@ class Approach:
         self._calculate_statistics()
         if data_on_disc:
             self.get_table_metrics()
+        else:
+            # self.get_table_metrics()
+            self.save()
 
     def _get_metrics_data(self):
         # first try to load from disc
@@ -147,10 +156,17 @@ class Approach:
                 self.rews_at_end_std = metric.std_fltrd[-1]
 
                 # Steps to 75% human-likeness
-                # get indices of 75% rew and map these to training time
-                rew75_indices = np.argmax(metric.data >= 0.75, axis=1)
+                self.list_of_steps2humanlike = []
                 n_points = len(metric.mean)
-                rew75_indices[rew75_indices==0] = n_points
+                # get indices of 75% rew and map these to training time
+                for run in range(metric.data.shape[0]):
+                    index75rew = np.argmax(metric.data[run,:] >= 0.75)
+                    steps2humanlike = index75rew / n_points * self.train_duration_mio
+                    self.list_of_steps2humanlike.append(steps2humanlike)
+
+                self.list_of_steps2humanlike = np.array(self.list_of_steps2humanlike)
+
+                rew75_indices = np.argmax(metric.mean_fltrd >= 0.75)
                 self.steps_to_75rew = rew75_indices / n_points * self.train_duration_mio
                 self.steps_to_75rew_mean = np.mean(self.steps_to_75rew)
                 self.steps_to_75rew_std = np.std(self.steps_to_75rew)

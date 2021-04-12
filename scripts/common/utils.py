@@ -52,14 +52,16 @@ def config_pyplot(fig_size=0.25, font_size=PLOT_FONT_SIZE, tick_size=PLOT_TICKS_
     change_plot_properties(font_size, legend_fontsize, tick_size)
 
     # configure saving format and directory
-    PLOT_FIGURE_SAVE_FORMAT = 'png' # 'pdf' #'eps'
+    PLOT_FIGURE_SAVE_FORMAT =  'pdf' #'eps' # 'png' #
     plt.rcParams.update({'figure.autolayout': True})
     plt.rcParams.update({'savefig.format': PLOT_FIGURE_SAVE_FORMAT})
     plt.rcParams.update({"savefig.directory":
                              '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Presentation/figures'})
                               # '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/report'})
 
-    if fig_size == 1:
+    if type(fig_size) == tuple:
+        plt.rcParams['figure.figsize'] = fig_size
+    elif fig_size == 1:
         # plot figure in full screen mode (scaled down aspect ratio of my screen)
         plt.rcParams['figure.figsize'] = (19.2, 10.8)
     elif fig_size == 0.5:
@@ -75,7 +77,7 @@ def change_plot_properties(font_size=0, tick_size=0,
 
     font_size = PLOT_FONT_SIZE + font_size
     tick_size = PLOT_TICKS_SIZE + tick_size
-    legend_fontsize = PLOT_TICKS_SIZE + 4 + legend_fontsize
+    legend_fontsize = PLOT_FONT_SIZE + legend_fontsize
     line_width = PLOT_LINE_WIDTH + line_width
     show_grid = True and show_grid
 

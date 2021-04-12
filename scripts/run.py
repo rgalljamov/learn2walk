@@ -44,7 +44,7 @@ SPEED_CONTROL = False
 
 # which model would you like to run
 FROM_PATH = True
-PATH = path_guoping # path_mirr_exps
+PATH = path_trq_baseline
 if not PATH.endswith('/'): PATH += '/'
 checkpoint = 'final' # 'ep_ret2100_20M' # '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
 
