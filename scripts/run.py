@@ -8,7 +8,7 @@ import gym_mimic_envs
 from gym_mimic_envs.monitor import Monitor
 from gym_mimic_envs.mujoco.mimic_walker2d import MimicWalker2dEnv
 from stable_baselines import PPO2
-from scripts.common.utils import load_env
+from scripts.common.utils import load_env, get_absolute_project_path
 from scripts.common import config as cfg
 
 # paths
@@ -19,8 +19,9 @@ path_pd_normed_deltas = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/
                         'pi_deltas/norm_acts/cstm_pi/mim3d/8envs/ppo2/16mio/431-evaled-ret81'
 path_trq_baseline = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/' \
                     'cstm_pi/mim_trq_ff3d/8envs/ppo2/8mio/296-evaled-ret79'
+# demonstration of walking at different imitation rewards
 path_trq_dif_imitation = '/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/' \
-                         'dmm/cstm_pi/mim_trq_ff3d/8envs/ppo2/16mio/580'
+                         'dmm/cstm_pi/mim_trq_ff3d/8envs/ppo2/16mio/580' # 815 converged extremely fast to stable AND humanlike
 
 
 FLY = False
@@ -32,12 +33,15 @@ SPEED_CONTROL = False
 FROM_PATH = True
 # WARNING: Besides changing the paths,
 # also the approach modification in config.py and the environment has to be changed!
-PATH = path_trq_baseline # path_pd_baseline # path_pd_normed_deltas #
+# PATH = path_trq_baseline # path_pd_baseline # path_pd_normed_deltas #
     # "/mnt/88E4BD3EE4BD2EF6/Masters/M.Sc. Thesis/Code/models/dmm/" \
     #    "cstm_pi/mim_trq3d/8envs/ppo2/16mio/658-evaled-ret78"
 PATH = path_trq_dif_imitation
+# load a model from a local path
+LOCAL_PATH = 'agents/580/'
+PATH = get_absolute_project_path() + LOCAL_PATH
 if not PATH.endswith('/'): PATH += '/'
-checkpoint = '37_min22mean22' #'mean_rew80_7M' # '39_min22mean22' #'final' # '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
+checkpoint = 'mean_rew70_4M' # '37_min22mean22' # '39_min22mean22' #'final' # '33_min24mean24' # 'ep_ret2000_7M' #'mean_rew60'
 
 if FLY: cfg.rew_weights = "6400"
 
