@@ -1,7 +1,8 @@
 
 \.idea/
 
-models/
+/models/
+/scripts/dim_reduction/models
 
 scripts/common/__pycache__/
 
