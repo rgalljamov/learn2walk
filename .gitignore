@@ -28,3 +28,4 @@ scripts/mocap/__pycache__/
 graphs/archive/
 
 mujoco/gym_mimic_envs/\.fuse_hidden00043b7c00000004
+/figures/
