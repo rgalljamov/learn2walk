@@ -1,4 +1,4 @@
-# IROS 21: Improving Sample Efficiency of Deep Reinforcement Learning for Bipedal Walking
+# Improving Sample Efficiency of Deep Reinforcement Learning for Bipedal Walking
 
 ### Abstract
 Reinforcement learning holds a great promise of
@@ -16,7 +16,7 @@ scheduling proved effective at reducing sample complexity by
 a factor of 4.5. These results indicate that domain-specific
 knowledge can be readily utilized to reduce training times and
 thereby enable faster development cycles in challenging robotic
-applications.
+applications. The corresponding paper is submitted to IROS 2021. 
 
 ### Installation
 
@@ -41,7 +41,7 @@ applications.
 
 ### Supplemental videos
 
-- Main video for the IROS 21 Submission is located in the `media` folder
+- Main video for the IROS 2021 Submission is located in the `media` folder
 - Videos of the walking gait recorded using different action spaces can be found in `media/videos_action_spaces` and in the folder in the [following Google Drive Folder](https://drive.google.com/drive/folders/1m-A7gxOcjN1_ZeDBMGs1AZ6Khp1Ebrjv?usp=sharing)
 
 ### Questions
