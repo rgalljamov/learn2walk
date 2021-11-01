@@ -1,4 +1,5 @@
 # Improving Sample Efficiency of Deep Reinforcement Learning for Bipedal Walking
+The code to the article of the same title submitted to ICRA 2022. 
 
 ### Abstract
 Reinforcement learning holds a great promise of
@@ -16,7 +17,7 @@ scheduling proved effective at reducing sample complexity by
 a factor of 4.5. These results indicate that domain-specific
 knowledge can be readily utilized to reduce training times and
 thereby enable faster development cycles in challenging robotic
-applications. The corresponding paper is submitted to ICRA 2022. 
+applications.
 
 ### Installation
 
