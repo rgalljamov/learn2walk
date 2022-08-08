@@ -13,8 +13,6 @@ mujoco/gym_mimic_envs/mujoco/__pycache__/
 
 scripts/tests/test_remote_dev\.py
 
-figures/latex/
-
 wandb/
 
 scripts/behavior_cloning/__pycache__/

@@ -1,5 +1,6 @@
 '''
 Interface for environments using reference trajectories.
+It is used as the base class for the mimic walker environments.
 '''
 import gym, mujoco_py
 import numpy as np
@@ -63,7 +64,7 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
 
 
     def step(self, action):
-        # when rendering: pause sim on startup to change rendering speed, camera perspective etc.
+        # when rendering: pause the simulation on startup to give the operator the chance to change rendering speed, camera perspective and other parameters
         global pause_mujoco_viewer_on_start
         if pause_mujoco_viewer_on_start:
             self._get_viewer('human')._paused = True
@@ -74,7 +75,7 @@ class MimicEnv(MujocoEnv, gym.utils.EzPickle):
         step_count += 1
         ep_dur += 1
 
-        # hold the agent in the air
+        # hold the agent in the air (e.g. to tune PD controllers)
         if self._FLY:
             qpos_before = np.copy(self.sim.data.qpos)
             qvel_before = np.copy(self.sim.data.qvel)

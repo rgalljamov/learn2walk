@@ -1,6 +1,6 @@
 """
 Loads a specified model (by path or from config) and executes it.
-The policy can be used sarcastically and deterministically.
+The policy can be used in a stochastic and deterministic manner.
 """
 import gym, time, mujoco_py
 # necessary to import custom gym environments

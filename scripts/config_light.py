@@ -9,7 +9,6 @@ MAX_WALKING_DISTANCE = 10
 # maximum length of an episode
 MAX_EPISODE_STEPS = 3000
 
-# TODO: remove COM reward, train longer with smaller LR decay, use exp clip_range sched
 # configure Weights & Biases
 WB_PROJECT_NAME = 'walker_140cm_40kg'
 WB_EXPERIMENT_NAME = 'lowermass, 50Nm, 5Nm, 8M'
