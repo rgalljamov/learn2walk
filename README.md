@@ -1,5 +1,4 @@
 # Improving Sample Efficiency of Deep Reinforcement Learning for Bipedal Walking
-The code to the article of the same title submitted to ICRA 2022. 
 
 ### Abstract
 Reinforcement learning holds a great promise of
@@ -24,7 +23,7 @@ applications.
 1. Install _CUDA 10.1_ following [this medium post](https://medium.com/@exesse/cuda-10-1-installation-on-ubuntu-18-04-lts-d04f89287130). 
 2. Follow [these instructions](https://phoenixnap.com/kb/how-to-install-anaconda-ubuntu-18-04-or-20-04) to install _anaconda_.
 3. Create a conda environment from the .yml file located in the repository with
-`conda env create -f path/to/conda_env_22dec20.yml`
+`conda env create -f path/to/conda_env.yml`
 4. Install _MuJoCo_ and _mujoco-py_ following [these instructions](https://github.com/openai/mujoco-py#install-mujoco).
 
 ### Main scripts, files and folders
@@ -42,7 +41,7 @@ applications.
 
 ### Supplementary videos
 
-- Main video for the ICRA 2022 Submission is located in the `media` folder
+- Main video for the submission is located in the `media` folder
 - Videos of the walking gait recorded using different action spaces can be found in `media/videos_action_spaces` and in the [following Google Drive Folder](https://drive.google.com/drive/folders/1m-A7gxOcjN1_ZeDBMGs1AZ6Khp1Ebrjv?usp=sharing)
 
 ### Questions?
